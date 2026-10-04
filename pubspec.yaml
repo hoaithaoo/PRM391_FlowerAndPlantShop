@@ -1,0 +1,25 @@
+name: plant_flower_shop_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+# Pub workspace members. Add apps/mobile and apps/admin here after `flutter create`.
+workspace:
+  - packages/shared
+  - packages/api_client
+  - packages/ui
+
+dev_dependencies:
+  melos: ^7.0.0
+
+melos:
+  scripts:
+    analyze:
+      description: Analyze all Dart/Flutter packages and apps.
+      exec: flutter analyze
+    test:
+      description: Run tests in packages and apps that have a test/ directory.
+      exec: flutter test
+      packageFilters:
+        dirExists: test

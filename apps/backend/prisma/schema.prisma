@@ -1,0 +1,351 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PREPARING
+  SHIPPING
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  REVIEW
+}
+
+enum PaymentMethod {
+  SEPAY
+  COD
+}
+
+enum TransferType {
+  IN
+  OUT
+}
+
+enum NotificationType {
+  ORDER
+  PAYMENT
+  PROMOTION
+  SYSTEM
+}
+
+enum InvoiceStatus {
+  ISSUED
+  PAID
+  CANCELLED
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+model Profile {
+  id        String     @id @db.Uuid // Maps to Supabase auth.users.id
+  email     String?
+  fullName  String?    @map("full_name")
+  avatarUrl String?    @map("avatar_url")
+  phone     String?
+  role      Role       @default(USER)
+  status    UserStatus @default(ACTIVE)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  // Relations
+  cart                 Cart?
+  orders               Order[]
+  invoices             Invoice[]
+  notifications        Notification[]
+  chatbotConversations ChatbotConversation[]
+
+  @@map("profiles")
+}
+
+model Category {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name      String
+  slug      String   @unique
+  imageUrl  String?  @map("image_url")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId  String   @map("category_id") @db.Uuid
+  name        String
+  slug        String   @unique
+  sku         String   @unique
+  description String?
+  price       Decimal  @db.Decimal(18, 0)
+  taxRate     Decimal  @default(0) @map("tax_rate") @db.Decimal(5, 2)
+  stock       Int      @default(0)
+  imageUrl    String?  @map("image_url")
+  images      String[] @default([])
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  category     Category      @relation(fields: [categoryId], references: [id])
+  cartItems    CartItem[]
+  orderItems   OrderItem[]
+  invoiceItems InvoiceItem[]
+
+  @@index([categoryId])
+  @@index([isActive, createdAt])
+  @@map("products")
+}
+
+model Cart {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user  Profile    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  cartId    String   @map("cart_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+model Order {
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId            String        @map("user_id") @db.Uuid
+  orderNumber       String        @unique @map("order_number")
+  idempotencyKey    String        @unique @map("idempotency_key")
+  status            OrderStatus   @default(PENDING)
+  paymentMethod     PaymentMethod @map("payment_method")
+  totalAmount       Decimal       @map("total_amount") @db.Decimal(18, 0)
+  shippingAddress   String        @map("shipping_address")
+  shippingLatitude  Decimal       @map("shipping_latitude") @db.Decimal(9, 6)
+  shippingLongitude Decimal       @map("shipping_longitude") @db.Decimal(9, 6)
+  recipientName     String        @map("recipient_name")
+  recipientPhone    String        @map("recipient_phone")
+  note              String?
+  cancelledAt       DateTime?     @map("cancelled_at") @db.Timestamptz(3)
+  completedAt       DateTime?     @map("completed_at") @db.Timestamptz(3)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user    Profile     @relation(fields: [userId], references: [id])
+  items   OrderItem[]
+  invoice Invoice?
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId   String  @map("order_id") @db.Uuid
+  productId String  @map("product_id") @db.Uuid
+  name      String
+  sku       String
+  unitPrice Decimal @map("unit_price") @db.Decimal(18, 0)
+  quantity  Int
+  subtotal  Decimal @db.Decimal(18, 0)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+model Invoice {
+  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId         String        @unique @map("order_id") @db.Uuid
+  userId          String        @map("user_id") @db.Uuid
+  invoiceNo       String        @unique @map("invoice_no")
+  status          InvoiceStatus @default(ISSUED)
+  customerName    String        @map("customer_name")
+  customerPhone   String        @map("customer_phone")
+  customerAddress String        @map("customer_address")
+  subtotalAmount  Decimal       @map("subtotal_amount") @db.Decimal(18, 0)
+  discountAmount  Decimal       @default(0) @map("discount_amount") @db.Decimal(18, 0)
+  taxAmount       Decimal       @map("tax_amount") @db.Decimal(18, 0)
+  shippingFee     Decimal       @default(0) @map("shipping_fee") @db.Decimal(18, 0)
+  grandTotal      Decimal       @map("grand_total") @db.Decimal(18, 0)
+  issuedAt        DateTime      @default(now()) @map("issued_at") @db.Timestamptz(3)
+  paidAt          DateTime?     @map("paid_at") @db.Timestamptz(3)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  order    Order         @relation(fields: [orderId], references: [id])
+  user     Profile       @relation(fields: [userId], references: [id])
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@index([userId, issuedAt])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id             String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId      String  @map("invoice_id") @db.Uuid
+  productId      String? @map("product_id") @db.Uuid
+  name           String
+  sku            String
+  unitPrice      Decimal @map("unit_price") @db.Decimal(18, 0)
+  quantity       Int
+  discountAmount Decimal @default(0) @map("discount_amount") @db.Decimal(18, 0)
+  taxableAmount  Decimal @map("taxable_amount") @db.Decimal(18, 0)
+  taxRate        Decimal @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount      Decimal @map("tax_amount") @db.Decimal(18, 0)
+  lineTotal      Decimal @map("line_total") @db.Decimal(18, 0)
+
+  invoice Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@index([productId])
+  @@map("invoice_items")
+}
+
+model Payment {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  invoiceId   String        @map("invoice_id") @db.Uuid
+  paymentCode String?       @unique @map("payment_code")
+  provider    PaymentMethod
+  amount      Decimal       @db.Decimal(18, 0)
+  status      PaymentStatus @default(PENDING)
+  qrUrl       String?       @map("qr_url")
+  paidAt      DateTime?     @map("paid_at") @db.Timestamptz(3)
+  expiresAt   DateTime?     @map("expires_at") @db.Timestamptz(3)
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  invoice      Invoice            @relation(fields: [invoiceId], references: [id])
+  transactions SepayTransaction[]
+
+  @@index([invoiceId])
+  @@index([status, createdAt])
+  @@map("payments")
+}
+
+model SepayTransaction {
+  id                 String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sepayTransactionId String       @unique @map("sepay_transaction_id")
+  paymentId          String?      @map("payment_id") @db.Uuid
+  gateway            String?
+  transactionDate    DateTime?    @map("transaction_date") @db.Timestamptz(3)
+  accountNumber      String?      @map("account_number")
+  transferType       TransferType @map("transfer_type")
+  transferAmount     Decimal      @map("transfer_amount") @db.Decimal(18, 0)
+  paymentCode        String?      @map("payment_code")
+  content            String?
+  referenceCode      String?      @map("reference_code")
+  rawPayload         Json?        @map("raw_payload")
+  receivedAt         DateTime     @default(now()) @map("received_at") @db.Timestamptz(3)
+
+  payment Payment? @relation(fields: [paymentId], references: [id])
+
+  @@index([paymentId])
+  @@index([paymentCode])
+  @@map("sepay_transactions")
+}
+
+model Notification {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String           @map("user_id") @db.Uuid
+  type      NotificationType @default(SYSTEM)
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false) @map("is_read")
+  readAt    DateTime?        @map("read_at") @db.Timestamptz(3)
+  createdAt DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead, createdAt])
+  @@map("notifications")
+}
+
+model Store {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  address      String
+  latitude     Decimal  @db.Decimal(9, 6)
+  longitude    Decimal  @db.Decimal(9, 6)
+  phone        String?
+  openingHours String?  @map("opening_hours")
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("stores")
+}
+
+model ChatbotConversation {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  title     String?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user     Profile          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages ChatbotMessage[]
+
+  @@index([userId, updatedAt])
+  @@map("chatbot_conversations")
+}
+
+model ChatbotMessage {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  role           ChatRole // USER | ASSISTANT
+  content        String
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  conversation ChatbotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+  @@map("chatbot_messages")
+}

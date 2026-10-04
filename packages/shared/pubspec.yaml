@@ -1,0 +1,9 @@
+name: plant_flower_shared
+description: Dart models, enums and constants shared by the mobile app, admin app and API client.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+resolution: workspace

@@ -1,0 +1,46 @@
+name: Landing CI
+
+on:
+  push:
+    paths:
+      - "apps/landing/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/landing-ci.yml"
+  pull_request:
+    paths:
+      - "apps/landing/**"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - "pnpm-workspace.yaml"
+      - ".github/workflows/landing-ci.yml"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Detect landing app
+        id: project
+        shell: bash
+        run: |
+          if [[ -f apps/landing/package.json ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Landing app is a placeholder; skipping install and build."
+          fi
+      - uses: pnpm/action-setup@v4
+        if: steps.project.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.project.outputs.ready == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - name: Install dependencies
+        if: steps.project.outputs.ready == 'true'
+        run: pnpm install --frozen-lockfile --filter @plant-flower/landing
+      - name: Build landing page
+        if: steps.project.outputs.ready == 'true'
+        run: pnpm build:landing

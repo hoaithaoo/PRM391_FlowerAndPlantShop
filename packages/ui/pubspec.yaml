@@ -1,0 +1,15 @@
+name: plant_flower_ui
+description: Shared Flutter theme, design tokens and widgets for the mobile and admin apps.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+  flutter: ">=3.35.0"
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  plant_flower_shared: ^0.1.0

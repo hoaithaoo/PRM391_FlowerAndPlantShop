@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: plant-flower-backend
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./apps/backend/Dockerfile
+    dockerContext: .
+    # The free plan has no pre-deploy command, so the idempotent production
+    # migration runs before the API process starts.
+    dockerCommand: >-
+      sh -c "./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma
+      && node dist/server.js"
+    healthCheckPath: /health
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
+      - key: SEPAY_WEBHOOK_SECRET
+        sync: false

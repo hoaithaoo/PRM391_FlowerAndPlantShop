@@ -1,0 +1,12 @@
+name: plant_flower_api_client
+description: HTTP client, auth interceptor, DTOs and error mapping for the backend REST API.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.0
+
+resolution: workspace
+
+dependencies:
+  plant_flower_shared: ^0.1.0
