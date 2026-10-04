@@ -70,6 +70,10 @@ web_modules/
 .env.*
 !.env.example
 
+# Local/generated Supabase SQL exports (Prisma migration SQL stays tracked)
+supabase/*.sql
+supabase/*.dump
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
@@ -147,3 +151,19 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Dart / Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+# Pub workspace: commit the single root pubspec.lock; ignore stray member locks.
+*/**/pubspec.lock
+pubspec_overrides.yaml
+**/build/
+*.iml
+
+# IDE and operating system
+.idea/
+.vscode/
+.DS_Store

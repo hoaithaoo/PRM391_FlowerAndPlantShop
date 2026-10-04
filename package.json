@@ -1,0 +1,22 @@
+{
+  "name": "plant-flower-shop",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.17.1",
+  "scripts": {
+    "dev:backend": "pnpm --filter @plant-flower/backend dev",
+    "build:backend": "pnpm --filter @plant-flower/backend build",
+    "typecheck:backend": "pnpm --filter @plant-flower/backend typecheck",
+    "prisma:generate": "pnpm --filter @plant-flower/backend prisma:generate",
+    "prisma:migrate": "pnpm --filter @plant-flower/backend prisma:migrate",
+    "prisma:migrate:deploy": "pnpm --filter @plant-flower/backend prisma:migrate:deploy",
+    "prisma:migrate:status": "pnpm --filter @plant-flower/backend prisma:migrate:status",
+    "prisma:validate": "pnpm --filter @plant-flower/backend prisma:validate",
+    "prisma:seed": "pnpm --filter @plant-flower/backend prisma:seed",
+    "dev:landing": "pnpm --filter @plant-flower/landing dev",
+    "build:landing": "pnpm --filter @plant-flower/landing build"
+  },
+  "dependencies": {
+    "postgres": "^3.4.9"
+  }
+}
