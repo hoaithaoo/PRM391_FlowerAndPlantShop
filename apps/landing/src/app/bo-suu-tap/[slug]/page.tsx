@@ -33,7 +33,7 @@ export default async function CollectionPage({ params }: Params) {
       {/* Top bar */}
       <header className="absolute inset-x-0 top-0 z-30 text-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5 flex items-center justify-between">
-          <Link href="/" className="font-editorial text-2xl sm:text-3xl tracking-wide">Nhà Có Hoa</Link>
+          <Link href="/" className="font-serif text-2xl sm:text-3xl tracking-wide hover:opacity-90 transition-opacity">Nhà Có Hoa</Link>
           <Link
             href="/#collection"
             className="text-xs uppercase tracking-[0.18em] border border-white/50 rounded-full px-4 py-2 hover:bg-white/15 transition-colors"
