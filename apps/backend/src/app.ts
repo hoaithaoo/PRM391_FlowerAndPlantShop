@@ -7,6 +7,11 @@ import { errorHandler } from "./middlewares/error-handler";
 import { AppError } from "./common/errors/app-error";
 import { ErrorCodes } from "./common/errors/error-codes";
 import { profileRoutes } from "./modules/profiles/profile.routes";
+import {
+  adminProductRoutes,
+  productRoutes,
+} from "./modules/products/product.routes";
+import { storeRoutes } from "./modules/stores/store.routes";
 
 export const createApp = (): Application => {
   const app = express();
@@ -39,6 +44,9 @@ export const createApp = (): Application => {
 
   // 3. API Routes v1
   app.use("/api/v1/profile", profileRoutes);
+  app.use("/api/v1/products", productRoutes);
+  app.use("/api/v1/admin/products", adminProductRoutes);
+  app.use("/api/v1/stores", storeRoutes);
 
   // 4. Fallback 404 handler
   app.use((req: Request, _res: Response, next: NextFunction) => {
