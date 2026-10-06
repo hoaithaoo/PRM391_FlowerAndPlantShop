@@ -1,0 +1,38 @@
+name: plant_flower_admin
+description: "Flutter admin application for Plant & Flower Shop."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.9.0
+
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # Internal workspace dependencies
+  plant_flower_shared: ^0.1.0
+  plant_flower_api_client: ^0.1.0
+  plant_flower_ui: ^0.1.0
+
+  # State Management (BLoC)
+  flutter_bloc: ^8.1.6
+  equatable: ^2.0.5
+
+  # Network & Utilities
+  http: ^1.2.2
+  intl: ^0.19.0
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  bloc_test: ^9.1.7
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true

@@ -9,6 +9,7 @@ workspace:
   - packages/shared
   - packages/api_client
   - packages/ui
+  - apps/admin
 
 dev_dependencies:
   melos: ^7.0.0
