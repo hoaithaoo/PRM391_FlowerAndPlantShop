@@ -5,9 +5,12 @@ import 'package:plant_flower_shared/plant_flower_shared.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_event.dart';
+import '../../categories/screens/category_management_screen.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
 import '../../orders/screens/order_management_screen.dart';
 import '../../products/screens/product_management_screen.dart';
+import '../../users/screens/user_management_screen.dart';
+import '../../finance/screens/finance_management_screen.dart';
 
 class AdminMainScreen extends StatefulWidget {
   final UserProfile profile;
@@ -36,6 +39,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       ),
       const OrderManagementScreen(),
       const ProductManagementScreen(),
+      const CategoryManagementScreen(),
       _buildProfileScreen(),
     ];
 
@@ -68,6 +72,11 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
               icon: Icon(Icons.local_florist_outlined),
               selectedIcon: Icon(Icons.local_florist, color: AppColors.primary),
               label: 'Sản phẩm',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.category_outlined),
+              selectedIcon: Icon(Icons.category, color: AppColors.primary),
+              label: 'Danh mục',
             ),
             NavigationDestination(
               icon: Icon(Icons.admin_panel_settings_outlined),
@@ -144,6 +153,73 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                   ),
                 ],
               ),
+            ),
+          ),
+
+          const SizedBox(height: 24),
+          Text(
+            'QUẢN TRỊ TÀI KHOẢN & NGƯỜI DÙNG',
+            style: GoogleFonts.plusJakartaSans(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1.2,
+              color: AppColors.textMuted,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Card(
+            margin: EdgeInsets.zero,
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.people_alt_outlined, color: AppColors.primary, size: 22),
+              ),
+              title: Text(
+                'Danh sách người dùng & Phân quyền',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              subtitle: Text(
+                'Tra cứu khách hàng, khóa tài khoản vi phạm, cấp quyền ADMIN',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const UserManagementScreen()),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            margin: EdgeInsets.zero,
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.accentLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.account_balance_outlined, color: AppColors.accent, size: 22),
+              ),
+              title: Text(
+                'Tài chính, Hóa đơn & Đối soát SePay',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              subtitle: Text(
+                'Theo dõi hóa đơn VAT và biến động số dư ngân hàng SePay QR',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const FinanceManagementScreen()),
+                );
+              },
             ),
           ),
 

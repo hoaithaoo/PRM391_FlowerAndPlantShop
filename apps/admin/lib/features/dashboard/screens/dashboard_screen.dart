@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 import '../cubit/dashboard_cubit.dart';
 import '../cubit/dashboard_state.dart';
+import '../../finance/screens/finance_management_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback onNavigateToOrders;
@@ -300,6 +301,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           subtitle: const Text('Duyệt đơn mới, cập nhật vận chuyển SePay/COD'),
                           trailing: const Icon(Icons.chevron_right),
                           onTap: widget.onNavigateToOrders,
+                        ),
+                        const Divider(height: 1),
+                        ListTile(
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryLight,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.account_balance_outlined, color: AppColors.primary),
+                          ),
+                          title: Text(
+                            'Đối soát SePay & Xem Hóa đơn VAT',
+                            style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w600),
+                          ),
+                          subtitle: const Text('Quản lý hóa đơn điện tử, đối chiếu dòng tiền SePay'),
+                          trailing: const Icon(Icons.chevron_right),
+                          onTap: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const FinanceManagementScreen()),
+                            );
+                          },
                         ),
                       ],
                     ),

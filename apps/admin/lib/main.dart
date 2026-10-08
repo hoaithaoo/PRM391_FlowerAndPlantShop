@@ -7,10 +7,15 @@ import 'features/auth/bloc/auth_bloc.dart';
 import 'features/auth/bloc/auth_event.dart';
 import 'features/auth/bloc/auth_state.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/categories/bloc/category_bloc.dart';
+import 'features/categories/bloc/category_event.dart';
 import 'features/dashboard/cubit/dashboard_cubit.dart';
 import 'features/home/screens/admin_main_screen.dart';
 import 'features/orders/bloc/order_bloc.dart';
 import 'features/products/bloc/product_bloc.dart';
+import 'features/users/bloc/user_bloc.dart';
+import 'features/finance/bloc/finance_bloc.dart';
+import 'features/finance/bloc/finance_event.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -37,6 +42,11 @@ class PlantFlowerAdminApp extends StatelessWidget {
               apiClient: context.read<AdminApiClient>(),
             ),
           ),
+          BlocProvider<CategoryBloc>(
+            create: (context) => CategoryBloc(
+              apiClient: context.read<AdminApiClient>(),
+            )..add(const FetchCategoriesEvent()),
+          ),
           BlocProvider<ProductBloc>(
             create: (context) => ProductBloc(
               apiClient: context.read<AdminApiClient>(),
@@ -46,6 +56,16 @@ class PlantFlowerAdminApp extends StatelessWidget {
             create: (context) => OrderBloc(
               apiClient: context.read<AdminApiClient>(),
             ),
+          ),
+          BlocProvider<UserBloc>(
+            create: (context) => UserBloc(
+              apiClient: context.read<AdminApiClient>(),
+            ),
+          ),
+          BlocProvider<FinanceBloc>(
+            create: (context) => FinanceBloc(
+              apiClient: context.read<AdminApiClient>(),
+            )..add(const FetchAllFinanceDataEvent()),
           ),
         ],
         child: MaterialApp(
