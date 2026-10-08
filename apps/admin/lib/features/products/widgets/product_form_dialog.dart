@@ -162,9 +162,13 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                       labelText: 'Tên hoa / cây cảnh *',
                       hintText: 'VD: Sen Hồng Tháp Mười',
                     ),
-                    validator: (v) => v == null || v.trim().isEmpty
-                        ? 'Vui lòng nhập tên sản phẩm'
-                        : null,
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) return 'Vui lòng nhập tên sản phẩm';
+                      if (v.trim().length < 2 || v.trim().length > 150) {
+                        return 'Tên sản phẩm phải từ 2 đến 150 ký tự';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 14),
 
@@ -205,7 +209,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                           ),
                           validator: (v) {
                             if (v == null || v.trim().isEmpty) return 'Nhập giá tiền';
-                            if (double.tryParse(v) == null) return 'Phải là số';
+                            final parsed = double.tryParse(v.trim());
+                            if (parsed == null) return 'Phải là số';
+                            if (parsed < 1000) return 'Tối thiểu 1.000₫';
                             return null;
                           },
                         ),
@@ -219,6 +225,14 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                             labelText: 'Giá KM (₫)',
                             hintText: '390000',
                           ),
+                          validator: (v) {
+                            if (v != null && v.trim().isNotEmpty) {
+                              final parsed = double.tryParse(v.trim());
+                              if (parsed == null) return 'Phải là số';
+                              if (parsed < 1000) return 'Tối thiểu 1.000₫';
+                            }
+                            return null;
+                          },
                         ),
                       ),
                     ],
@@ -235,7 +249,9 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     ),
                     validator: (v) {
                       if (v == null || v.trim().isEmpty) return 'Nhập tồn kho';
-                      if (int.tryParse(v) == null) return 'Phải là số nguyên';
+                      final parsed = int.tryParse(v.trim());
+                      if (parsed == null) return 'Phải là số nguyên';
+                      if (parsed < 0) return 'Tồn kho không âm';
                       return null;
                     },
                   ),
