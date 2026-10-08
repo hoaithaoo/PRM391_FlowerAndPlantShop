@@ -66,13 +66,20 @@ class AdminApiClient {
     }
   }
 
-  // --- DASHBOARD ---
-  Future<DashboardStatsModel> getDashboardStats() async {
+  // --- DASHBOARD (Spec 9.1) ---
+  Future<DashboardStatsModel> getDashboardStats({
+    DateTime? from,
+    DateTime? to,
+  }) async {
     try {
-      final res = await _httpClient.get(
-        Uri.parse('$baseUrl/admin/dashboard'),
-        headers: _headers,
+      final queryParams = <String, String>{
+        if (from != null) 'from': from.toIso8601String(),
+        if (to != null) 'to': to.toIso8601String(),
+      };
+      final uri = Uri.parse('$baseUrl/admin/dashboard').replace(
+        queryParameters: queryParams.isNotEmpty ? queryParams : null,
       );
+      final res = await _httpClient.get(uri, headers: _headers);
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body)['data'];
         return DashboardStatsModel.fromJson(
@@ -84,14 +91,42 @@ class AdminApiClient {
     }
 
     // Realistic Mock Data for Demo
-    await Future.delayed(const Duration(milliseconds: 400));
-    return const DashboardStatsModel(
+    await Future.delayed(const Duration(milliseconds: 300));
+
+    double scale = 1.0;
+    String label = 'Tháng này';
+    if (from != null && to != null) {
+      final days = to.difference(from).inDays.abs() + 1;
+      if (days <= 1) {
+        scale = 0.08;
+        label = 'Hôm nay';
+      } else if (days <= 7) {
+        scale = 0.35;
+        label = '7 ngày qua';
+      } else if (days <= 31) {
+        scale = 1.0;
+        label = '30 ngày qua';
+      } else {
+        scale = days / 30.0;
+        label = 'Tùy chỉnh ($days ngày)';
+      }
+    }
+
+    final totalOrders = (142 * scale).round().clamp(1, 1000);
+    final paidRevenue = 74650000 * scale;
+
+    return DashboardStatsModel(
       revenueToday: 3850000,
       revenueMonth: 78500000,
-      totalOrders: 142,
+      totalOrders: totalOrders,
       pendingOrders: 6,
       totalProducts: 48,
       lowStockProducts: 4,
+      totalUsers: 128,
+      paidRevenue: paidRevenue,
+      dateRangeLabel: label,
+      from: from,
+      to: to,
     );
   }
 

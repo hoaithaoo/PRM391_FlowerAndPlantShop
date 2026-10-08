@@ -30,6 +30,43 @@ class _DashboardScreenState extends State<DashboardScreen> {
     context.read<DashboardCubit>().loadStats();
   }
 
+  int _selectedFilterIndex = 2; // 0: Hôm nay, 1: 7 ngày, 2: 30 ngày, 3: Tùy chọn
+
+  void _onFilterChanged(int index) async {
+    final now = DateTime.now();
+    DateTime? from;
+    DateTime? to = now;
+
+    if (index == 0) {
+      from = DateTime(now.year, now.month, now.day);
+    } else if (index == 1) {
+      from = now.subtract(const Duration(days: 7));
+    } else if (index == 2) {
+      from = now.subtract(const Duration(days: 30));
+    } else if (index == 3) {
+      final picked = await showDateRangePicker(
+        context: context,
+        firstDate: DateTime(2025),
+        lastDate: DateTime.now().add(const Duration(days: 1)),
+        initialDateRange: DateTimeRange(
+          start: now.subtract(const Duration(days: 30)),
+          end: now,
+        ),
+      );
+      if (picked != null) {
+        from = picked.start;
+        to = picked.end;
+      } else {
+        return;
+      }
+    }
+
+    setState(() => _selectedFilterIndex = index);
+    if (mounted) {
+      context.read<DashboardCubit>().loadStats(from: from, to: to);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -108,7 +145,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
-                        colors: [AppColors.primaryDark, AppColors.primary],
+                         colors: [AppColors.primaryDark, AppColors.primary],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
@@ -250,6 +287,98 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ],
                   ),
+
+                  const SizedBox(height: 24),
+
+                  // Date Range Filter Toolbar (Spec 9.1)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'KỲ THỐNG KÊ (SPEC 9.1)',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.2,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryLight,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          stats.dateRangeLabel ?? '30 ngày qua',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        FilterChip(
+                          label: const Text('Hôm nay'),
+                          selected: _selectedFilterIndex == 0,
+                          onSelected: (_) => _onFilterChanged(0),
+                        ),
+                        const SizedBox(width: 8),
+                        FilterChip(
+                          label: const Text('7 ngày qua'),
+                          selected: _selectedFilterIndex == 1,
+                          onSelected: (_) => _onFilterChanged(1),
+                        ),
+                        const SizedBox(width: 8),
+                        FilterChip(
+                          label: const Text('30 ngày qua'),
+                          selected: _selectedFilterIndex == 2,
+                          onSelected: (_) => _onFilterChanged(2),
+                        ),
+                        const SizedBox(width: 8),
+                        ActionChip(
+                          avatar: const Icon(Icons.date_range, size: 16),
+                          label: const Text('Tùy chọn ngày'),
+                          onPressed: () => _onFilterChanged(3),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Additional KPIs in Period
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildMetricCard(
+                          title: 'Doanh thu SePay (Đã thu)',
+                          value: _currencyFormat.format(stats.paidRevenue > 0 ? stats.paidRevenue : stats.revenueMonth),
+                          icon: Icons.account_balance_wallet,
+                          iconColor: AppColors.statusDelivered,
+                          backgroundColor: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildMetricCard(
+                          title: 'Tổng khách hàng',
+                          value: '${stats.totalUsers > 0 ? stats.totalUsers : 128} thành viên',
+                          icon: Icons.people_alt_outlined,
+                          iconColor: AppColors.primary,
+                          backgroundColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+
 
                   const SizedBox(height: 24),
                   Text(
