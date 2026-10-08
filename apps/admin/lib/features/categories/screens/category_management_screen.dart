@@ -9,7 +9,12 @@ import '../bloc/category_state.dart';
 import '../widgets/category_form_dialog.dart';
 
 class CategoryManagementScreen extends StatefulWidget {
-  const CategoryManagementScreen({super.key});
+  final bool showAppBar;
+
+  const CategoryManagementScreen({
+    super.key,
+    this.showAppBar = true,
+  });
 
   @override
   State<CategoryManagementScreen> createState() => _CategoryManagementScreenState();
@@ -67,23 +72,25 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          'Quản Lý Danh Mục',
-          style: GoogleFonts.cormorantGaramond(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textLight,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Làm mới danh sách',
-            onPressed: () => context.read<CategoryBloc>().add(const FetchCategoriesEvent()),
-          ),
-        ],
-      ),
+      appBar: widget.showAppBar
+          ? AppBar(
+              title: Text(
+                'Quản Lý Danh Mục',
+                style: GoogleFonts.cormorantGaramond(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.textLight,
+                ),
+              ),
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.refresh),
+                  tooltip: 'Làm mới danh sách',
+                  onPressed: () => context.read<CategoryBloc>().add(const FetchCategoriesEvent()),
+                ),
+              ],
+            )
+          : null,
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.textLight,

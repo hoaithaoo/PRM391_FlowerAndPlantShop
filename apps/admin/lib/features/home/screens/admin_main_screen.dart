@@ -5,11 +5,11 @@ import 'package:plant_flower_shared/plant_flower_shared.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 import '../../auth/bloc/auth_bloc.dart';
 import '../../auth/bloc/auth_event.dart';
-import '../../categories/screens/category_management_screen.dart';
 import '../../dashboard/screens/dashboard_screen.dart';
 import '../../orders/screens/order_management_screen.dart';
 import '../../products/screens/product_management_screen.dart';
 import '../../users/screens/user_management_screen.dart';
+import '../../users/screens/customer_directory_screen.dart';
 import '../../finance/screens/finance_management_screen.dart';
 
 class AdminMainScreen extends StatefulWidget {
@@ -39,7 +39,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       ),
       const OrderManagementScreen(),
       const ProductManagementScreen(),
-      const CategoryManagementScreen(),
+      const CustomerDirectoryScreen(),
       _buildProfileScreen(),
     ];
 
@@ -92,9 +92,9 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
               label: 'Sản phẩm',
             ),
             NavigationDestination(
-              icon: Icon(Icons.category_outlined),
-              selectedIcon: Icon(Icons.category, color: AppColors.primary),
-              label: 'Danh mục',
+              icon: Icon(Icons.people_outline),
+              selectedIcon: Icon(Icons.people, color: AppColors.primary),
+              label: 'Khách hàng',
             ),
             NavigationDestination(
               icon: Icon(Icons.admin_panel_settings_outlined),
@@ -167,7 +167,7 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
                 _buildSidebarNavItem(0, Icons.dashboard_outlined, Icons.dashboard, 'Tổng quan'),
                 _buildSidebarNavItem(1, Icons.receipt_long_outlined, Icons.receipt_long, 'Đơn hàng'),
                 _buildSidebarNavItem(2, Icons.local_florist_outlined, Icons.local_florist, 'Sản phẩm'),
-                _buildSidebarNavItem(3, Icons.category_outlined, Icons.category, 'Danh mục'),
+                _buildSidebarNavItem(3, Icons.people_outline, Icons.people, 'Khách hàng'),
                 _buildSidebarNavItem(4, Icons.admin_panel_settings_outlined, Icons.admin_panel_settings, 'Tài khoản'),
               ],
             ),

@@ -8,6 +8,9 @@ import '../bloc/product_bloc.dart';
 import '../bloc/product_event.dart';
 import '../bloc/product_state.dart';
 import '../widgets/product_form_dialog.dart';
+import '../../categories/screens/category_management_screen.dart';
+import '../../categories/bloc/category_bloc.dart';
+import '../../categories/bloc/category_event.dart';
 
 class ProductManagementScreen extends StatefulWidget {
   const ProductManagementScreen({super.key});
@@ -85,30 +88,68 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text(
-          'Quản Lý Sản Phẩm',
-          style: GoogleFonts.cormorantGaramond(
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
-            color: AppColors.textLight,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Làm mới danh sách',
-            onPressed: () => context.read<ProductBloc>().add(
-              FetchProductsEvent(
-                search: _searchController.text.trim(),
-                categoryId: _selectedCategory,
-              ),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: AppColors.background,
+        appBar: AppBar(
+          title: Text(
+            'Sản Phẩm & Danh Mục',
+            style: GoogleFonts.cormorantGaramond(
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textLight,
             ),
           ),
-        ],
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Làm mới danh sách',
+              onPressed: () {
+                context.read<ProductBloc>().add(
+                  FetchProductsEvent(
+                    search: _searchController.text.trim(),
+                    categoryId: _selectedCategory,
+                  ),
+                );
+                context.read<CategoryBloc>().add(const FetchCategoriesEvent());
+              },
+            ),
+          ],
+          bottom: TabBar(
+            indicatorColor: AppColors.accent,
+            indicatorWeight: 3,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white70,
+            labelStyle: GoogleFonts.plusJakartaSans(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+            tabs: const [
+              Tab(
+                icon: Icon(Icons.local_florist, size: 18),
+                text: 'Sản phẩm hoa & chậu',
+              ),
+              Tab(
+                icon: Icon(Icons.category, size: 18),
+                text: 'Danh mục',
+              ),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            _buildProductTab(),
+            const CategoryManagementScreen(showAppBar: false),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _buildProductTab() {
+    return Scaffold(
+      backgroundColor: AppColors.background,
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.textLight,
