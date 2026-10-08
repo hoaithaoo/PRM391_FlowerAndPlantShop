@@ -17,11 +17,35 @@ class OrderStatusDialog extends StatefulWidget {
 
 class _OrderStatusDialogState extends State<OrderStatusDialog> {
   late OrderStatus _selectedStatus;
+  late final List<OrderStatus> _availableNextStatuses;
+  late final bool _isTerminalState;
 
   @override
   void initState() {
     super.initState();
     _selectedStatus = widget.order.status;
+    _isTerminalState = widget.order.status == OrderStatus.delivered ||
+        widget.order.status == OrderStatus.cancelled;
+    _availableNextStatuses = _resolveAvailableNextStatuses(widget.order.status);
+    if (_availableNextStatuses.isNotEmpty) {
+      _selectedStatus = _availableNextStatuses.first;
+    }
+  }
+
+  List<OrderStatus> _resolveAvailableNextStatuses(OrderStatus current) {
+    switch (current) {
+      case OrderStatus.pending:
+        return [OrderStatus.confirmed, OrderStatus.cancelled];
+      case OrderStatus.confirmed:
+        return [OrderStatus.processing, OrderStatus.shipping, OrderStatus.cancelled];
+      case OrderStatus.processing:
+        return [OrderStatus.shipping, OrderStatus.cancelled];
+      case OrderStatus.shipping:
+        return [OrderStatus.delivered];
+      case OrderStatus.delivered:
+      case OrderStatus.cancelled:
+        return []; // Terminal states
+    }
   }
 
   Color _getStatusColor(OrderStatus s) {
@@ -43,26 +67,29 @@ class _OrderStatusDialogState extends State<OrderStatusDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final currentColor = _getStatusColor(widget.order.status);
+
     return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       backgroundColor: Colors.white,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 450),
+        constraints: const BoxConstraints(maxWidth: 460),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // Header
               Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: AppColors.accentLight,
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Icon(Icons.edit_note, color: AppColors.accent),
+                    child: const Icon(Icons.sync_alt, color: AppColors.primary),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -70,11 +97,11 @@ class _OrderStatusDialogState extends State<OrderStatusDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Cập nhật trạng thái đơn',
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 16,
+                          'Cập Nhật Trạng Thái Đơn',
+                          style: GoogleFonts.cormorantGaramond(
+                            fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.textHeading,
+                            color: AppColors.textLight,
                           ),
                         ),
                         Text(
@@ -93,91 +120,159 @@ class _OrderStatusDialogState extends State<OrderStatusDialog> {
                   ),
                 ],
               ),
-              const Divider(height: 24),
+              const Divider(height: 24, color: AppColors.border),
 
-              Text(
-                'Chọn tiến trình xử lý đơn hàng:',
-                style: GoogleFonts.plusJakartaSans(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textHeading,
+              // Current Status Banner
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: currentColor.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: currentColor.withValues(alpha: 0.3)),
                 ),
-              ),
-              const SizedBox(height: 12),
-
-              ...OrderStatus.values.map((status) {
-                final isSelected = _selectedStatus == status;
-                final color = _getStatusColor(status);
-
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: InkWell(
-                    onTap: () {
-                      setState(() {
-                        _selectedStatus = status;
-                      });
-                    },
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: isSelected ? color.withValues(alpha: 0.12) : Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: isSelected ? color : AppColors.border,
-                          width: isSelected ? 1.5 : 1,
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 10,
-                            height: 10,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: color,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            status.label,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 14,
-                              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                              color: isSelected ? color : AppColors.textHeading,
-                            ),
-                          ),
-                          const Spacer(),
-                          if (isSelected) Icon(Icons.check_circle, size: 20, color: color),
-                        ],
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 18, color: currentColor),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Hiện tại: ',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        color: AppColors.textMuted,
                       ),
                     ),
-                  ),
-                );
-              }),
-
+                    Text(
+                      widget.order.status.label,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: currentColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               const SizedBox(height: 16),
+
+              if (_isTerminalState) ...[
+                // Terminal State Notification
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3E0),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFFFB74D)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.lock, size: 20, color: Color(0xFFE65100)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Đơn hàng đã ở trạng thái kết thúc (${widget.order.status.label}), '
+                          'không thể thay đổi trạng thái nữa theo quy chuẩn State Machine (Mục 11).',
+                          style: GoogleFonts.plusJakartaSans(
+                            fontSize: 12,
+                            color: const Color(0xFFE65100),
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ] else ...[
+                // Allowed Next Transitions List
+                Text(
+                  'Chọn trạng thái tiếp theo hợp lệ:',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.textLight,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                ..._availableNextStatuses.map((status) {
+                  final isSelected = _selectedStatus == status;
+                  final color = _getStatusColor(status);
+
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: InkWell(
+                      onTap: () {
+                        setState(() {
+                          _selectedStatus = status;
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(10),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: isSelected ? color.withValues(alpha: 0.12) : Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isSelected ? color : AppColors.border,
+                            width: isSelected ? 1.5 : 1,
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: color,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Text(
+                              status.label,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 14,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: isSelected ? color : AppColors.textLight,
+                              ),
+                            ),
+                            const Spacer(),
+                            if (isSelected) Icon(Icons.check_circle, size: 20, color: color),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
+
+              const SizedBox(height: 20),
+              // Actions
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(),
-                    child: const Text('Hủy'),
+                    child: const Text('Đóng'),
                   ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
-                    onPressed: () {
-                      context.read<OrderBloc>().add(
-                            UpdateOrderStatusEvent(
-                              orderId: widget.order.id,
-                              newStatus: _selectedStatus,
-                            ),
-                          );
-                      Navigator.of(context).pop();
-                    },
-                    child: const Text('Lưu thay đổi'),
-                  ),
+                  if (!_isTerminalState) ...[
+                    const SizedBox(width: 12),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.textLight,
+                      ),
+                      onPressed: () {
+                        context.read<OrderBloc>().add(
+                              UpdateOrderStatusEvent(
+                                orderId: widget.order.id,
+                                newStatus: _selectedStatus,
+                              ),
+                            );
+                        Navigator.of(context).pop();
+                      },
+                      child: const Text('Xác nhận đổi'),
+                    ),
+                  ],
                 ],
               ),
             ],

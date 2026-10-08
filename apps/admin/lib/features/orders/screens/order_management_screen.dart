@@ -7,6 +7,7 @@ import 'package:plant_flower_ui/plant_flower_ui.dart';
 import '../bloc/order_bloc.dart';
 import '../bloc/order_event.dart';
 import '../bloc/order_state.dart';
+import '../widgets/order_detail_dialog.dart';
 import '../widgets/order_status_dialog.dart';
 
 class OrderManagementScreen extends StatefulWidget {
@@ -322,22 +323,42 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> with Sing
                     ),
                   ],
                 ),
-                ElevatedButton.icon(
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => BlocProvider.value(
-                        value: context.read<OrderBloc>(),
-                        child: OrderStatusDialog(order: o),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => OrderDetailDialog(order: o),
+                        );
+                      },
+                      icon: const Icon(Icons.receipt_outlined, size: 16),
+                      label: const Text('Chi tiết'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.sync_alt, size: 16),
-                  label: const Text('Đổi trạng thái'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                  ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => BlocProvider.value(
+                            value: context.read<OrderBloc>(),
+                            child: OrderStatusDialog(order: o),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.sync_alt, size: 16),
+                      label: const Text('Đổi trạng thái'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.textLight,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
