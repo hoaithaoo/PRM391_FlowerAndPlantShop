@@ -8,6 +8,7 @@ class UserProfile {
   final String? avatarUrl;
   final UserRole role;
   final AccountStatus status;
+  final DateTime? createdAt;
 
   const UserProfile({
     required this.id,
@@ -17,10 +18,33 @@ class UserProfile {
     this.avatarUrl,
     required this.role,
     required this.status,
+    this.createdAt,
   });
 
   bool get isAdmin => role == UserRole.admin;
   bool get isActive => status == AccountStatus.active;
+
+  UserProfile copyWith({
+    String? id,
+    String? email,
+    String? fullName,
+    String? phone,
+    String? avatarUrl,
+    UserRole? role,
+    AccountStatus? status,
+    DateTime? createdAt,
+  }) {
+    return UserProfile(
+      id: id ?? this.id,
+      email: email ?? this.email,
+      fullName: fullName ?? this.fullName,
+      phone: phone ?? this.phone,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      role: role ?? this.role,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
@@ -31,6 +55,9 @@ class UserProfile {
       avatarUrl: json['avatarUrl'] as String?,
       role: UserRole.fromString(json['role'] as String?),
       status: AccountStatus.fromString(json['status'] as String?),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'] as String)
+          : null,
     );
   }
 
@@ -42,5 +69,6 @@ class UserProfile {
     'avatarUrl': avatarUrl,
     'role': role.toApiString(),
     'status': status.toApiString(),
+    if (createdAt != null) 'createdAt': createdAt!.toIso8601String(),
   };
 }

@@ -225,18 +225,154 @@ class AdminApiClient {
       );
       if (res.statusCode == 200) {
         return OrderModel.fromJson(jsonDecode(res.body)['data']);
+      } else if (res.statusCode == 409) {
+        throw Exception('Chuyển trạng thái không hợp lệ (ORDER_STATUS_INVALID)');
       }
     } catch (e) {
+      if (e.toString().contains('ORDER_STATUS_INVALID')) rethrow;
       debugPrint('AdminApiClient.updateOrderStatus fallback: $e');
     }
 
     await Future.delayed(const Duration(milliseconds: 300));
     final index = _mockOrders.indexWhere((o) => o.id == orderId);
     if (index != -1) {
+      final current = _mockOrders[index];
+      // Business state machine validation (Spec 11)
+      if (current.status == OrderStatus.delivered ||
+          current.status == OrderStatus.cancelled) {
+        throw Exception(
+          'Đơn hàng đã kết thúc (${current.status.label}), không thể thay đổi trạng thái (ORDER_STATUS_INVALID)',
+        );
+      }
+      if (current.status == OrderStatus.shipping &&
+          newStatus == OrderStatus.cancelled) {
+        throw Exception(
+          'Đơn hàng đang giao không thể hủy trực tiếp (ORDER_STATUS_INVALID)',
+        );
+      }
+
       _mockOrders[index] = _mockOrders[index].copyWith(status: newStatus);
       return _mockOrders[index];
     }
-    throw Exception('Không tìm thấy đơn hàng #$orderId');
+    throw Exception('Không tìm thấy đơn hàng #$orderId (ORDER_NOT_FOUND)');
+  }
+
+  // --- USERS (SPEC 9.2 - 9.4) ---
+  Future<List<UserProfile>> getUsers({
+    int page = 1,
+    String? search,
+    UserRole? role,
+    AccountStatus? status,
+  }) async {
+    try {
+      final uri = Uri.parse('$baseUrl/admin/users').replace(
+        queryParameters: {
+          'page': page.toString(),
+          if (search != null && search.isNotEmpty) 'search': search,
+          if (role != null) 'role': role.toApiString(),
+          if (status != null) 'status': status.toApiString(),
+        },
+      );
+      final res = await _httpClient.get(uri, headers: _headers);
+      if (res.statusCode == 200) {
+        final items = jsonDecode(res.body)['data']['items'] as List<dynamic>;
+        return items
+            .map((e) => UserProfile.fromJson(e as Map<String, dynamic>))
+            .toList();
+      }
+    } catch (e) {
+      debugPrint('AdminApiClient.getUsers fallback: $e');
+    }
+
+    await Future.delayed(const Duration(milliseconds: 350));
+    var users = List<UserProfile>.from(_mockUsers);
+    if (search != null && search.isNotEmpty) {
+      final query = search.toLowerCase();
+      users = users
+          .where(
+            (u) =>
+                u.email.toLowerCase().contains(query) ||
+                (u.fullName != null &&
+                    u.fullName!.toLowerCase().contains(query)) ||
+                (u.phone != null && u.phone!.contains(query)),
+          )
+          .toList();
+    }
+    if (role != null) {
+      users = users.where((u) => u.role == role).toList();
+    }
+    if (status != null) {
+      users = users.where((u) => u.status == status).toList();
+    }
+    return users;
+  }
+
+  Future<UserProfile> getUserDetail(String userId) async {
+    try {
+      final res = await _httpClient.get(
+        Uri.parse('$baseUrl/admin/users/$userId'),
+        headers: _headers,
+      );
+      if (res.statusCode == 200) {
+        return UserProfile.fromJson(jsonDecode(res.body)['data']);
+      }
+    } catch (e) {
+      debugPrint('AdminApiClient.getUserDetail fallback: $e');
+    }
+
+    await Future.delayed(const Duration(milliseconds: 200));
+    final user = _mockUsers.firstWhere(
+      (u) => u.id == userId,
+      orElse: () => throw Exception('Không tìm thấy người dùng (USER_NOT_FOUND)'),
+    );
+    return user;
+  }
+
+  Future<UserProfile> updateUser(
+    String userId, {
+    UserRole? role,
+    AccountStatus? status,
+    String? currentAdminId = 'admin-uuid-001',
+  }) async {
+    // Check self lock forbidden (Spec 9.4)
+    if (userId == currentAdminId &&
+        (status == AccountStatus.disabled || role == UserRole.user)) {
+      throw Exception(
+        'Không thể tự khóa hoặc hạ quyền tài khoản của chính mình (ADMIN_SELF_LOCK_FORBIDDEN)',
+      );
+    }
+
+    try {
+      final res = await _httpClient.patch(
+        Uri.parse('$baseUrl/admin/users/$userId'),
+        headers: _headers,
+        body: jsonEncode({
+          if (role != null) 'role': role.toApiString(),
+          if (status != null) 'status': status.toApiString(),
+        }),
+      );
+      if (res.statusCode == 200) {
+        return UserProfile.fromJson(jsonDecode(res.body)['data']);
+      } else if (res.statusCode == 409) {
+        throw Exception(
+          'Không thể tự khóa hoặc hạ quyền tài khoản của chính mình (ADMIN_SELF_LOCK_FORBIDDEN)',
+        );
+      }
+    } catch (e) {
+      if (e.toString().contains('ADMIN_SELF_LOCK_FORBIDDEN')) rethrow;
+      debugPrint('AdminApiClient.updateUser fallback: $e');
+    }
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    final index = _mockUsers.indexWhere((u) => u.id == userId);
+    if (index != -1) {
+      var updated = _mockUsers[index];
+      if (role != null) updated = updated.copyWith(role: role);
+      if (status != null) updated = updated.copyWith(status: status);
+      _mockUsers[index] = updated;
+      return updated;
+    }
+    throw Exception('Không tìm thấy người dùng (USER_NOT_FOUND)');
   }
 
   // --- CATEGORIES ---
@@ -257,7 +393,218 @@ class AdminApiClient {
     }
 
     await Future.delayed(const Duration(milliseconds: 300));
-    return _mockCategories;
+    return List.from(_mockCategories);
+  }
+
+  Future<CategoryModel> addCategory(CategoryModel category) async {
+    try {
+      final res = await _httpClient.post(
+        Uri.parse('$baseUrl/admin/categories'),
+        headers: _headers,
+        body: jsonEncode(category.toJson()),
+      );
+      if (res.statusCode == 201) {
+        return CategoryModel.fromJson(jsonDecode(res.body)['data']);
+      } else if (res.statusCode == 409) {
+        throw Exception('Mã/slug danh mục đã tồn tại (CATEGORY_SLUG_EXISTS)');
+      }
+    } catch (e) {
+      if (e.toString().contains('CATEGORY_SLUG_EXISTS')) rethrow;
+      debugPrint('AdminApiClient.addCategory fallback: $e');
+    }
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    final exists = _mockCategories.any(
+      (c) => c.slug.toLowerCase() == category.slug.toLowerCase(),
+    );
+    if (exists) {
+      throw Exception('Tên/slug danh mục đã tồn tại trong hệ thống (CATEGORY_SLUG_EXISTS)');
+    }
+
+    final newCat = CategoryModel(
+      id: category.id.isEmpty
+          ? 'cat_${DateTime.now().millisecondsSinceEpoch}'
+          : category.id,
+      name: category.name,
+      slug: category.slug,
+      description: category.description,
+      imageUrl: category.imageUrl,
+      sortOrder: category.sortOrder,
+    );
+    _mockCategories.add(newCat);
+    return newCat;
+  }
+
+  Future<CategoryModel> updateCategory(CategoryModel category) async {
+    try {
+      final res = await _httpClient.patch(
+        Uri.parse('$baseUrl/admin/categories/${category.id}'),
+        headers: _headers,
+        body: jsonEncode(category.toJson()),
+      );
+      if (res.statusCode == 200) {
+        return CategoryModel.fromJson(jsonDecode(res.body)['data']);
+      }
+    } catch (e) {
+      debugPrint('AdminApiClient.updateCategory fallback: $e');
+    }
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    final index = _mockCategories.indexWhere((c) => c.id == category.id);
+    if (index != -1) {
+      _mockCategories[index] = category;
+      return category;
+    }
+    throw Exception('Không tìm thấy danh mục (CATEGORY_NOT_FOUND)');
+  }
+
+  Future<void> deleteCategory(String categoryId) async {
+    try {
+      final res = await _httpClient.delete(
+        Uri.parse('$baseUrl/admin/categories/$categoryId'),
+        headers: _headers,
+      );
+      if (res.statusCode == 204) {
+        return;
+      } else if (res.statusCode == 409) {
+        throw Exception('Không thể xóa: Danh mục đang có sản phẩm liên kết (CATEGORY_HAS_PRODUCTS)');
+      }
+    } catch (e) {
+      if (e.toString().contains('CATEGORY_HAS_PRODUCTS')) rethrow;
+      debugPrint('AdminApiClient.deleteCategory fallback: $e');
+    }
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    final hasProducts = _mockProducts.any((p) => p.categoryId == categoryId);
+    if (hasProducts) {
+      throw Exception('Không thể xóa: Danh mục đang có sản phẩm liên kết (CATEGORY_HAS_PRODUCTS)');
+    }
+
+    _mockCategories.removeWhere((c) => c.id == categoryId);
+  }
+
+  // --- INVOICES (Spec 9.13) ---
+  Future<List<InvoiceModel>> getInvoices({
+    String? search,
+    InvoiceStatus? status,
+    int page = 1,
+  }) async {
+    try {
+      final queryParams = <String, String>{
+        'page': page.toString(),
+        if (status != null) 'status': status.toApiString(),
+        if (search != null && search.isNotEmpty) 'search': search,
+      };
+      final uri = Uri.parse('$baseUrl/admin/invoices').replace(queryParameters: queryParams);
+      final res = await _httpClient.get(uri, headers: _headers);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body)['data'] as List<dynamic>;
+        return data.map((e) => InvoiceModel.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      debugPrint('AdminApiClient.getInvoices fallback: $e');
+    }
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    var list = List<InvoiceModel>.from(_mockInvoices);
+    if (status != null) {
+      list = list.where((i) => i.status == status).toList();
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      final q = search.trim().toLowerCase();
+      list = list.where((i) =>
+        i.invoiceNumber.toLowerCase().contains(q) ||
+        i.orderCode.toLowerCase().contains(q) ||
+        i.customerName.toLowerCase().contains(q)
+      ).toList();
+    }
+    return list;
+  }
+
+  Future<InvoiceModel> getInvoiceDetail(String id) async {
+    try {
+      final res = await _httpClient.get(Uri.parse('$baseUrl/admin/invoices/$id'), headers: _headers);
+      if (res.statusCode == 200) {
+        return InvoiceModel.fromJson(jsonDecode(res.body)['data']);
+      }
+    } catch (e) {
+      debugPrint('AdminApiClient.getInvoiceDetail fallback: $e');
+    }
+
+    await Future.delayed(const Duration(milliseconds: 200));
+    final item = _mockInvoices.firstWhere(
+      (i) => i.id == id,
+      orElse: () => throw Exception('Không tìm thấy hóa đơn (INVOICE_NOT_FOUND)'),
+    );
+    return item;
+  }
+
+  // --- SEPAY TRANSACTIONS (Spec 9.15) ---
+  Future<List<SepayTransactionModel>> getSepayTransactions({
+    bool? isMatched,
+    String? search,
+    int page = 1,
+  }) async {
+    try {
+      final queryParams = <String, String>{
+        'page': page.toString(),
+        if (isMatched != null) 'matched': isMatched.toString(),
+        if (search != null && search.isNotEmpty) 'search': search,
+      };
+      final uri = Uri.parse('$baseUrl/admin/sepay-transactions').replace(queryParameters: queryParams);
+      final res = await _httpClient.get(uri, headers: _headers);
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body)['data'] as List<dynamic>;
+        return data.map((e) => SepayTransactionModel.fromJson(e as Map<String, dynamic>)).toList();
+      }
+    } catch (e) {
+      debugPrint('AdminApiClient.getSepayTransactions fallback: $e');
+    }
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    var list = List<SepayTransactionModel>.from(_mockSepayTransactions);
+    if (isMatched != null) {
+      list = list.where((t) => t.isMatched == isMatched).toList();
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      final q = search.trim().toLowerCase();
+      list = list.where((t) =>
+        t.referenceCode.toLowerCase().contains(q) ||
+        t.content.toLowerCase().contains(q) ||
+        (t.matchedOrderCode?.toLowerCase().contains(q) ?? false)
+      ).toList();
+    }
+    return list;
+  }
+
+  Future<SepayTransactionModel> manualMatchTransaction({
+    required String transactionId,
+    required String orderCode,
+  }) async {
+    try {
+      final res = await _httpClient.post(
+        Uri.parse('$baseUrl/admin/sepay-transactions/$transactionId/match'),
+        headers: _headers,
+        body: jsonEncode({'orderCode': orderCode}),
+      );
+      if (res.statusCode == 200) {
+        return SepayTransactionModel.fromJson(jsonDecode(res.body)['data']);
+      }
+    } catch (e) {
+      debugPrint('AdminApiClient.manualMatchTransaction fallback: $e');
+    }
+
+    await Future.delayed(const Duration(milliseconds: 300));
+    final index = _mockSepayTransactions.indexWhere((t) => t.id == transactionId);
+    if (index != -1) {
+      final updated = _mockSepayTransactions[index].copyWith(
+        isMatched: true,
+        matchedOrderCode: orderCode,
+      );
+      _mockSepayTransactions[index] = updated;
+      return updated;
+    }
+    throw Exception('Không tìm thấy giao dịch (TRANSACTION_NOT_FOUND)');
   }
 
   // Mock initial storage
@@ -421,4 +768,231 @@ class AdminApiClient {
       ],
     ),
   ];
+
+  static final List<UserProfile> _mockUsers = [
+    UserProfile(
+      id: 'admin-uuid-001',
+      email: 'admin@nhacohoa.vn',
+      fullName: 'Nguyễn Tiến (Admin Trưởng)',
+      phone: '0901234567',
+      role: UserRole.admin,
+      status: AccountStatus.active,
+      createdAt: DateTime.now().subtract(const Duration(days: 90)),
+    ),
+    UserProfile(
+      id: 'user-uuid-101',
+      email: 'phuongha@gmail.com',
+      fullName: 'Nguyễn Phương Hà',
+      phone: '0912345678',
+      role: UserRole.user,
+      status: AccountStatus.active,
+      createdAt: DateTime.now().subtract(const Duration(days: 45)),
+    ),
+    UserProfile(
+      id: 'user-uuid-102',
+      email: 'hoangnam@gmail.com',
+      fullName: 'Lê Hoàng Nam',
+      phone: '0988776655',
+      role: UserRole.user,
+      status: AccountStatus.active,
+      createdAt: DateTime.now().subtract(const Duration(days: 30)),
+    ),
+    UserProfile(
+      id: 'user-uuid-103',
+      email: 'minhanh.vu@gmail.com',
+      fullName: 'Vũ Minh Anh',
+      phone: '0977665544',
+      role: UserRole.user,
+      status: AccountStatus.active,
+      createdAt: DateTime.now().subtract(const Duration(days: 15)),
+    ),
+    UserProfile(
+      id: 'user-uuid-104',
+      email: 'baduser@spam.com',
+      fullName: 'Tài Khoản Vi Phạm',
+      phone: '0933221100',
+      role: UserRole.user,
+      status: AccountStatus.disabled,
+      createdAt: DateTime.now().subtract(const Duration(days: 5)),
+    ),
+  ];
+
+  static final List<InvoiceModel> _mockInvoices = [
+    InvoiceModel(
+      id: 'inv_001',
+      invoiceNumber: 'INV-2026-001',
+      orderId: 'ord_101',
+      orderCode: 'NCH-2026-001',
+      customerName: 'Nguyễn Phương Hà',
+      customerEmail: 'phuongha@gmail.com',
+      subtotal: 361111,
+      taxRate: 0.08,
+      taxAmount: 28889,
+      totalAmount: 390000,
+      status: InvoiceStatus.paid,
+      issuedAt: DateTime.now().subtract(const Duration(days: 1)),
+      items: const [
+        InvoiceItemModel(
+          productName: 'Sen Hồng Tháp Mười (Bình Gốm Đất Nung)',
+          quantity: 1,
+          unitPrice: 350000,
+          totalPrice: 350000,
+        ),
+      ],
+    ),
+    InvoiceModel(
+      id: 'inv_002',
+      invoiceNumber: 'INV-2026-002',
+      orderId: 'ord_102',
+      orderCode: 'NCH-2026-002',
+      customerName: 'Lê Hoàng Nam',
+      customerEmail: 'hoangnam@gmail.com',
+      subtotal: 231481,
+      taxRate: 0.08,
+      taxAmount: 18519,
+      totalAmount: 250000,
+      status: InvoiceStatus.paid,
+      issuedAt: DateTime.now().subtract(const Duration(hours: 18)),
+      items: const [
+        InvoiceItemModel(
+          productName: 'Cây Bàng Singapore Mini Để Bàn',
+          quantity: 1,
+          unitPrice: 220000,
+          totalPrice: 220000,
+        ),
+      ],
+    ),
+    InvoiceModel(
+      id: 'inv_003',
+      invoiceNumber: 'INV-2026-003',
+      orderId: 'ord_103',
+      orderCode: 'NCH-2026-003',
+      customerName: 'Trần Thu Thảo',
+      customerEmail: 'thuthao@gmail.com',
+      subtotal: 574074,
+      taxRate: 0.08,
+      taxAmount: 45926,
+      totalAmount: 620000,
+      status: InvoiceStatus.issued,
+      issuedAt: DateTime.now().subtract(const Duration(hours: 12)),
+      items: const [
+        InvoiceItemModel(
+          productName: 'Sen Hồng Tháp Mười (Bình Gốm Đất Nung)',
+          quantity: 1,
+          unitPrice: 350000,
+          totalPrice: 350000,
+        ),
+        InvoiceItemModel(
+          productName: 'Cây Bàng Singapore Mini Để Bàn',
+          quantity: 1,
+          unitPrice: 220000,
+          totalPrice: 220000,
+        ),
+      ],
+    ),
+    InvoiceModel(
+      id: 'inv_004',
+      invoiceNumber: 'INV-2026-004',
+      orderId: 'ord_104',
+      orderCode: 'NCH-2026-004',
+      customerName: 'Phạm Quốc Bảo',
+      customerEmail: 'quocbao@gmail.com',
+      subtotal: 166667,
+      taxRate: 0.08,
+      taxAmount: 13333,
+      totalAmount: 180000,
+      status: InvoiceStatus.cancelled,
+      issuedAt: DateTime.now().subtract(const Duration(hours: 8)),
+      items: const [
+        InvoiceItemModel(
+          productName: 'Chậu Gốm Men Hoả Biến Dáng Cổ',
+          quantity: 1,
+          unitPrice: 180000,
+          totalPrice: 180000,
+        ),
+      ],
+    ),
+    InvoiceModel(
+      id: 'inv_005',
+      invoiceNumber: 'INV-2026-005',
+      orderId: 'ord_105',
+      orderCode: 'NCH-2026-005',
+      customerName: 'Vũ Minh Anh',
+      customerEmail: 'minhanh.vu@gmail.com',
+      subtotal: 787037,
+      taxRate: 0.08,
+      taxAmount: 62963,
+      totalAmount: 850000,
+      status: InvoiceStatus.issued,
+      issuedAt: DateTime.now().subtract(const Duration(hours: 3)),
+      items: const [
+        InvoiceItemModel(
+          productName: 'Sen Hồng Tháp Mười (Bình Gốm Đất Nung)',
+          quantity: 2,
+          unitPrice: 350000,
+          totalPrice: 700000,
+        ),
+      ],
+    ),
+  ];
+
+  static final List<SepayTransactionModel> _mockSepayTransactions = [
+    SepayTransactionModel(
+      id: 'sepay_txn_01',
+      referenceCode: 'MB-20260308-88201',
+      bankName: 'MBBank',
+      accountNumber: '090123456789',
+      amountIn: 390000,
+      content: 'SEPAY NCH-2026-001 THANH TOAN HOA SEN',
+      transactionDate: DateTime.now().subtract(const Duration(days: 1)),
+      isMatched: true,
+      matchedOrderCode: 'NCH-2026-001',
+      matchedOrderId: 'ord_101',
+    ),
+    SepayTransactionModel(
+      id: 'sepay_txn_02',
+      referenceCode: 'MB-20260308-88202',
+      bankName: 'MBBank',
+      accountNumber: '090123456789',
+      amountIn: 250000,
+      content: 'NCH 2026 002 LE HOANG NAM CHUYEN TIEN',
+      transactionDate: DateTime.now().subtract(const Duration(hours: 18)),
+      isMatched: true,
+      matchedOrderCode: 'NCH-2026-002',
+      matchedOrderId: 'ord_102',
+    ),
+    SepayTransactionModel(
+      id: 'sepay_txn_03',
+      referenceCode: 'MB-20260308-88203',
+      bankName: 'MBBank',
+      accountNumber: '090123456789',
+      amountIn: 850000,
+      content: 'VU MINH ANH THANH TOAN DON NCH-2026-005',
+      transactionDate: DateTime.now().subtract(const Duration(hours: 3)),
+      isMatched: true,
+      matchedOrderCode: 'NCH-2026-005',
+      matchedOrderId: 'ord_105',
+    ),
+    SepayTransactionModel(
+      id: 'sepay_txn_04',
+      referenceCode: 'MB-20260308-88204',
+      bankName: 'MBBank',
+      accountNumber: '090123456789',
+      amountIn: 620000,
+      content: 'CHUYEN TIEN MUA HOA TUOI NHA CO HOA',
+      transactionDate: DateTime.now().subtract(const Duration(hours: 5)),
+      isMatched: false,
+    ),
+    SepayTransactionModel(
+      id: 'sepay_txn_05',
+      referenceCode: 'MB-20260308-88205',
+      bankName: 'MBBank',
+      accountNumber: '090123456789',
+      amountIn: 150000,
+      content: 'DAT COC DON HANG HOA CUOI',
+      transactionDate: DateTime.now().subtract(const Duration(hours: 1)),
+      isMatched: false,
+    ),
+  ];
 }
+

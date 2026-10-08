@@ -16,9 +16,11 @@ class AppColors {
   static const Color primaryPressed = Color(0xFF193828);   // Nhấn nút chính
   static const Color primaryDark = Color(0xFF0D1E15);      // Nền tối cao cấp
   static const Color primaryLight = Color(0xFFE2F0E9);     // Nền chip tag xanh
+  static const Color forest100 = Color(0xFFE2F0E9);        // Alias Forest 100
 
   // --- MÀU NHẤN (ACCENT PETAL) ---
   static const Color accent = Color(0xFFA84366);           // Điểm nhấn, nút phụ, tim
+  static const Color petal500 = Color(0xFFA84366);         // Alias Petal 500
   static const Color accentLight = Color(0xFFFCEAF0);      // Nền tag hồng pastel
   static const Color accentBorder = Color(0xFFF6D6E1);     // Viền hồng nhẹ
 

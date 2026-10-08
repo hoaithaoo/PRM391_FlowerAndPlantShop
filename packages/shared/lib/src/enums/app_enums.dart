@@ -79,3 +79,41 @@ enum PaymentStatus {
 
   String toApiString() => name.toUpperCase();
 }
+
+enum InvoiceStatus {
+  issued('Đã xuất'),
+  paid('Đã thanh toán'),
+  cancelled('Đã hủy');
+
+  final String label;
+  const InvoiceStatus(this.label);
+
+  static InvoiceStatus fromString(String? value) {
+    switch (value?.toUpperCase()) {
+      case 'PAID':
+        return InvoiceStatus.paid;
+      case 'CANCELLED':
+        return InvoiceStatus.cancelled;
+      case 'ISSUED':
+      default:
+        return InvoiceStatus.issued;
+    }
+  }
+
+  String toApiString() => name.toUpperCase();
+}
+
+enum PaymentProvider {
+  sepay('SePay (QR Chuyển Khoản)'),
+  cod('Tiền mặt (COD)');
+
+  final String label;
+  const PaymentProvider(this.label);
+
+  static PaymentProvider fromString(String? value) {
+    if (value?.toUpperCase() == 'COD') return PaymentProvider.cod;
+    return PaymentProvider.sepay;
+  }
+
+  String toApiString() => name.toUpperCase();
+}
