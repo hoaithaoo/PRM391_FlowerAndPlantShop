@@ -88,5 +88,35 @@ void main() {
         AuthUnauthenticated(),
       ],
     );
+
+    blocTest<AuthBloc, AuthState>(
+      'Bắt lỗi tài khoản Admin bị vô hiệu hóa (ACCOUNT_DISABLED)',
+      build: () {
+        when(() => mockApiClient.loginWithEmailPassword('disabled@nhacohoa.vn', '123456'))
+            .thenThrow(const AccountDisabledException());
+        return authBloc;
+      },
+      act: (bloc) => bloc.add(const LoginSubmittedEvent(
+        email: 'disabled@nhacohoa.vn',
+        password: '123456',
+      )),
+      expect: () => [
+        AuthLoading(),
+        const AuthError('Tài khoản Quản trị viên đang bị vô hiệu hóa (ACCOUNT_DISABLED)!'),
+      ],
+    );
+
+    blocTest<AuthBloc, AuthState>(
+      'SessionExpiredEvent xóa token và phát ra [AuthError, AuthUnauthenticated]',
+      build: () {
+        when(() => mockApiClient.setAuthToken(null)).thenReturn(null);
+        return authBloc;
+      },
+      act: (bloc) => bloc.add(const SessionExpiredEvent()),
+      expect: () => [
+        const AuthError('Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.'),
+        AuthUnauthenticated(),
+      ],
+    );
   });
 }

@@ -2,13 +2,17 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:plant_flower_shared/plant_flower_shared.dart';
+import 'api_exceptions.dart';
+
+export 'api_exceptions.dart';
 
 class AdminApiClient {
   final String baseUrl;
   final http.Client _httpClient;
   String? _authToken;
+  VoidCallback? onSessionExpired;
 
-  AdminApiClient({String? baseUrl, http.Client? httpClient})
+  AdminApiClient({String? baseUrl, http.Client? httpClient, this.onSessionExpired})
     : baseUrl =
           baseUrl ??
           (kIsWeb
@@ -27,6 +31,17 @@ class AdminApiClient {
     'Accept': 'application/json',
     if (_authToken != null) 'Authorization': 'Bearer $_authToken',
   };
+
+  void handleResponseStatus(http.Response res) {
+    if (res.statusCode >= 400) {
+      final err = parseApiResponseError(res.statusCode, res.body);
+      if (err is AuthTokenInvalidException || err is AuthTokenMissingException) {
+        _authToken = null;
+        onSessionExpired?.call();
+      }
+      throw err;
+    }
+  }
 
   // --- AUTH ---
   Future<UserProfile> loginWithEmailPassword(

@@ -23,3 +23,7 @@ class LoginSubmittedEvent extends AuthEvent {
 }
 
 class LogoutRequestedEvent extends AuthEvent {}
+
+class SessionExpiredEvent extends AuthEvent {
+  const SessionExpiredEvent();
+}
