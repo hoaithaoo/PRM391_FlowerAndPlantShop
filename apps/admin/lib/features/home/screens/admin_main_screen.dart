@@ -43,6 +43,24 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
       _buildProfileScreen(),
     ];
 
+    final isWideScreen = MediaQuery.of(context).size.width >= 800;
+
+    if (isWideScreen) {
+      return Scaffold(
+        body: Row(
+          children: [
+            _buildSidebar(),
+            Expanded(
+              child: IndexedStack(
+                index: _currentIndex,
+                children: screens,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
@@ -85,6 +103,152 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSidebar() {
+    return Container(
+      width: 250,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(right: BorderSide(color: AppColors.border, width: 1)),
+      ),
+      child: Column(
+        children: [
+          // Brand Header
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.local_florist, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Nhà Có Hoa',
+                        style: GoogleFonts.cormorantGaramond(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      Text(
+                        'Atelier Admin Portal',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 11,
+                          color: AppColors.textMuted,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+
+          // Nav Items
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              children: [
+                _buildSidebarNavItem(0, Icons.dashboard_outlined, Icons.dashboard, 'Tổng quan'),
+                _buildSidebarNavItem(1, Icons.receipt_long_outlined, Icons.receipt_long, 'Đơn hàng'),
+                _buildSidebarNavItem(2, Icons.local_florist_outlined, Icons.local_florist, 'Sản phẩm'),
+                _buildSidebarNavItem(3, Icons.category_outlined, Icons.category, 'Danh mục'),
+                _buildSidebarNavItem(4, Icons.admin_panel_settings_outlined, Icons.admin_panel_settings, 'Tài khoản'),
+              ],
+            ),
+          ),
+
+          // Admin Footer Info
+          const Divider(height: 1),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: AppColors.primaryLight,
+                  child: const Icon(Icons.person, color: AppColors.primary, size: 20),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.profile.fullName ?? 'Quản Trị Viên',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        widget.profile.email,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 10,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.logout, size: 18, color: AppColors.statusCancelled),
+                  tooltip: 'Đăng xuất',
+                  onPressed: () {
+                    context.read<AuthBloc>().add(LogoutRequestedEvent());
+                  },
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSidebarNavItem(int index, IconData icon, IconData activeIcon, String label) {
+    final isSelected = _currentIndex == index;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        color: isSelected ? AppColors.primaryLight : Colors.transparent,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: ListTile(
+        dense: true,
+        leading: Icon(
+          isSelected ? activeIcon : icon,
+          color: isSelected ? AppColors.primary : AppColors.textMuted,
+          size: 20,
+        ),
+        title: Text(
+          label,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: 13,
+            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+            color: isSelected ? AppColors.primary : AppColors.textBody,
+          ),
+        ),
+        onTap: () => _onNavigateTo(index),
       ),
     );
   }
