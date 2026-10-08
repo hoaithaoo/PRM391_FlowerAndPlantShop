@@ -8,7 +8,7 @@ enum PaymentMethod {
   };
 
   String get label => switch (this) {
-    PaymentMethod.cod => 'Cash on delivery',
-    PaymentMethod.sepay => 'SePay bank transfer',
+    PaymentMethod.cod => 'Thanh toán khi nhận hàng',
+    PaymentMethod.sepay => 'Chuyển khoản SePay',
   };
 }

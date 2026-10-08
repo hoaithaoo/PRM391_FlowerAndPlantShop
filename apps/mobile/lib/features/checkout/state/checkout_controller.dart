@@ -49,7 +49,7 @@ class CheckoutController extends ChangeNotifier {
       _setState(
         const CheckoutState(
           status: CheckoutStatus.error,
-          errorMessage: 'Unable to process checkout. Please try again.',
+          errorMessage: 'Không thể xử lý đơn hàng lúc này. Vui lòng thử lại.',
         ),
       );
       return null;
@@ -69,28 +69,30 @@ class CheckoutController extends ChangeNotifier {
     return switch (failure.code) {
       CheckoutErrorCode.productOutOfStock => const CheckoutState(
         status: CheckoutStatus.error,
-        errorMessage: 'One or more products are out of stock.',
+        errorMessage:
+            'Một hoặc nhiều sản phẩm đã hết hàng hoặc không đủ số lượng.',
       ),
       CheckoutErrorCode.checkoutConflict => const CheckoutState(
         status: CheckoutStatus.error,
-        errorMessage: 'Checkout conflict occurred. Please try again.',
+        errorMessage: 'Đơn hàng đang được xử lý. Vui lòng thử lại.',
       ),
       CheckoutErrorCode.cartEmpty => const CheckoutState(
         status: CheckoutStatus.error,
-        errorMessage: 'Your cart is empty.',
+        errorMessage: 'Giỏ hàng của bạn đang trống.',
       ),
       CheckoutErrorCode.validationError => const CheckoutState(
         status: CheckoutStatus.error,
-        errorMessage: 'Please check your checkout information.',
+        errorMessage:
+            'Thông tin thanh toán chưa hợp lệ. Vui lòng kiểm tra lại.',
       ),
       CheckoutErrorCode.authTokenInvalid ||
       CheckoutErrorCode.authTokenMissing => const CheckoutState(
         status: CheckoutStatus.authenticationRequired,
-        errorMessage: 'Your session has expired. Please sign in again.',
+        errorMessage: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
       ),
       _ => const CheckoutState(
         status: CheckoutStatus.error,
-        errorMessage: 'Unable to process checkout. Please try again.',
+        errorMessage: 'Không thể xử lý đơn hàng lúc này. Vui lòng thử lại.',
       ),
     };
   }

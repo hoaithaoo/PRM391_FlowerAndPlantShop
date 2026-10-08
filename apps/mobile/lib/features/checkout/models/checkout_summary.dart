@@ -5,6 +5,7 @@ class CheckoutSummaryItem {
     required this.quantity,
     required this.unitPrice,
     required this.subtotal,
+    this.imageUrl,
   });
 
   final String productId;
@@ -12,6 +13,7 @@ class CheckoutSummaryItem {
   final int quantity;
   final num unitPrice;
   final num subtotal;
+  final String? imageUrl;
 }
 
 class CheckoutSummary {

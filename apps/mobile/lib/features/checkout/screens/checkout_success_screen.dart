@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../models/checkout_result.dart';
-import '../utils/currency_formatter.dart';
+import '../utils/checkout_theme.dart';
+import '../widgets/checkout_detail_row.dart';
+import '../widgets/checkout_payment_details.dart';
+import '../widgets/checkout_section_card.dart';
+import '../widgets/checkout_success_hero.dart';
 import '../widgets/checkout_total_section.dart';
 
 class CheckoutSuccessScreen extends StatelessWidget {
@@ -14,93 +18,93 @@ class CheckoutSuccessScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final payment = result.payment;
 
-    return Scaffold(
-      appBar: AppBar(title: const Text('Order confirmed')),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 640),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  Icon(
-                    Icons.check_circle,
-                    size: 72,
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Your order has been placed',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Keep the order code below for tracking.',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 24),
-                  _DetailsCard(
-                    title: 'Order',
-                    rows: <_DetailRowData>[
-                      _DetailRowData('Order code', result.order.orderCode),
-                      _DetailRowData('Status', result.order.status),
-                      _DetailRowData(
-                        'Invoice number',
-                        result.invoice.invoiceNumber,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Card(
-                    margin: EdgeInsets.zero,
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
+    return CheckoutTheme(
+      child: Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            onPressed: onDone ?? () => Navigator.of(context).maybePop(),
+            tooltip: 'Đóng',
+            icon: const Icon(Icons.close_rounded),
+          ),
+          title: const Text('Xác nhận đơn hàng'),
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(1),
+            child: Divider(),
+          ),
+        ),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(18, 28, 18, 32),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 640),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    CheckoutSuccessHero(orderCode: result.order.orderCode),
+                    const SizedBox(height: 18),
+                    CheckoutSectionCard(
+                      title: 'Thông tin đơn hàng',
+                      subtitle: 'Đơn hàng đã được ghi nhận trên hệ thống',
+                      icon: Icons.receipt_long_outlined,
+                      trailing: CheckoutStatusPill(status: result.order.status),
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: <Widget>[
-                          Text(
-                            'Billing total',
-                            style: Theme.of(context).textTheme.titleLarge,
+                          CheckoutDetailRow(
+                            label: 'Mã hóa đơn',
+                            value: result.invoice.invoiceNumber,
                           ),
-                          const SizedBox(height: 16),
-                          CheckoutTotalSection(
-                            subtotal: result.invoice.subtotalAmount,
-                            tax: result.invoice.taxAmount,
-                            shippingFee: result.invoice.shippingFee,
-                            grandTotal: result.invoice.grandTotal,
+                          const SizedBox(height: 12),
+                          CheckoutDetailRow(
+                            label: 'Trạng thái đơn hàng',
+                            value: formatCheckoutStatus(result.order.status),
+                          ),
+                          const SizedBox(height: 12),
+                          CheckoutDetailRow(
+                            label: 'Phương thức thanh toán',
+                            value: payment == null
+                                ? 'Thanh toán khi nhận hàng'
+                                : 'Chuyển khoản SePay',
                           ),
                         ],
                       ),
                     ),
-                  ),
-                  if (payment != null) ...[
-                    const SizedBox(height: 16),
-                    _DetailsCard(
-                      title: 'SePay payment',
-                      rows: <_DetailRowData>[
-                        _DetailRowData(
-                          'Payment code',
-                          payment.paymentCode ?? 'Pending',
-                        ),
-                        _DetailRowData('Status', payment.status),
-                        _DetailRowData(
-                          'Amount',
-                          formatVnd(result.invoice.grandTotal),
-                        ),
-                      ],
-                      footer: _PaymentQrPlaceholder(qrUrl: payment.qrUrl),
+                    const SizedBox(height: 18),
+                    CheckoutSectionCard(
+                      title: 'Tổng thanh toán',
+                      subtitle: 'Số tiền cuối cùng được máy chủ xác nhận',
+                      icon: Icons.account_balance_wallet_outlined,
+                      child: CheckoutTotalSection(
+                        subtotal: result.invoice.subtotalAmount,
+                        tax: result.invoice.taxAmount,
+                        shippingFee: result.invoice.shippingFee,
+                        grandTotal: result.invoice.grandTotal,
+                      ),
+                    ),
+                    if (payment != null) ...[
+                      const SizedBox(height: 18),
+                      CheckoutPaymentDetails(
+                        payment: payment,
+                        grandTotal: result.invoice.grandTotal,
+                      ),
+                    ],
+                    const SizedBox(height: 22),
+                    FilledButton.icon(
+                      onPressed:
+                          onDone ?? () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.local_florist_outlined),
+                      label: const Text('Hoàn tất'),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Bạn có thể xem lại thông tin trong lịch sử đơn hàng.',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: CheckoutPalette.mutedText,
+                      ),
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  FilledButton(
-                    onPressed: onDone ?? () => Navigator.of(context).maybePop(),
-                    child: const Text('Done'),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -108,83 +112,4 @@ class CheckoutSuccessScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DetailsCard extends StatelessWidget {
-  const _DetailsCard({required this.title, required this.rows, this.footer});
-
-  final String title;
-  final List<_DetailRowData> rows;
-  final Widget? footer;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            for (final row in rows) ...[
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Expanded(child: Text(row.label)),
-                  const SizedBox(width: 16),
-                  Flexible(
-                    child: Text(
-                      row.value,
-                      textAlign: TextAlign.end,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-            ],
-            if (footer != null) ...[const SizedBox(height: 8), footer!],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PaymentQrPlaceholder extends StatelessWidget {
-  const _PaymentQrPlaceholder({required this.qrUrl});
-
-  final String? qrUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    // TODO: Hiển thị QR thật nếu project đã tích hợp QR package
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: <Widget>[
-          const Icon(Icons.qr_code_2, size: 64),
-          const SizedBox(height: 8),
-          Text(
-            qrUrl == null ? 'QR information is pending.' : 'QR URL: $qrUrl',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DetailRowData {
-  const _DetailRowData(this.label, this.value);
-
-  final String label;
-  final String value;
 }

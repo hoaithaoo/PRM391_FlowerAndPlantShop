@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/checkout_summary.dart';
+import '../utils/checkout_theme.dart';
 import '../utils/currency_formatter.dart';
+import 'checkout_section_card.dart';
 import 'checkout_total_section.dart';
 
 class OrderSummary extends StatelessWidget {
@@ -11,42 +13,78 @@ class OrderSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            Text(
-              'Order summary',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 12),
-            if (summary.items.isEmpty)
-              const _CartIntegrationPlaceholder()
-            else
-              ...summary.items.map(
-                (item) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _SummaryItem(item: item),
+    return CheckoutSectionCard(
+      title: 'Thông tin đơn hàng',
+      subtitle: 'Kiểm tra sản phẩm trước khi đặt hàng',
+      icon: Icons.shopping_bag_outlined,
+      trailing: summary.items.isEmpty
+          ? null
+          : Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: CheckoutPalette.sage,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                '${summary.totalQuantity} sản phẩm',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: CheckoutPalette.forest,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-            const Divider(),
-            const SizedBox(height: 8),
-            CheckoutTotalSection(
-              subtotal: summary.subtotal,
-              tax: summary.tax,
-              shippingFee: summary.shippingFee,
-              grandTotal: summary.grandTotal,
             ),
-            const SizedBox(height: 12),
-            Text(
-              'Final totals are calculated and confirmed by the server.',
-              style: Theme.of(context).textTheme.bodySmall,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (summary.items.isEmpty)
+            const _CartIntegrationPlaceholder()
+          else
+            ...summary.items.indexed.map(
+              (entry) => Padding(
+                padding: EdgeInsets.only(
+                  bottom: entry.$1 == summary.items.length - 1 ? 0 : 14,
+                ),
+                child: _SummaryItem(item: entry.$2),
+              ),
             ),
-          ],
-        ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 18),
+            child: Divider(),
+          ),
+          CheckoutTotalSection(
+            subtotal: summary.subtotal,
+            tax: summary.tax,
+            shippingFee: summary.shippingFee,
+            grandTotal: summary.grandTotal,
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: CheckoutPalette.field,
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Row(
+              children: <Widget>[
+                const Icon(
+                  Icons.verified_user_outlined,
+                  size: 18,
+                  color: CheckoutPalette.forest,
+                ),
+                const SizedBox(width: 9),
+                Expanded(
+                  child: Text(
+                    'Tổng tiền cuối cùng sẽ được máy chủ tính toán và xác nhận.',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: CheckoutPalette.mutedText,
+                      height: 1.35,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -60,18 +98,9 @@ class _SummaryItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: <Widget>[
-        Container(
-          width: 40,
-          height: 40,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text('${item.quantity}×'),
-        ),
+        _ProductThumbnail(imageUrl: item.imageUrl),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -81,12 +110,17 @@ class _SummaryItem extends StatelessWidget {
                 item.name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodyLarge,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: CheckoutPalette.text,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
-                formatVnd(item.unitPrice),
-                style: Theme.of(context).textTheme.bodySmall,
+                'Số lượng: ${item.quantity} · Đơn giá: ${formatVnd(item.unitPrice)}',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: CheckoutPalette.mutedText,
+                ),
               ),
             ],
           ),
@@ -94,11 +128,46 @@ class _SummaryItem extends StatelessWidget {
         const SizedBox(width: 12),
         Text(
           formatVnd(item.subtotal),
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: CheckoutPalette.forest,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ],
+    );
+  }
+}
+
+class _ProductThumbnail extends StatelessWidget {
+  const _ProductThumbnail({this.imageUrl});
+
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final fallback = Container(
+      color: CheckoutPalette.sage,
+      alignment: Alignment.center,
+      child: const Icon(
+        Icons.local_florist_outlined,
+        color: CheckoutPalette.forest,
+        size: 23,
+      ),
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(13),
+      child: SizedBox(
+        width: 52,
+        height: 52,
+        child: imageUrl == null || imageUrl!.isEmpty
+            ? fallback
+            : Image.network(
+                imageUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, _, _) => fallback,
+              ),
+      ),
     );
   }
 }
@@ -108,20 +177,32 @@ class _CartIntegrationPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Nhận dữ liệu giỏ hàng thật sau khi Shopping Cart feature được merge
+    // TODO: Nhận dữ liệu giỏ hàng thật sau khi module Giỏ hàng được merge
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: <Widget>[
-          const Icon(Icons.shopping_bag_outlined),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              'Cart items will appear here after cart integration.',
-              style: Theme.of(context).textTheme.bodyMedium,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: CheckoutPalette.field,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: <Widget>[
+            const Icon(
+              Icons.shopping_bag_outlined,
+              color: CheckoutPalette.forest,
             ),
-          ),
-        ],
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Sản phẩm sẽ hiển thị tại đây sau khi tích hợp Giỏ hàng.',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: CheckoutPalette.mutedText,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

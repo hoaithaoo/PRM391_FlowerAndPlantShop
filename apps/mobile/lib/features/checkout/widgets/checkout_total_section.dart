@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../utils/checkout_theme.dart';
 import '../utils/currency_formatter.dart';
 
 class CheckoutTotalSection extends StatelessWidget {
@@ -20,19 +21,26 @@ class CheckoutTotalSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: <Widget>[
-        _TotalRow(label: 'Subtotal', value: formatVnd(subtotal)),
-        const SizedBox(height: 8),
-        _TotalRow(label: 'Tax', value: formatVnd(tax)),
-        const SizedBox(height: 8),
-        _TotalRow(label: 'Shipping fee', value: formatVnd(shippingFee)),
+        _TotalRow(label: 'Tạm tính', value: formatVnd(subtotal)),
+        const SizedBox(height: 10),
+        _TotalRow(label: 'Thuế', value: formatVnd(tax)),
+        const SizedBox(height: 10),
+        _TotalRow(label: 'Phí vận chuyển', value: formatVnd(shippingFee)),
         const Padding(
-          padding: EdgeInsets.symmetric(vertical: 12),
-          child: Divider(height: 1),
+          padding: EdgeInsets.symmetric(vertical: 14),
+          child: Divider(),
         ),
-        _TotalRow(
-          label: 'Grand total',
-          value: formatVnd(grandTotal),
-          emphasized: true,
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+          decoration: BoxDecoration(
+            color: CheckoutPalette.sage,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: _TotalRow(
+            label: 'Tổng thanh toán',
+            value: formatVnd(grandTotal),
+            emphasized: true,
+          ),
         ),
       ],
     );
@@ -53,15 +61,29 @@ class _TotalRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final style = emphasized
-        ? theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)
-        : theme.textTheme.bodyMedium;
+    final labelStyle = emphasized
+        ? theme.textTheme.titleMedium?.copyWith(
+            color: CheckoutPalette.forest,
+            fontWeight: FontWeight.w700,
+          )
+        : theme.textTheme.bodyMedium?.copyWith(
+            color: CheckoutPalette.mutedText,
+          );
+    final valueStyle = emphasized
+        ? theme.textTheme.titleMedium?.copyWith(
+            color: CheckoutPalette.forest,
+            fontWeight: FontWeight.w800,
+          )
+        : theme.textTheme.bodyMedium?.copyWith(
+            color: CheckoutPalette.text,
+            fontWeight: FontWeight.w600,
+          );
 
     return Row(
       children: <Widget>[
-        Expanded(child: Text(label, style: style)),
+        Expanded(child: Text(label, style: labelStyle)),
         const SizedBox(width: 16),
-        Text(value, style: style),
+        Text(value, style: valueStyle),
       ],
     );
   }
