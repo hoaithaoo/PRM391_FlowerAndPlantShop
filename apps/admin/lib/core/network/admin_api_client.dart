@@ -129,6 +129,82 @@ class AdminApiClient {
 
     final totalOrders = (142 * scale).round().clamp(1, 1000);
     final paidRevenue = 74650000 * scale;
+    final netProfit = paidRevenue * 0.385; // 38.5% margin
+
+    final dailyProfits = [
+      DailyProfitRecord(
+        date: 'Hôm nay',
+        revenue: 3850000,
+        cost: 2350000,
+        profit: 1500000,
+        profitMargin: 38.9,
+        orderCount: 8,
+      ),
+      DailyProfitRecord(
+        date: 'Hôm qua',
+        revenue: 4200000,
+        cost: 2500000,
+        profit: 1700000,
+        profitMargin: 40.5,
+        orderCount: 11,
+      ),
+      DailyProfitRecord(
+        date: '06/10',
+        revenue: 3100000,
+        cost: 1950000,
+        profit: 1150000,
+        profitMargin: 37.1,
+        orderCount: 7,
+      ),
+      DailyProfitRecord(
+        date: '05/10',
+        revenue: 5600000,
+        cost: 3300000,
+        profit: 2300000,
+        profitMargin: 41.0,
+        orderCount: 14,
+      ),
+      DailyProfitRecord(
+        date: '04/10',
+        revenue: 2900000,
+        cost: 1800000,
+        profit: 1100000,
+        profitMargin: 37.9,
+        orderCount: 6,
+      ),
+    ];
+
+    const feedbackSummary = CustomerFeedbackSummary(
+      averageRating: 4.9,
+      totalReviews: 128,
+      satisfactionRate: 96.5,
+      recentReviews: [
+        CustomerFeedbackItem(
+          id: 'fb-1',
+          customerName: 'Nguyễn Mai Anh',
+          rating: 5,
+          comment: 'Hoa tươi Đà Lạt thơm ngát, giao bọc chống sốc rất kỹ, shipper nhiệt tình!',
+          timeAgo: '15 phút trước',
+          productName: 'Bó Hoa Cẩm Tú Cầu Xanh',
+        ),
+        CustomerFeedbackItem(
+          id: 'fb-2',
+          customerName: 'Trần Hoàng Nam',
+          rating: 5,
+          comment: 'Chậu gốm tráng men mộc đẹp tinh tế, cây kim ngân xanh mướt để bàn làm việc rất ưng ý.',
+          timeAgo: '2 giờ trước',
+          productName: 'Chậu Kim Ngân Để Bàn Gốm Bát Tràng',
+        ),
+        CustomerFeedbackItem(
+          id: 'fb-3',
+          customerName: 'Lê Thu Hà',
+          rating: 5,
+          comment: 'Shop viết thiệp tay rất đẹp, giao đúng khung giờ hẹn mừng tân gia bạn bè.',
+          timeAgo: '5 giờ trước',
+          productName: 'Lan Hồ Điệp Hoàng Gia (5 cành)',
+        ),
+      ],
+    );
 
     return DashboardStatsModel(
       revenueToday: 3850000,
@@ -139,6 +215,10 @@ class AdminApiClient {
       lowStockProducts: 4,
       totalUsers: 128,
       paidRevenue: paidRevenue,
+      netProfit: netProfit,
+      profitMargin: 38.5,
+      dailyProfits: dailyProfits,
+      feedbackSummary: feedbackSummary,
       dateRangeLabel: label,
       from: from,
       to: to,
