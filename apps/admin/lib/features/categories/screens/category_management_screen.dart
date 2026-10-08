@@ -218,7 +218,7 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                           ),
                         )
                       : ListView.separated(
-                          padding: const EdgeInsets.all(16.0),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 88),
                           itemCount: filteredCategories.length,
                           separatorBuilder: (_, __) => const SizedBox(height: 12),
                           itemBuilder: (context, index) {
@@ -245,14 +245,14 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
         side: const BorderSide(color: AppColors.border),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(14.0),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Category Icon Avatar
             Container(
-              width: 48,
-              height: 48,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: AppColors.primaryLight.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(10),
@@ -261,33 +261,38 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                 child: Text(
                   category.name.isNotEmpty ? category.name[0].toUpperCase() : 'C',
                   style: GoogleFonts.cormorantGaramond(
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: FontWeight.w700,
                     color: AppColors.primary,
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 12),
 
             // Content
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
+                  Text(
+                    category.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textHeading,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Text(
-                        category.name,
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.textLight,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppColors.surfacePastel,
                           borderRadius: BorderRadius.circular(6),
@@ -295,12 +300,28 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                         ),
                         child: Text(
                           category.slug,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: GoogleFonts.plusJakartaSans(
                             fontSize: 11,
                             color: AppColors.textMuted,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
+                      ),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.sort, size: 13, color: AppColors.textMuted),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Thứ tự: ${category.sortOrder}',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 11,
+                              color: AppColors.textMuted,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -309,38 +330,28 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                     Text(
                       category.description!,
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 13,
+                        fontSize: 12,
                         color: AppColors.textMuted,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      const Icon(Icons.sort, size: 14, color: AppColors.textMuted),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Thứ tự: ${category.sortOrder}',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 12,
-                          color: AppColors.textMuted,
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             ),
+
+            const SizedBox(width: 8),
 
             // Action Buttons
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 20),
+                  icon: const Icon(Icons.edit_outlined, color: AppColors.primary, size: 19),
                   tooltip: 'Chỉnh sửa',
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
                   onPressed: () {
                     showDialog(
                       context: context,
@@ -351,9 +362,12 @@ class _CategoryManagementScreenState extends State<CategoryManagementScreen> {
                     );
                   },
                 ),
+                const SizedBox(width: 6),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: AppColors.statusCancelled, size: 20),
+                  icon: const Icon(Icons.delete_outline, color: AppColors.statusCancelled, size: 19),
                   tooltip: 'Xóa danh mục',
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
                   onPressed: () => _confirmDelete(category),
                 ),
               ],
