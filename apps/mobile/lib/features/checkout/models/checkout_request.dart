@@ -5,8 +5,8 @@ class CheckoutRequest {
     required this.receiverName,
     required this.phone,
     required this.address,
-    required this.latitude,
-    required this.longitude,
+    this.latitude,
+    this.longitude,
     required this.paymentMethod,
     this.note,
   });
@@ -14,8 +14,8 @@ class CheckoutRequest {
   final String receiverName;
   final String phone;
   final String address;
-  final double latitude;
-  final double longitude;
+  final double? latitude;
+  final double? longitude;
   final PaymentMethod paymentMethod;
   final String? note;
 
@@ -24,8 +24,8 @@ class CheckoutRequest {
       'receiverName': receiverName,
       'phone': phone,
       'address': address,
-      'latitude': latitude,
-      'longitude': longitude,
+      if (latitude != null) 'latitude': latitude,
+      if (longitude != null) 'longitude': longitude,
       'paymentMethod': paymentMethod.apiValue,
       if (note != null && note!.isNotEmpty) 'note': note,
     };

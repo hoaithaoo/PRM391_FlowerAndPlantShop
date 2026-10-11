@@ -6,6 +6,8 @@ class CheckoutSummaryItem {
     required this.unitPrice,
     required this.subtotal,
     this.imageUrl,
+    this.imageAsset,
+    this.variant,
   });
 
   final String productId;
@@ -14,6 +16,8 @@ class CheckoutSummaryItem {
   final num unitPrice;
   final num subtotal;
   final String? imageUrl;
+  final String? imageAsset;
+  final String? variant;
 }
 
 class CheckoutSummary {
@@ -23,6 +27,7 @@ class CheckoutSummary {
     required this.tax,
     required this.shippingFee,
     required this.grandTotal,
+    this.discount = 0,
   });
 
   final List<CheckoutSummaryItem> items;
@@ -30,6 +35,7 @@ class CheckoutSummary {
   final num tax;
   final num shippingFee;
   final num grandTotal;
+  final num discount;
 
   int get totalQuantity {
     return items.fold<int>(0, (total, item) => total + item.quantity);
