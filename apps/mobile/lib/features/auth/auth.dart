@@ -1,0 +1,12 @@
+export 'auth_routes.dart';
+export 'data/auth_failure.dart';
+export 'data/auth_repository.dart';
+export 'data/auth_scope.dart';
+export 'data/mock_auth_repository.dart';
+export 'data/supabase_auth_repository.dart';
+export 'models/auth_models.dart';
+export 'screens/login_gate_screen.dart';
+export 'screens/login_screen.dart';
+export 'screens/otp_verification_screen.dart';
+export 'screens/register_screen.dart';
+export 'utils/auth_theme.dart';
