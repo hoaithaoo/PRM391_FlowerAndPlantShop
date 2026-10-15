@@ -7,6 +7,31 @@ import { errorHandler } from "./middlewares/error-handler";
 import { AppError } from "./common/errors/app-error";
 import { ErrorCodes } from "./common/errors/error-codes";
 import { profileRoutes } from "./modules/profiles/profile.routes";
+import { authMiddleware } from "./middlewares/auth.middleware";
+import { profileMiddleware } from "./middlewares/profile.middleware";
+import { accountStatusMiddleware } from "./middlewares/account-status.middleware";
+import { createChatbotRoutes } from "./modules/chatbot/chatbot.routes";
+import { PrismaChatbotRepository } from "./modules/chatbot/prisma-chatbot.repository";
+import { GeminiChatbotProvider } from "./modules/chatbot/gemini.provider";
+import { ChatbotService } from "./modules/chatbot/chatbot.service";
+
+const chatbotRepository = new PrismaChatbotRepository(undefined, env.GEMINI_TIMEOUT_MS + 10_000);
+const chatbotProvider = new GeminiChatbotProvider({
+  apiKey: env.GEMINI_API_KEY ?? "",
+  model: env.GEMINI_MODEL,
+  baseUrl: env.GEMINI_API_BASE_URL,
+  timeoutMs: env.GEMINI_TIMEOUT_MS,
+});
+const chatbotService = new ChatbotService({
+  repository: chatbotRepository,
+  provider: chatbotProvider,
+  rateLimitMs: env.CHATBOT_RATE_LIMIT_MS,
+});
+const chatbotRoutes = createChatbotRoutes(chatbotService, [
+  authMiddleware,
+  profileMiddleware,
+  accountStatusMiddleware,
+]);
 
 export const createApp = (): Application => {
   const app = express();
@@ -39,6 +64,7 @@ export const createApp = (): Application => {
 
   // 3. API Routes v1
   app.use("/api/v1/profile", profileRoutes);
+  app.use("/api/v1/chatbot", chatbotRoutes);
 
   // 4. Fallback 404 handler
   app.use((req: Request, _res: Response, next: NextFunction) => {
