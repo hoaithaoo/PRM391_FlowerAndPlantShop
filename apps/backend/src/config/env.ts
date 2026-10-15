@@ -15,6 +15,11 @@ const envSchema = z
     SUPABASE_ANON_KEY: z.string().min(1).optional(),
     SEPAY_WEBHOOK_SECRET: z.string().optional(),
     CORS_ORIGIN: z.string().default("*"),
+    GEMINI_API_KEY: z.string().min(1).optional(),
+    GEMINI_MODEL: z.string().min(1).default("gemini-2.5-flash"),
+    GEMINI_API_BASE_URL: z.string().url().default("https://generativelanguage.googleapis.com/v1beta"),
+    GEMINI_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),
+    CHATBOT_RATE_LIMIT_MS: z.coerce.number().int().min(0).default(1000),
   })
   .superRefine((value, context) => {
     const hasSupabaseKey = value.SUPABASE_PUBLISHABLE_KEY || value.SUPABASE_ANON_KEY;
