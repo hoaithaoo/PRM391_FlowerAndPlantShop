@@ -3,12 +3,12 @@ import { z } from "zod";
 
 import { AppError } from "../../common/errors/app-error";
 import { ErrorCodes } from "../../common/errors/error-codes";
+import { logger } from "../../lib/logger";
 import { SendChatbotMessageInput } from "./chatbot.schema";
 import { ChatbotProvider, VerifiedIncidentContext } from "./chatbot.provider";
 import {
   ChatbotCatalogProduct,
   ChatbotRepository,
-  ChatbotRepositorySession,
   OwnedOrderContext,
   OwnedPaymentContext,
 } from "./chatbot.repository";
@@ -49,43 +49,50 @@ interface ChatbotServiceOptions {
   repository: ChatbotRepository;
   provider: ChatbotProvider;
   rateLimitMs: number;
-  now?: () => Date;
+  sendLeaseMs: number;
   newId?: () => string;
 }
 
 export class ChatbotService {
-  private readonly now: () => Date;
   private readonly newId: () => string;
 
   constructor(private readonly options: ChatbotServiceOptions) {
-    this.now = options.now ?? (() => new Date());
     this.newId = options.newId ?? randomUUID;
   }
 
   async sendMessage(userId: string, input: SendChatbotMessageInput): Promise<SendChatbotMessageResult> {
-    return this.options.repository.withUserSendLock(userId, async (session) => {
-      const conversationId = input.conversationId ?? this.newId();
-      const createConversation = !input.conversationId;
+    const repository = this.options.repository;
+    const conversationId = input.conversationId ?? this.newId();
+    const createConversation = !input.conversationId;
 
-      if (input.conversationId) {
-        const conversation = await session.findOwnedConversation(input.conversationId, userId);
-        if (!conversation) {
-          throw new AppError(
-            404,
-            ErrorCodes.CHATBOT_CONVERSATION_NOT_FOUND,
-            "Không tìm thấy phiên chatbot."
-          );
-        }
+    if (input.conversationId) {
+      const conversation = await repository.findOwnedConversation(input.conversationId, userId);
+      if (!conversation) {
+        throw new AppError(
+          404,
+          ErrorCodes.CHATBOT_CONVERSATION_NOT_FOUND,
+          "Không tìm thấy phiên chatbot."
+        );
       }
+    }
 
-      await this.enforceRateLimit(session, userId);
-      const contextProduct = await this.verifyProductContext(session, input.productId);
-      const incidentContext = await this.verifyIncidentContext(session, userId, input.context);
-      const catalogProducts = await session.listCatalogProducts(50);
-      const history = input.conversationId
-        ? await session.findRecentMessages(input.conversationId, 12)
-        : [];
+    const contextProduct = await this.verifyProductContext(repository, input.productId);
+    const incidentContext = await this.verifyIncidentContext(repository, userId, input.context);
+    const catalogProducts = await repository.listCatalogProducts(50);
+    const history = input.conversationId
+      ? await repository.findRecentMessages(input.conversationId, 12)
+      : [];
 
+    const acquired = await repository.tryAcquireSendSlot(
+      userId,
+      this.options.rateLimitMs,
+      this.options.sendLeaseMs
+    );
+    if (!acquired) {
+      throw new AppError(429, ErrorCodes.CHATBOT_RATE_LIMITED, "Bạn đang gửi tin nhắn quá nhanh.");
+    }
+
+    try {
       const providerResult = await this.options.provider.generate({
         message: input.message,
         history: history.map(({ role, content }) => ({ role, content })),
@@ -111,7 +118,7 @@ export class ChatbotService {
         ? this.buildIncidentAction(conversationId, providerResult.actionDraft, incidentContext)
         : null;
       const assistantMetadata: ChatbotMessageMetadata = { suggestedProducts, action };
-      const exchange = await session.createExchange({
+      const exchange = await repository.createExchange({
         conversationId,
         createConversation,
         userId,
@@ -129,7 +136,13 @@ export class ChatbotService {
         action,
         createdAt: exchange.createdAt.toISOString(),
       };
-    });
+    } finally {
+      try {
+        await repository.releaseSendSlot(userId);
+      } catch (error) {
+        logger.error("Failed to release chatbot send slot", { userId, error });
+      }
+    }
   }
 
   async getHistory(userId: string, conversationId: string, page: number): Promise<ChatbotHistoryResult> {
@@ -164,19 +177,12 @@ export class ChatbotService {
     }
   }
 
-  private async enforceRateLimit(session: ChatbotRepositorySession, userId: string): Promise<void> {
-    const lastMessageAt = await session.findLastUserMessageAt(userId);
-    if (lastMessageAt && this.now().getTime() - lastMessageAt.getTime() < this.options.rateLimitMs) {
-      throw new AppError(429, ErrorCodes.CHATBOT_RATE_LIMITED, "Bạn đang gửi tin nhắn quá nhanh.");
-    }
-  }
-
   private async verifyProductContext(
-    session: ChatbotRepositorySession,
+    repository: ChatbotRepository,
     productId: string | null | undefined
   ): Promise<ChatbotCatalogProduct | null> {
     if (!productId) return null;
-    const product = await session.findProductById(productId);
+    const product = await repository.findProductById(productId);
     if (!product) {
       throw new AppError(404, ErrorCodes.PRODUCT_NOT_FOUND, "Không tìm thấy sản phẩm.");
     }
@@ -184,7 +190,7 @@ export class ChatbotService {
   }
 
   private async verifyIncidentContext(
-    session: ChatbotRepositorySession,
+    repository: ChatbotRepository,
     userId: string,
     context: SendChatbotMessageInput["context"]
   ): Promise<VerifiedIncidentContext | null> {
@@ -193,13 +199,13 @@ export class ChatbotService {
     let order: OwnedOrderContext | null = null;
     let payment: OwnedPaymentContext | null = null;
     if (context.orderId) {
-      order = await session.findOwnedOrder(userId, context.orderId);
+      order = await repository.findOwnedOrder(userId, context.orderId);
       if (!order) {
         throw new AppError(404, ErrorCodes.ORDER_NOT_FOUND, "Không tìm thấy đơn hàng.");
       }
     }
     if (context.paymentId) {
-      payment = await session.findOwnedPayment(userId, context.paymentId);
+      payment = await repository.findOwnedPayment(userId, context.paymentId);
       if (!payment || (order && payment.orderId !== order.id)) {
         throw new AppError(404, ErrorCodes.PAYMENT_NOT_FOUND, "Không tìm thấy thanh toán.");
       }

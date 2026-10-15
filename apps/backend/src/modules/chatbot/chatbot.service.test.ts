@@ -13,7 +13,6 @@ import {
   ChatbotExchangeInput,
   ChatbotExchangeResult,
   ChatbotRepository,
-  ChatbotRepositorySession,
   OwnedOrderContext,
   OwnedPaymentContext,
   StoredChatbotMessage,
@@ -46,21 +45,19 @@ class FakeProvider implements ChatbotProvider {
   }
 }
 
-class FakeRepository implements ChatbotRepository, ChatbotRepositorySession {
+class FakeRepository implements ChatbotRepository {
   conversations = new Map<string, ChatbotConversationRecord>();
   products: ChatbotCatalogProduct[] = [];
   orders = new Map<string, OwnedOrderContext>();
   payments = new Map<string, OwnedPaymentContext>();
   recentMessages: StoredChatbotMessage[] = [];
-  lastUserMessageAt: Date | null = null;
   exchanges: ChatbotExchangeInput[] = [];
   historyPage: { items: StoredChatbotMessage[]; total: number } = { items: [], total: 0 };
   historyRequests: Array<{ conversationId: string; page: number; pageSize: number }> = [];
   deleteCalls: Array<{ conversationId: string; userId: string }> = [];
-
-  async withUserSendLock<T>(_userId: string, work: (session: ChatbotRepositorySession) => Promise<T>): Promise<T> {
-    return work(this);
-  }
+  sendInFlight = false;
+  lastFinishedAt: Date | null = null;
+  databaseNow = NOW;
 
   async findOwnedConversation(id: string, userId: string): Promise<ChatbotConversationRecord | null> {
     const conversation = this.conversations.get(id);
@@ -89,12 +86,15 @@ class FakeRepository implements ChatbotRepository, ChatbotRepositorySession {
     return payment?.userId === userId ? payment : null;
   }
 
-  async findLastUserMessageAt(): Promise<Date | null> {
-    return this.lastUserMessageAt;
-  }
-
   async createExchange(input: ChatbotExchangeInput): Promise<ChatbotExchangeResult> {
     this.exchanges.push(input);
+    if (input.createConversation) {
+      this.conversations.set(input.conversationId, {
+        id: input.conversationId,
+        userId: input.userId,
+        title: input.title,
+      });
+    }
     return {
       conversationId: input.conversationId,
       assistantMessageId: ASSISTANT_MESSAGE_ID,
@@ -114,6 +114,37 @@ class FakeRepository implements ChatbotRepository, ChatbotRepositorySession {
     this.conversations.delete(conversationId);
     return true;
   }
+
+  async tryAcquireSendSlot(_userId: string, rateLimitMs: number): Promise<boolean> {
+    if (this.sendInFlight) return false;
+    if (this.lastFinishedAt && this.databaseNow.getTime() - this.lastFinishedAt.getTime() < rateLimitMs) {
+      return false;
+    }
+    this.sendInFlight = true;
+    return true;
+  }
+
+  async releaseSendSlot(): Promise<void> {
+    this.sendInFlight = false;
+    this.lastFinishedAt = this.databaseNow;
+  }
+}
+
+class BlockingProvider implements ChatbotProvider {
+  calls: ChatbotProviderInput[] = [];
+  private resolveResult!: (value: ChatbotProviderResult) => void;
+  private readonly pending = new Promise<ChatbotProviderResult>((resolve) => {
+    this.resolveResult = resolve;
+  });
+
+  async generate(input: ChatbotProviderInput): Promise<ChatbotProviderResult> {
+    this.calls.push(input);
+    return this.pending;
+  }
+
+  finish(): void {
+    this.resolveResult({ reply: "Xong", suggestedProductIds: [], actionDraft: null });
+  }
 }
 
 function product(overrides: Partial<ChatbotCatalogProduct> = {}): ChatbotCatalogProduct {
@@ -129,12 +160,12 @@ function product(overrides: Partial<ChatbotCatalogProduct> = {}): ChatbotCatalog
   };
 }
 
-function service(repository: FakeRepository, provider: FakeProvider): ChatbotService {
+function service(repository: FakeRepository, provider: ChatbotProvider): ChatbotService {
   return new ChatbotService({
     repository,
     provider,
     rateLimitMs: 1000,
-    now: () => NOW,
+    sendLeaseMs: 25_000,
     newId: () => CONVERSATION_ID,
   });
 }
@@ -260,13 +291,48 @@ describe("ChatbotService.sendMessage", () => {
 
   test("rejects rapid messages while holding the per-user send lock", async () => {
     const repository = new FakeRepository();
-    repository.lastUserMessageAt = new Date(NOW.getTime() - 500);
+    repository.lastFinishedAt = new Date(NOW.getTime() - 500);
     const provider = new FakeProvider();
 
     await assert.rejects(service(repository, provider).sendMessage(USER_ID, { message: "Lần hai" }), (error: unknown) => {
       return error instanceof AppError && error.statusCode === 429 && error.code === "CHATBOT_RATE_LIMITED";
     });
     assert.equal(provider.calls.length, 0);
+  });
+
+  test("rejects an overlapping send while the first provider call is still running", async () => {
+    const repository = new FakeRepository();
+    const provider = new BlockingProvider();
+    const chatbot = service(repository, provider);
+
+    const first = chatbot.sendMessage(USER_ID, { message: "Tin đầu" });
+    while (provider.calls.length === 0) await new Promise((resolve) => setImmediate(resolve));
+
+    const second = chatbot.sendMessage(USER_ID, { message: "Tin đồng thời" });
+    const secondOutcome = await Promise.race([
+      second.then(
+        () => "resolved" as const,
+        (error: unknown) => error
+      ),
+      new Promise<"pending">((resolve) => setTimeout(() => resolve("pending"), 20)),
+    ]);
+    provider.finish();
+    await Promise.allSettled([first, second]);
+
+    assert.equal(secondOutcome instanceof AppError && secondOutcome.code === "CHATBOT_RATE_LIMITED", true);
+    assert.equal(provider.calls.length, 1);
+  });
+
+  test("keeps per-user cooldown state after deleting conversation history", async () => {
+    const repository = new FakeRepository();
+    const chatbot = service(repository, new FakeProvider());
+
+    const first = await chatbot.sendMessage(USER_ID, { message: "Tin đầu" });
+    await chatbot.deleteConversation(USER_ID, first.conversationId);
+
+    await assert.rejects(chatbot.sendMessage(USER_ID, { message: "Tin ngay sau khi xóa" }), (error: unknown) => {
+      return error instanceof AppError && error.code === "CHATBOT_RATE_LIMITED";
+    });
   });
 });
 

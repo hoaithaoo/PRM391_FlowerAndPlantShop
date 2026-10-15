@@ -15,7 +15,7 @@ import { PrismaChatbotRepository } from "./modules/chatbot/prisma-chatbot.reposi
 import { GeminiChatbotProvider } from "./modules/chatbot/gemini.provider";
 import { ChatbotService } from "./modules/chatbot/chatbot.service";
 
-const chatbotRepository = new PrismaChatbotRepository(undefined, env.GEMINI_TIMEOUT_MS + 10_000);
+const chatbotRepository = new PrismaChatbotRepository();
 const chatbotProvider = new GeminiChatbotProvider({
   apiKey: env.GEMINI_API_KEY ?? "",
   model: env.GEMINI_MODEL,
@@ -26,6 +26,7 @@ const chatbotService = new ChatbotService({
   repository: chatbotRepository,
   provider: chatbotProvider,
   rateLimitMs: env.CHATBOT_RATE_LIMIT_MS,
+  sendLeaseMs: env.GEMINI_TIMEOUT_MS + 10_000,
 });
 const chatbotRoutes = createChatbotRoutes(chatbotService, [
   authMiddleware,
