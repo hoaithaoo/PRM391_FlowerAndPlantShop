@@ -29,6 +29,7 @@ export interface ChatbotProviderInput {
   message: string;
   history: ChatbotProviderMessage[];
   catalogProducts: ChatbotProviderProduct[];
+  contextProduct: ChatbotProviderProduct | null;
   incidentContext: VerifiedIncidentContext | null;
 }
 

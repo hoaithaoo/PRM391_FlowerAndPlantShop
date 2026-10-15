@@ -18,6 +18,7 @@ const input = {
       price: "120000",
     },
   ],
+  contextProduct: null,
   incidentContext: null,
 };
 

@@ -74,6 +74,7 @@ export class GeminiChatbotProvider implements ChatbotProvider {
                 {
                   text: JSON.stringify({
                     message: input.message,
+                    contextProduct: input.contextProduct,
                     catalogProducts: input.catalogProducts,
                     incidentContext: input.incidentContext,
                   }),
