@@ -354,9 +354,9 @@ model ChatbotMessage {
 }
 
 model ChatbotRateLimit {
-  userId          String    @id @map("user_id") @db.Uuid
-  lastFinishedAt  DateTime? @map("last_finished_at") @db.Timestamptz(3)
-  inFlightUntil   DateTime  @map("in_flight_until") @db.Timestamptz(3)
+  userId         String    @id @map("user_id") @db.Uuid
+  lastFinishedAt DateTime? @map("last_finished_at") @db.Timestamptz(3)
+  inFlightUntil  DateTime  @map("in_flight_until") @db.Timestamptz(3)
 
   user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
