@@ -6,6 +6,7 @@ import {
   ChatbotConversationRecord,
   ChatbotExchangeInput,
   ChatbotExchangeResult,
+  ChatbotHistoryPage,
   ChatbotRepository,
   ChatbotRepositorySession,
   OwnedOrderContext,
@@ -32,6 +33,34 @@ export class PrismaChatbotRepository implements ChatbotRepository {
       },
       { timeout: this.transactionTimeoutMs }
     );
+  }
+
+  async findOwnedConversation(id: string, userId: string): Promise<ChatbotConversationRecord | null> {
+    return this.client.chatbotConversation.findFirst({
+      where: { id, userId },
+      select: { id: true, userId: true, title: true },
+    });
+  }
+
+  async getMessages(conversationId: string, page: number, pageSize: number): Promise<ChatbotHistoryPage> {
+    const [rows, total] = await this.client.$transaction([
+      this.client.chatbotMessage.findMany({
+        where: { conversationId },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: { id: true, role: true, content: true, metadata: true, createdAt: true },
+      }),
+      this.client.chatbotMessage.count({ where: { conversationId } }),
+    ]);
+    return { items: rows.reverse(), total };
+  }
+
+  async deleteOwnedConversation(conversationId: string, userId: string): Promise<boolean> {
+    const result = await this.client.chatbotConversation.deleteMany({
+      where: { id: conversationId, userId },
+    });
+    return result.count === 1;
   }
 }
 

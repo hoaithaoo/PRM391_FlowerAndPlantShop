@@ -54,6 +54,9 @@ class FakeRepository implements ChatbotRepository, ChatbotRepositorySession {
   recentMessages: StoredChatbotMessage[] = [];
   lastUserMessageAt: Date | null = null;
   exchanges: ChatbotExchangeInput[] = [];
+  historyPage: { items: StoredChatbotMessage[]; total: number } = { items: [], total: 0 };
+  historyRequests: Array<{ conversationId: string; page: number; pageSize: number }> = [];
+  deleteCalls: Array<{ conversationId: string; userId: string }> = [];
 
   async withUserSendLock<T>(_userId: string, work: (session: ChatbotRepositorySession) => Promise<T>): Promise<T> {
     return work(this);
@@ -97,6 +100,19 @@ class FakeRepository implements ChatbotRepository, ChatbotRepositorySession {
       assistantMessageId: ASSISTANT_MESSAGE_ID,
       createdAt: NOW,
     };
+  }
+
+  async getMessages(conversationId: string, page: number, pageSize: number) {
+    this.historyRequests.push({ conversationId, page, pageSize });
+    return this.historyPage;
+  }
+
+  async deleteOwnedConversation(conversationId: string, userId: string): Promise<boolean> {
+    this.deleteCalls.push({ conversationId, userId });
+    const conversation = await this.findOwnedConversation(conversationId, userId);
+    if (!conversation) return false;
+    this.conversations.delete(conversationId);
+    return true;
   }
 }
 
@@ -251,5 +267,86 @@ describe("ChatbotService.sendMessage", () => {
       return error instanceof AppError && error.statusCode === 429 && error.code === "CHATBOT_RATE_LIMITED";
     });
     assert.equal(provider.calls.length, 0);
+  });
+});
+
+describe("ChatbotService history and deletion", () => {
+  test("returns chronological messages and restores assistant metadata", async () => {
+    const repository = new FakeRepository();
+    repository.conversations.set(CONVERSATION_ID, {
+      id: CONVERSATION_ID,
+      userId: USER_ID,
+      title: "Tư vấn cây",
+    });
+    repository.historyPage = {
+      total: 22,
+      items: [
+        {
+          id: "23232323-2323-4232-8232-232323232323",
+          role: "USER",
+          content: "Cho tôi xem cây này",
+          metadata: null,
+          createdAt: new Date("2026-10-15T09:00:00.000Z"),
+        },
+        {
+          id: ASSISTANT_MESSAGE_ID,
+          role: "ASSISTANT",
+          content: "Đây là sản phẩm phù hợp.",
+          metadata: {
+            suggestedProducts: [
+              {
+                id: PRODUCT_ID,
+                name: "Cây Lưỡi Hổ Mini",
+                price: "120000",
+                imageUrl: "https://example.com/plant.jpg",
+              },
+            ],
+            action: null,
+          },
+          createdAt: NOW,
+        },
+      ],
+    };
+
+    const result = await service(repository, new FakeProvider()).getHistory(USER_ID, CONVERSATION_ID, 2);
+
+    assert.deepEqual(repository.historyRequests, [{ conversationId: CONVERSATION_ID, page: 2, pageSize: 20 }]);
+    assert.equal(result.conversation.title, "Tư vấn cây");
+    assert.equal(result.items[0]?.role, "USER");
+    assert.deepEqual(result.items[0]?.suggestedProducts, []);
+    assert.deepEqual(result.items[1]?.suggestedProducts[0]?.id, PRODUCT_ID);
+    assert.equal(result.page, 2);
+    assert.equal(result.totalPages, 2);
+  });
+
+  test("returns the same not-found error for missing and foreign conversations", async () => {
+    const repository = new FakeRepository();
+    repository.conversations.set(CONVERSATION_ID, {
+      id: CONVERSATION_ID,
+      userId: OTHER_USER_ID,
+      title: null,
+    });
+    const chatbot = service(repository, new FakeProvider());
+
+    await assert.rejects(chatbot.getHistory(USER_ID, CONVERSATION_ID, 1), (error: unknown) => {
+      return error instanceof AppError && error.code === "CHATBOT_CONVERSATION_NOT_FOUND";
+    });
+    await assert.rejects(chatbot.deleteConversation(USER_ID, CONVERSATION_ID), (error: unknown) => {
+      return error instanceof AppError && error.code === "CHATBOT_CONVERSATION_NOT_FOUND";
+    });
+    assert.equal(repository.deleteCalls.length, 0);
+  });
+
+  test("deletes an owned conversation", async () => {
+    const repository = new FakeRepository();
+    repository.conversations.set(CONVERSATION_ID, {
+      id: CONVERSATION_ID,
+      userId: USER_ID,
+      title: null,
+    });
+
+    await service(repository, new FakeProvider()).deleteConversation(USER_ID, CONVERSATION_ID);
+
+    assert.deepEqual(repository.deleteCalls, [{ conversationId: CONVERSATION_ID, userId: USER_ID }]);
   });
 });

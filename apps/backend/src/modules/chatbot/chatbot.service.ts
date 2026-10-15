@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { z } from "zod";
 
 import { AppError } from "../../common/errors/app-error";
 import { ErrorCodes } from "../../common/errors/error-codes";
@@ -13,10 +14,36 @@ import {
 } from "./chatbot.repository";
 import {
   ChatbotAction,
+  ChatbotHistoryResult,
   ChatbotMessageMetadata,
   SendChatbotMessageResult,
   SuggestedProduct,
 } from "./chatbot.types";
+
+const HISTORY_PAGE_SIZE = 20;
+const messageMetadataSchema = z.object({
+  suggestedProducts: z.array(
+    z.object({
+      id: z.string().uuid(),
+      name: z.string(),
+      price: z.string(),
+      imageUrl: z.string().nullable(),
+    })
+  ),
+  action: z
+    .object({
+      type: z.literal("OPEN_INCIDENT_REPORT"),
+      draft: z.object({
+        category: z.string(),
+        title: z.string(),
+        description: z.string(),
+        orderId: z.string().uuid().nullable(),
+        paymentId: z.string().uuid().nullable(),
+        conversationId: z.string().uuid(),
+      }),
+    })
+    .nullable(),
+});
 
 interface ChatbotServiceOptions {
   repository: ChatbotRepository;
@@ -105,6 +132,38 @@ export class ChatbotService {
     });
   }
 
+  async getHistory(userId: string, conversationId: string, page: number): Promise<ChatbotHistoryResult> {
+    const conversation = await this.requireOwnedConversation(userId, conversationId);
+    const history = await this.options.repository.getMessages(conversationId, page, HISTORY_PAGE_SIZE);
+
+    return {
+      conversation: { id: conversation.id, title: conversation.title },
+      items: history.items.map((message) => {
+        const metadata = message.role === "ASSISTANT" ? messageMetadataSchema.safeParse(message.metadata) : null;
+        return {
+          id: message.id,
+          role: message.role,
+          content: message.content,
+          suggestedProducts: metadata?.success ? metadata.data.suggestedProducts : [],
+          action: metadata?.success ? metadata.data.action : null,
+          createdAt: message.createdAt.toISOString(),
+        };
+      }),
+      page,
+      pageSize: HISTORY_PAGE_SIZE,
+      total: history.total,
+      totalPages: Math.ceil(history.total / HISTORY_PAGE_SIZE),
+    };
+  }
+
+  async deleteConversation(userId: string, conversationId: string): Promise<void> {
+    await this.requireOwnedConversation(userId, conversationId);
+    const deleted = await this.options.repository.deleteOwnedConversation(conversationId, userId);
+    if (!deleted) {
+      throw this.conversationNotFound();
+    }
+  }
+
   private async enforceRateLimit(session: ChatbotRepositorySession, userId: string): Promise<void> {
     const lastMessageAt = await session.findLastUserMessageAt(userId);
     if (lastMessageAt && this.now().getTime() - lastMessageAt.getTime() < this.options.rateLimitMs) {
@@ -179,5 +238,15 @@ export class ChatbotService {
         conversationId,
       },
     };
+  }
+
+  private async requireOwnedConversation(userId: string, conversationId: string) {
+    const conversation = await this.options.repository.findOwnedConversation(conversationId, userId);
+    if (!conversation) throw this.conversationNotFound();
+    return conversation;
+  }
+
+  private conversationNotFound(): AppError {
+    return new AppError(404, ErrorCodes.CHATBOT_CONVERSATION_NOT_FOUND, "Không tìm thấy phiên chatbot.");
   }
 }

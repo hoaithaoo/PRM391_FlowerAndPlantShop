@@ -56,6 +56,11 @@ export interface ChatbotExchangeResult {
   createdAt: Date;
 }
 
+export interface ChatbotHistoryPage {
+  items: StoredChatbotMessage[];
+  total: number;
+}
+
 export interface ChatbotRepositorySession {
   findOwnedConversation(id: string, userId: string): Promise<ChatbotConversationRecord | null>;
   findRecentMessages(conversationId: string, limit: number): Promise<StoredChatbotMessage[]>;
@@ -69,4 +74,7 @@ export interface ChatbotRepositorySession {
 
 export interface ChatbotRepository {
   withUserSendLock<T>(userId: string, work: (session: ChatbotRepositorySession) => Promise<T>): Promise<T>;
+  findOwnedConversation(id: string, userId: string): Promise<ChatbotConversationRecord | null>;
+  getMessages(conversationId: string, page: number, pageSize: number): Promise<ChatbotHistoryPage>;
+  deleteOwnedConversation(conversationId: string, userId: string): Promise<boolean>;
 }
