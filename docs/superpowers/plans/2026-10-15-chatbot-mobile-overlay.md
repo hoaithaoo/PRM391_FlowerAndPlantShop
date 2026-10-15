@@ -110,9 +110,9 @@
 **Interfaces:**
 - Produces: a merge-ready feature branch stacked on `backend/feature/PFS-000-chatbot-api`.
 
-- [ ] Run `flutter analyze` and `flutter test` from `apps/mobile`.
-- [ ] Run `git diff --check` and verify no secret or environment value was introduced.
-- [ ] Record test output, integration instructions, and rebase guidance below.
+- [x] Run `flutter analyze` and `flutter test` from `apps/mobile`.
+- [x] Run `git diff --check` and verify no secret or environment value was introduced.
+- [x] Record test output, integration instructions, and rebase guidance below.
 
 ## Handoff Notes
 
@@ -120,4 +120,7 @@
 - Base while developing: `backend/feature/PFS-000-chatbot-api`
 - After the backend branch merges, rebase this branch onto the updated `main` before opening the mobile PR.
 - Do not replace callbacks with direct imports until the owning product-detail, checkout, and incident-report branches have merged.
-
+- Integration example: `apps/mobile/README.md`; the host wraps `MaterialApp.builder` and delegates navigation through callbacks.
+- Verification on 2026-10-15: `flutter analyze` reported no issues; all 16 Flutter tests passed.
+- Backend verification after adding comments: all 23 unit/API tests passed, TypeScript typecheck passed, and the PostgreSQL integration suite remained skipped without a configured test database.
+- `git diff --check` passed after removing the trailing blank line; the branch diff contains no `.env`, secret, or credential file.
