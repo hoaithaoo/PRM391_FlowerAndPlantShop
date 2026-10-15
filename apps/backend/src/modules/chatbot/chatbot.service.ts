@@ -76,6 +76,7 @@ export class ChatbotService {
       }
     }
 
+    // Chỉ đưa dữ liệu đã kiểm tra tồn tại và quyền sở hữu vào prompt của AI.
     const contextProduct = await this.verifyProductContext(repository, input.productId);
     const incidentContext = await this.verifyIncidentContext(repository, userId, input.context);
     const catalogProducts = await repository.listCatalogProducts(50);
@@ -83,6 +84,7 @@ export class ChatbotService {
       ? await repository.findRecentMessages(input.conversationId, 12)
       : [];
 
+    // Giữ slot trước khi gọi Gemini để chặn gửi trùng giữa nhiều instance backend.
     const acquired = await repository.tryAcquireSendSlot(
       userId,
       this.options.rateLimitMs,
@@ -223,6 +225,7 @@ export class ChatbotService {
 
   private resolveSuggestions(ids: string[], catalog: ChatbotCatalogProduct[]): SuggestedProduct[] {
     const products = new Map(catalog.map((product) => [product.id, product]));
+    // ID do AI trả về là dữ liệu không tin cậy; chỉ giữ sản phẩm còn bán trong catalog hiện tại.
     return [...new Set(ids)].flatMap((id) => {
       const product = products.get(id);
       if (!product || !product.isActive || product.stock <= 0) return [];

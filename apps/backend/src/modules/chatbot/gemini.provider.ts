@@ -104,6 +104,7 @@ export class GeminiChatbotProvider implements ChatbotProvider {
 
       return {
         ...parsed,
+        // Không chuyển tiếp mã sản phẩm do mô hình tự tạo sang mobile.
         suggestedProductIds: [...new Set(parsed.suggestedProductIds)].filter((id) => allowedProductIds.has(id)),
       };
     } catch (error) {

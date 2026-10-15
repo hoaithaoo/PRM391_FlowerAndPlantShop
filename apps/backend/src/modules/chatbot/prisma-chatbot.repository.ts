@@ -100,6 +100,7 @@ export class PrismaChatbotRepository implements ChatbotRepository {
   }
 
   async tryAcquireSendSlot(userId: string, cooldownMs: number, leaseMs: number): Promise<boolean> {
+    // Một UPSERT có điều kiện giúp việc cấp slot là atomic giữa các process backend.
     const rows = await this.client.$queryRaw<Array<{ user_id: string }>>(Prisma.sql`
       INSERT INTO "chatbot_rate_limits" ("user_id", "last_finished_at", "in_flight_until")
       VALUES (
@@ -131,6 +132,7 @@ export class PrismaChatbotRepository implements ChatbotRepository {
   }
 
   async createExchange(input: ChatbotExchangeInput): Promise<ChatbotExchangeResult> {
+    // Lưu cả câu hỏi và câu trả lời trong cùng transaction để lịch sử không bị lệch nửa lượt chat.
     return this.client.$transaction(async (transaction) => {
       if (input.createConversation) {
         await transaction.chatbotConversation.create({
@@ -182,6 +184,7 @@ export class PrismaChatbotRepository implements ChatbotRepository {
       }),
       this.client.chatbotMessage.count({ where: { conversationId } }),
     ]);
+    // Phân trang từ tin mới nhất nhưng trả từng trang theo thứ tự đọc từ cũ đến mới.
     return { items: rows.reverse(), total };
   }
 
