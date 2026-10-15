@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from "express";
-import { AnyZodObject, ZodError } from "zod";
+import { ZodError, ZodTypeAny } from "zod";
 import { AppError } from "../common/errors/app-error";
 import { ErrorCodes } from "../common/errors/error-codes";
 
 interface ValidationSchemas {
-  body?: AnyZodObject;
-  query?: AnyZodObject;
-  params?: AnyZodObject;
+  body?: ZodTypeAny;
+  query?: ZodTypeAny;
+  params?: ZodTypeAny;
 }
 
 /**
@@ -21,7 +21,15 @@ export const validateRequest = (schemas: ValidationSchemas) => {
         req.body = await schemas.body.parseAsync(req.body);
       }
       if (schemas.query) {
-        req.query = await schemas.query.parseAsync(req.query);
+        const parsedQuery = await schemas.query.parseAsync(req.query);
+        // Express 5 exposes req.query through a getter. Define an own property so
+        // controllers receive the parsed/coerced values without assigning to it.
+        Object.defineProperty(req, "query", {
+          value: parsedQuery,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
       }
       if (schemas.params) {
         req.params = await schemas.params.parseAsync(req.params);
@@ -29,11 +37,19 @@ export const validateRequest = (schemas: ValidationSchemas) => {
       next();
     } catch (error) {
       if (error instanceof ZodError) {
+        const isQueryOnlyValidation =
+          schemas.query !== undefined &&
+          schemas.body === undefined &&
+          schemas.params === undefined;
         return next(
           new AppError(
-            422,
-            ErrorCodes.VALIDATION_ERROR,
-            "Dữ liệu gửi lên không đúng định dạng.",
+            isQueryOnlyValidation ? 400 : 422,
+            isQueryOnlyValidation
+              ? ErrorCodes.BAD_REQUEST
+              : ErrorCodes.VALIDATION_ERROR,
+            isQueryOnlyValidation
+              ? "Tham số query không đúng định dạng."
+              : "Dữ liệu gửi lên không đúng định dạng.",
             error.flatten()
           )
         );
