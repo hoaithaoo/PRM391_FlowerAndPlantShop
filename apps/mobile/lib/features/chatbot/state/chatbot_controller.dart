@@ -58,10 +58,7 @@ class ChatbotController extends ChangeNotifier {
   Future<void> resume(String conversationId) async {
     if (_state.isBusy || conversationId.trim().isEmpty) return;
     _setState(
-      _state.copyWith(
-        status: ChatbotStatus.loadingHistory,
-        errorMessage: null,
-      ),
+      _state.copyWith(status: ChatbotStatus.loadingHistory, errorMessage: null),
     );
     try {
       final history = await _repository.getHistory(conversationId);
@@ -91,10 +88,7 @@ class ChatbotController extends ChangeNotifier {
       return;
     }
     _setState(
-      _state.copyWith(
-        status: ChatbotStatus.deleting,
-        errorMessage: null,
-      ),
+      _state.copyWith(status: ChatbotStatus.deleting, errorMessage: null),
     );
     try {
       await _repository.deleteConversation(conversationId);
@@ -111,9 +105,7 @@ class ChatbotController extends ChangeNotifier {
         _state.status != ChatbotStatus.authenticationRequired) {
       return;
     }
-    _setState(
-      _state.copyWith(status: ChatbotStatus.ready, errorMessage: null),
-    );
+    _setState(_state.copyWith(status: ChatbotStatus.ready, errorMessage: null));
   }
 
   void _setFailure(ChatbotFailure failure) {

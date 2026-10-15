@@ -28,7 +28,8 @@ class ChatbotRequestContext {
     };
   }
 
-  static bool _hasValue(String? value) => value != null && value.trim().isNotEmpty;
+  static bool _hasValue(String? value) =>
+      value != null && value.trim().isNotEmpty;
 }
 
 class SuggestedProduct {

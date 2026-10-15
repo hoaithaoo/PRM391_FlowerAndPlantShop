@@ -13,11 +13,7 @@ enum ChatbotErrorCode {
 }
 
 class ChatbotFailure implements Exception {
-  const ChatbotFailure({
-    required this.code,
-    this.statusCode,
-    this.message,
-  });
+  const ChatbotFailure({required this.code, this.statusCode, this.message});
 
   const ChatbotFailure.network()
     : code = ChatbotErrorCode.network,
@@ -41,8 +37,7 @@ ChatbotErrorCode chatbotErrorCodeFromApi(Object? value) {
     'CHATBOT_RATE_LIMITED' => ChatbotErrorCode.rateLimited,
     'CHATBOT_PROVIDER_ERROR' => ChatbotErrorCode.providerError,
     'CHATBOT_PROVIDER_TIMEOUT' => ChatbotErrorCode.providerTimeout,
-    'CHATBOT_CONVERSATION_NOT_FOUND' =>
-      ChatbotErrorCode.conversationNotFound,
+    'CHATBOT_CONVERSATION_NOT_FOUND' => ChatbotErrorCode.conversationNotFound,
     _ => ChatbotErrorCode.unknown,
   };
 }

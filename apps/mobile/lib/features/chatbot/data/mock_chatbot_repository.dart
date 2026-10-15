@@ -2,7 +2,9 @@ import '../models/chatbot_models.dart';
 import 'chatbot_repository.dart';
 
 class MockChatbotRepository implements ChatbotRepository {
-  MockChatbotRepository({this.responseDelay = const Duration(milliseconds: 350)});
+  MockChatbotRepository({
+    this.responseDelay = const Duration(milliseconds: 350),
+  });
 
   final Duration responseDelay;
   final Map<String, List<ChatMessage>> _conversations =

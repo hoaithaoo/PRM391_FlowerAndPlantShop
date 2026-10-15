@@ -54,11 +54,8 @@ class ChatbotRemoteDataSource {
       ...?context?.toRequestFields(),
     };
     return _request(
-      () => _transport.post(
-        path: messagesEndpoint,
-        headers: headers,
-        body: body,
-      ),
+      () =>
+          _transport.post(path: messagesEndpoint, headers: headers, body: body),
     );
   }
 

@@ -112,11 +112,7 @@ final _reply = ChatbotReply(
 );
 
 class FakeChatbotRepository implements ChatbotRepository {
-  FakeChatbotRepository({
-    this.sendCompleter,
-    this.sendFailure,
-    this.history,
-  });
+  FakeChatbotRepository({this.sendCompleter, this.sendFailure, this.history});
 
   final Completer<ChatbotReply>? sendCompleter;
   final ChatbotFailure? sendFailure;

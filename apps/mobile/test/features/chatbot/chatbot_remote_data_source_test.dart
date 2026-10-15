@@ -6,10 +6,7 @@ import 'package:plant_flower_mobile/features/chatbot/models/chatbot_models.dart'
 void main() {
   test('sendMessage sends bearer auth and screen context to the API', () async {
     final transport = RecordingChatbotTransport(
-      nextResponse: ChatbotApiResponse(
-        statusCode: 200,
-        body: _successEnvelope,
-      ),
+      nextResponse: ChatbotApiResponse(statusCode: 200, body: _successEnvelope),
     );
     final source = ChatbotRemoteDataSource(
       transport: transport,
@@ -41,30 +38,30 @@ void main() {
     });
   });
 
-  test('getHistory encodes conversation id and sends the requested page', () async {
-    final transport = RecordingChatbotTransport(
-      nextResponse: const ChatbotApiResponse(
-        statusCode: 200,
-        body: <String, dynamic>{
-          'success': true,
-          'data': <String, dynamic>{},
-        },
-      ),
-    );
-    final source = ChatbotRemoteDataSource(
-      transport: transport,
-      accessTokenProvider: () async => 'access-token',
-    );
+  test(
+    'getHistory encodes conversation id and sends the requested page',
+    () async {
+      final transport = RecordingChatbotTransport(
+        nextResponse: const ChatbotApiResponse(
+          statusCode: 200,
+          body: <String, dynamic>{'success': true, 'data': <String, dynamic>{}},
+        ),
+      );
+      final source = ChatbotRemoteDataSource(
+        transport: transport,
+        accessTokenProvider: () async => 'access-token',
+      );
 
-    await source.getHistory('conversation/with slash', page: 2);
+      await source.getHistory('conversation/with slash', page: 2);
 
-    expect(transport.lastMethod, 'GET');
-    expect(
-      transport.lastPath,
-      '/api/v1/chatbot/conversations/conversation%2Fwith%20slash/messages',
-    );
-    expect(transport.lastQuery, <String, dynamic>{'page': 2});
-  });
+      expect(transport.lastMethod, 'GET');
+      expect(
+        transport.lastPath,
+        '/api/v1/chatbot/conversations/conversation%2Fwith%20slash/messages',
+      );
+      expect(transport.lastQuery, <String, dynamic>{'page': 2});
+    },
+  );
 
   test('deleteConversation accepts a 204 response', () async {
     final transport = RecordingChatbotTransport(
@@ -81,10 +78,7 @@ void main() {
     await source.deleteConversation('conversation-1');
 
     expect(transport.lastMethod, 'DELETE');
-    expect(
-      transport.lastPath,
-      '/api/v1/chatbot/conversations/conversation-1',
-    );
+    expect(transport.lastPath, '/api/v1/chatbot/conversations/conversation-1');
   });
 
   test('missing access token is mapped to auth failure', () async {

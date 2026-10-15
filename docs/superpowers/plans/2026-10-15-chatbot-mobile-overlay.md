@@ -96,11 +96,11 @@
 - Consumes: a repository, optional current-context provider, `onProductTap(String productId)`, and `onOpenIncidentReport(IncidentReportDraft draft)`.
 - Produces: `ChatbotOverlayHost`, intended for one-time use in `MaterialApp.builder`, plus independently previewable widgets.
 
-- [ ] Write failing widget tests for launcher visibility, opening/closing the panel, message send, product tap, incident action, and state preservation after reopen.
-- [ ] Run the tests and verify they fail because the widgets are absent.
-- [ ] Implement the launcher, modal panel, bubbles, suggestion cards, quick prompts, typing state, and callbacks.
-- [ ] Run widget tests, `flutter analyze`, and the complete mobile test suite.
-- [ ] Commit the green result and document the future `MaterialApp.builder` integration snippet in `apps/mobile/README.md`.
+- [x] Write failing widget tests for launcher visibility, opening/closing the panel, message send, product tap, incident action, and state preservation after reopen.
+- [x] Run the tests and verify they fail because the widgets are absent.
+- [x] Implement the launcher, inline panel overlay, bubbles, suggestion cards, quick prompts, typing state, and callbacks.
+- [x] Run widget tests, `flutter analyze`, and the complete mobile test suite.
+- [x] Document the future `MaterialApp.builder` integration snippet in `apps/mobile/README.md` and commit the green result.
 
 ### Task 5: Branch verification and handoff
 
