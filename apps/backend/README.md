@@ -126,3 +126,57 @@ Hệ thống hoạt động theo mô hình **Supabase Auth + Node.js Backend Ver
 Xem hướng dẫn đầy đủ tại
 [`docs/supabase-render-setup.md`](../../docs/supabase-render-setup.md) và
 [`docs/supabase-auth.md`](../../docs/supabase-auth.md).
+
+---
+
+## 4. Chatbot tư vấn khách hàng (Gemini)
+
+Chatbot là trợ lý AI giữa khách hàng và hệ thống, không phải chat trực tiếp với nhân viên cửa hàng. Backend giữ toàn bộ Gemini secret, xác minh dữ liệu thuộc người dùng và chỉ trả sản phẩm đang hoạt động, còn hàng từ PostgreSQL.
+
+Thêm cấu hình sau vào `apps/backend/.env` (không commit file hoặc key thật):
+
+```env
+GEMINI_API_KEY="your_server_side_key"
+GEMINI_MODEL="gemini-2.5-flash"
+GEMINI_API_BASE_URL="https://generativelanguage.googleapis.com/v1beta"
+GEMINI_TIMEOUT_MS=15000
+CHATBOT_RATE_LIMIT_MS=1000
+```
+
+Gửi tin nhắn tư vấn:
+
+```bash
+curl -X POST http://localhost:5000/api/v1/chatbot/messages \
+  -H "Authorization: Bearer <supabase_access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "Cây nào phù hợp để trên bàn và ít nắng?",
+    "productId": null
+  }'
+```
+
+Gửi lỗi thanh toán kèm context đã xác minh:
+
+```bash
+curl -X POST http://localhost:5000/api/v1/chatbot/messages \
+  -H "Authorization: Bearer <supabase_access_token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "conversationId": null,
+    "message": "Tôi đã thanh toán nhưng đơn hàng chưa cập nhật",
+    "context": {
+      "orderId": "<order_uuid>",
+      "paymentId": "<payment_uuid>",
+      "source": "checkout"
+    }
+  }'
+```
+
+Client hiển thị mỗi phần tử trong `suggestedProducts` thành product card và dùng `id` để mở màn hình chi tiết sản phẩm. Khi response có `action.type = "OPEN_INCIDENT_REPORT"`, client mở form báo cáo sự cố rồi điền các giá trị trong `action.draft`. Người dùng vẫn được sửa và xác nhận trước khi gửi; chatbot không tự tạo báo cáo, hoàn tiền hoặc đổi trạng thái đơn hàng.
+
+Các endpoint còn lại:
+
+```text
+GET    /api/v1/chatbot/conversations/:id/messages?page=1
+DELETE /api/v1/chatbot/conversations/:id
+```
