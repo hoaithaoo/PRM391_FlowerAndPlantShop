@@ -60,10 +60,10 @@
 - Consumes: domain models from Task 1.
 - Produces: `ChatbotRepository.sendMessage`, `getHistory`, and `deleteConversation`; `ChatbotRemoteDataSource` receives an abstract transport and access-token provider.
 
-- [ ] Write failing tests for endpoint paths, bearer headers, request context serialization, response envelopes, and backend error-code mapping.
-- [ ] Run the tests and confirm the expected missing-type failures.
-- [ ] Implement the transport, repository, failure mapping, and deterministic mock.
-- [ ] Run the tests and commit the green result.
+- [x] Write failing tests for endpoint paths, bearer headers, request context serialization, response envelopes, and backend error-code mapping.
+- [x] Run the tests and confirm the expected missing-type failures.
+- [x] Implement the transport, repository, failure mapping, and deterministic mock.
+- [x] Run the tests and commit the green result.
 
 ### Task 3: Conversation controller
 
