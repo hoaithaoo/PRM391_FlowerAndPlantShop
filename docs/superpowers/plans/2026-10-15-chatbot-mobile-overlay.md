@@ -76,10 +76,10 @@
 - Consumes: `ChatbotRepository` and optional `ChatbotRequestContext Function()`.
 - Produces: observable messages, current conversation ID, loading/error states, `send`, `resume`, `startNewConversation`, and `deleteCurrentConversation`.
 
-- [ ] Write failing tests for successful send, duplicate-send prevention, provider failure, reopening state preservation, resume, and delete/reset.
-- [ ] Run the tests and confirm they fail for missing controller behavior.
-- [ ] Implement the minimal `ChangeNotifier` controller.
-- [ ] Run the tests and commit the green result.
+- [x] Write failing tests for successful send, duplicate-send prevention, provider failure, reopening state preservation, resume, and delete/reset.
+- [x] Run the tests and confirm they fail for missing controller behavior.
+- [x] Implement the minimal `ChangeNotifier` controller.
+- [x] Run the tests and commit the green result.
 
 ### Task 4: Persistent overlay and navigation actions
 
