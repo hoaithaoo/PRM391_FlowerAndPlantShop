@@ -301,4 +301,3 @@ Expected: no whitespace errors, no `.env` files staged, and changes limited to c
 git add apps/backend/README.md docs/superpowers/plans/2026-10-15-chatbot-backend.md
 git commit -m "docs(chatbot): add backend integration guide"
 ```
-
