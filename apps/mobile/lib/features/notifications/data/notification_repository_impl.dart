@@ -1,13 +1,20 @@
 import '../models/notification_list_result.dart';
 import '../models/notification_read_result.dart';
+import '../models/notification_item.dart';
 import 'notification_failure.dart';
 import 'notification_remote_data_source.dart';
 import 'notification_repository.dart';
+import 'notification_realtime_data_source.dart';
 
 class NotificationRepositoryImpl implements NotificationRepository {
-  const NotificationRepositoryImpl(this._remoteDataSource);
+  const NotificationRepositoryImpl(
+    this._remoteDataSource, {
+    NotificationRealtimeDataSource realtimeDataSource =
+        const EmptyNotificationRealtimeDataSource(),
+  }) : _realtimeDataSource = realtimeDataSource;
 
   final NotificationRemoteDataSource _remoteDataSource;
+  final NotificationRealtimeDataSource _realtimeDataSource;
 
   @override
   Future<NotificationListResult> getNotifications({
@@ -50,5 +57,11 @@ class NotificationRepositoryImpl implements NotificationRepository {
     throw const NotificationFailure(
       code: NotificationErrorCode.malformedResponse,
     );
+  }
+
+  @override
+  Stream<NotificationItem> watchNotifications() {
+    // TODO: Kết nối nguồn realtime từ backend khi API notification sẵn sàng.
+    return _realtimeDataSource.watchNotifications();
   }
 }

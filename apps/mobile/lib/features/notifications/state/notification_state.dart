@@ -1,3 +1,4 @@
+import '../models/notification_filter.dart';
 import '../models/notification_item.dart';
 
 enum NotificationLoadStatus {
@@ -12,11 +13,7 @@ class NotificationState {
   const NotificationState({
     this.status = NotificationLoadStatus.initial,
     this.items = const <NotificationItem>[],
-    this.unreadCount = 0,
-    this.unreadOnly = false,
-    this.currentPage = 1,
-    this.hasMore = true,
-    this.isLoadingMore = false,
+    this.currentFilter = NotificationFilter.all,
     this.isMarkingAll = false,
     this.markingReadIds = const <String>{},
     this.errorMessage,
@@ -27,24 +24,31 @@ class NotificationState {
 
   final NotificationLoadStatus status;
   final List<NotificationItem> items;
-  final int unreadCount;
-  final bool unreadOnly;
-  final int currentPage;
-  final bool hasMore;
-  final bool isLoadingMore;
+  final NotificationFilter currentFilter;
   final bool isMarkingAll;
   final Set<String> markingReadIds;
   final String? errorMessage;
   final String? actionErrorMessage;
 
+  int get unreadCount => items.where((item) => !item.isRead).length;
+
+  List<NotificationItem> get visibleItems {
+    final type = currentFilter.type;
+    if (type == null) return items;
+    return items.where((item) => item.type == type).toList(growable: false);
+  }
+
+  int countFor(NotificationFilter filter) {
+    final type = filter.type;
+    return type == null
+        ? items.length
+        : items.where((item) => item.type == type).length;
+  }
+
   NotificationState copyWith({
     NotificationLoadStatus? status,
     List<NotificationItem>? items,
-    int? unreadCount,
-    bool? unreadOnly,
-    int? currentPage,
-    bool? hasMore,
-    bool? isLoadingMore,
+    NotificationFilter? currentFilter,
     bool? isMarkingAll,
     Set<String>? markingReadIds,
     Object? errorMessage = _unset,
@@ -53,11 +57,7 @@ class NotificationState {
     return NotificationState(
       status: status ?? this.status,
       items: items ?? this.items,
-      unreadCount: unreadCount ?? this.unreadCount,
-      unreadOnly: unreadOnly ?? this.unreadOnly,
-      currentPage: currentPage ?? this.currentPage,
-      hasMore: hasMore ?? this.hasMore,
-      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      currentFilter: currentFilter ?? this.currentFilter,
       isMarkingAll: isMarkingAll ?? this.isMarkingAll,
       markingReadIds: markingReadIds ?? this.markingReadIds,
       errorMessage: identical(errorMessage, _unset)

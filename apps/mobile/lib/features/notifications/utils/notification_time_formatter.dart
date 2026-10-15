@@ -3,19 +3,19 @@ String formatNotificationTime(DateTime createdAt, {DateTime? now}) {
   final difference = referenceTime.difference(createdAt.toLocal());
 
   if (difference.isNegative || difference.inMinutes < 1) {
-    return 'Just now';
+    return 'Vừa xong';
   }
   if (difference.inMinutes < 60) {
-    return '${difference.inMinutes} min ago';
+    return '${difference.inMinutes} phút trước';
   }
   if (difference.inHours < 24) {
-    return '${difference.inHours} ${difference.inHours == 1 ? 'hour' : 'hours'} ago';
+    return '${difference.inHours} giờ trước';
   }
   if (difference.inDays == 1) {
-    return 'Yesterday';
+    return 'Hôm qua';
   }
   if (difference.inDays < 7) {
-    return '${difference.inDays} days ago';
+    return '${difference.inDays} ngày trước';
   }
 
   final localDate = createdAt.toLocal();

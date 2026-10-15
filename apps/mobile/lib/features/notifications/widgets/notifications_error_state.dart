@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../utils/notification_theme.dart';
+
 class NotificationsErrorState extends StatelessWidget {
   const NotificationsErrorState({
     super.key,
@@ -24,20 +26,20 @@ class NotificationsErrorState extends StatelessWidget {
               authenticationRequired
                   ? Icons.lock_clock_outlined
                   : Icons.cloud_off_outlined,
-              size: 56,
-              color: Theme.of(context).colorScheme.error,
+              size: 50,
+              color: NotificationColors.petal500,
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 14),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge,
+              style: NotificationTextStyles.body,
             ),
             const SizedBox(height: 16),
             OutlinedButton.icon(
               onPressed: onRetry,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Thử lại'),
             ),
           ],
         ),

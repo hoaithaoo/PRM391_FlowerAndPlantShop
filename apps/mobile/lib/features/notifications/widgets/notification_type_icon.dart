@@ -1,43 +1,48 @@
 import 'package:flutter/material.dart';
 
 import '../models/notification_type.dart';
+import '../utils/notification_theme.dart';
 
 class NotificationTypeIcon extends StatelessWidget {
-  const NotificationTypeIcon({super.key, required this.type});
+  const NotificationTypeIcon({super.key, required this.type, this.size = 42});
 
   final NotificationType type;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final (icon, color) = switch (type) {
+    final (icon, foreground, background) = switch (type) {
       NotificationType.order => (
-        Icons.local_shipping_outlined,
-        colorScheme.primary,
+        Icons.local_florist_outlined,
+        NotificationColors.forest700,
+        NotificationColors.forest50,
       ),
       NotificationType.payment => (
         Icons.payments_outlined,
-        colorScheme.tertiary,
+        NotificationColors.forest700,
+        NotificationColors.forest100,
       ),
       NotificationType.promotion => (
-        Icons.campaign_outlined,
-        colorScheme.secondary,
+        Icons.eco_outlined,
+        const Color(0xFF9B762C),
+        const Color(0xFFFFF3DC),
       ),
       NotificationType.system => (
-        Icons.info_outline,
-        colorScheme.onSurfaceVariant,
+        Icons.menu_book_outlined,
+        NotificationColors.charcoal500,
+        NotificationColors.forest50,
       ),
     };
 
     return Container(
-      width: 44,
-      height: 44,
+      width: size,
+      height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
+        color: background,
+        borderRadius: BorderRadius.circular(9),
       ),
-      child: Icon(icon, color: color),
+      child: Icon(icon, color: foreground, size: size * 0.48),
     );
   }
 }

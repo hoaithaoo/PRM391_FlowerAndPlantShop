@@ -1,45 +1,57 @@
 import 'package:flutter/material.dart';
 
+import '../utils/notification_theme.dart';
+
 class NotificationsEmptyState extends StatelessWidget {
   const NotificationsEmptyState({
     super.key,
-    required this.unreadOnly,
+    required this.filterLabel,
     this.onShowAll,
   });
 
-  final bool unreadOnly;
+  final String filterLabel;
   final VoidCallback? onShowAll;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Icon(
-              unreadOnly
-                  ? Icons.mark_email_read_outlined
-                  : Icons.notifications_none_outlined,
-              size: 64,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 34, vertical: 48),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 58,
+            height: 58,
+            decoration: const BoxDecoration(
+              color: NotificationColors.forest50,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(height: 16),
-            Text(
-              unreadOnly ? 'No unread notifications.' : 'No notifications yet.',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.titleMedium,
+            child: const Icon(
+              Icons.local_florist_outlined,
+              color: NotificationColors.forest700,
+              size: 28,
             ),
-            if (unreadOnly && onShowAll != null) ...[
-              const SizedBox(height: 16),
-              OutlinedButton(
-                onPressed: onShowAll,
-                child: const Text('Show all notifications'),
-              ),
-            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Chưa có thông báo $filterLabel',
+            textAlign: TextAlign.center,
+            style: NotificationTextStyles.cardTitle,
+          ),
+          const SizedBox(height: 7),
+          const Text(
+            'Khi có tin mới, những cánh hoa nhỏ sẽ mang lời nhắn đến bạn tại đây.',
+            textAlign: TextAlign.center,
+            style: NotificationTextStyles.body,
+          ),
+          if (onShowAll != null) ...<Widget>[
+            const SizedBox(height: 18),
+            TextButton(
+              onPressed: onShowAll,
+              child: const Text('Xem tất cả thông báo'),
+            ),
           ],
-        ),
+        ],
       ),
     );
   }

@@ -1,6 +1,8 @@
 import 'notification_type.dart';
 
 class NotificationItem {
+  static const _unset = Object();
+
   const NotificationItem({
     required this.id,
     required this.type,
@@ -9,6 +11,11 @@ class NotificationItem {
     required this.isRead,
     required this.createdAt,
     this.readAt,
+    this.timeLabel,
+    this.badge,
+    this.secondaryAction,
+    this.amount,
+    this.imageAsset,
   });
 
   final String id;
@@ -18,6 +25,11 @@ class NotificationItem {
   final bool isRead;
   final DateTime createdAt;
   final DateTime? readAt;
+  final String? timeLabel;
+  final String? badge;
+  final String? secondaryAction;
+  final String? amount;
+  final String? imageAsset;
 
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
     return NotificationItem(
@@ -28,10 +40,15 @@ class NotificationItem {
       isRead: _requiredBool(json, 'isRead'),
       createdAt: _requiredDateTime(json, 'createdAt'),
       readAt: _optionalDateTime(json['readAt']),
+      timeLabel: _optionalString(json['timeLabel']),
+      badge: _optionalString(json['badge']),
+      secondaryAction: _optionalString(json['secondaryAction']),
+      amount: _optionalString(json['amount']),
+      imageAsset: _optionalString(json['imageAsset']),
     );
   }
 
-  NotificationItem copyWith({bool? isRead, DateTime? readAt}) {
+  NotificationItem copyWith({bool? isRead, Object? readAt = _unset}) {
     return NotificationItem(
       id: id,
       type: type,
@@ -39,9 +56,18 @@ class NotificationItem {
       message: message,
       isRead: isRead ?? this.isRead,
       createdAt: createdAt,
-      readAt: readAt ?? this.readAt,
+      readAt: identical(readAt, _unset) ? this.readAt : readAt as DateTime?,
+      timeLabel: timeLabel,
+      badge: badge,
+      secondaryAction: secondaryAction,
+      amount: amount,
+      imageAsset: imageAsset,
     );
   }
+}
+
+String? _optionalString(Object? value) {
+  return value is String && value.isNotEmpty ? value : null;
 }
 
 String _requiredString(Map<String, dynamic> json, String key) {
