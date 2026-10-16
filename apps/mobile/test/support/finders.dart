@@ -73,3 +73,19 @@ Future<void> pumpFrames(WidgetTester tester, [int frames = 6]) async {
     await tester.pump(const Duration(milliseconds: 100));
   }
 }
+
+/// Tỉ lệ thu nhỏ mà `FittedBox` đầu tiên bên trong [scope] áp dụng cho nội dung
+/// (1 nghĩa là không bị thu nhỏ). Đo bằng kích thước khung so với nội dung.
+double fittedBoxScale(WidgetTester tester, Finder scope) {
+  final box = find.descendant(of: scope, matching: find.byType(FittedBox));
+  expect(box, findsWidgets, reason: 'Không có FittedBox trong header');
+  final boxWidth = tester.getSize(box.first).width;
+  final childWidth = tester
+      .getSize(
+        find
+            .descendant(of: box.first, matching: find.byType(Row))
+            .first,
+      )
+      .width;
+  return childWidth <= boxWidth ? 1.0 : boxWidth / childWidth;
+}

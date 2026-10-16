@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_flower_mobile/features/products/data/mock_product_repository.dart';
@@ -12,6 +14,10 @@ import '../../../support/gated_detail_repository.dart';
 import '../../../support/product_test_app.dart';
 
 const _flowers = MockProductRepository.freshFlowers;
+
+/// Chế độ chẩn đoán font Ahem (xem flutter_test_config.dart): chữ rộng 1em
+/// nên không thể khẳng định "font thật không bị thu nhỏ".
+final _usingAhem = Platform.environment['PFS_TEST_FONT']?.toLowerCase() == 'ahem';
 
 ProductDetail _product(
   String id, {
@@ -859,14 +865,33 @@ void main() {
       return tester.widget<Text>(logo).style!.fontSize!;
     }
 
-    testWidgets('header chi tiết: logo 22, không có avatar', (tester) async {
+    testWidgets('header chi tiết: logo 20, không có avatar', (tester) async {
       await _openDetail(tester, _repo([_product('p1')]), 'p1');
 
       expect(avatar(), findsNothing);
-      expect(logoSize(tester), 22);
+      expect(logoSize(tester), 20);
       expect(find.byKey(const Key('header-back')), findsOneWidget);
       expect(find.byKey(const Key('header-share')), findsOneWidget);
     });
+
+    for (final width in [360.0, 390.0, 430.0]) {
+      testWidgets('font thật x1.0 ở $width: logo 20 và tiêu đề 16 không bị FittedBox thu nhỏ', (tester) async {
+        await _openDetail(
+          tester,
+          _repo([_product('p1')]),
+          'p1',
+          size: Size(width, 800),
+        );
+
+        expect(
+          fittedBoxScale(tester, find.byKey(const Key('detail-header'))),
+          1.0,
+        );
+        final title = tester.widget<Text>(find.text('Chi Tiết Tác Phẩm')).style!;
+        expect(title.fontSize, 16);
+        expect(logoSize(tester), 20);
+      }, skip: _usingAhem);
+    }
 
     for (final (width, scale) in [
       (360.0, 1.0),

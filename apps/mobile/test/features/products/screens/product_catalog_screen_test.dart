@@ -7,6 +7,8 @@ import 'package:plant_flower_mobile/features/products/widgets/catalog/catalog_pr
 import 'package:plant_flower_shared/plant_flower_shared.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
+import 'package:plant_flower_mobile/features/products/widgets/common/brand_header.dart';
+
 import '../../../support/controlled_product_repository.dart';
 import '../../../support/finders.dart';
 import '../../../support/product_test_app.dart';
@@ -165,6 +167,7 @@ void main() {
       );
       final logos = tester.widgetList<Text>(find.text('Nhà Có Hoa')).toList();
       expect(logos.map((t) => t.style!.fontSize), contains(26));
+      expect(fittedBoxScale(tester, find.byType(BrandHeader)), 1.0);
     });
 
     testWidgets('catalog-count hiện đúng total của API, không phải số item đã tải', (tester) async {

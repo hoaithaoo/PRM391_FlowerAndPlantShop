@@ -7,6 +7,8 @@ import 'package:plant_flower_mobile/features/products/screens/home_screen.dart';
 import 'package:plant_flower_mobile/features/products/widgets/home/home_product_grid.dart';
 import 'package:plant_flower_shared/plant_flower_shared.dart';
 
+import 'package:plant_flower_mobile/features/products/widgets/common/brand_header.dart';
+
 import '../../../support/controlled_product_repository.dart';
 import '../../../support/finders.dart';
 import '../../../support/product_test_app.dart';
@@ -91,6 +93,7 @@ void main() {
       );
       final logo = tester.widget<Text>(_inHome(find.text('Nhà Có Hoa')));
       expect(logo.style!.fontSize, 26);
+      expect(fittedBoxScale(tester, _inHome(find.byType(BrandHeader))), 1.0);
     });
 
     testWidgets('chip danh mục: Tất cả + 3 category từ repository', (tester) async {

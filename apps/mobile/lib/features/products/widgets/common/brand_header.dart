@@ -36,8 +36,8 @@ class BrandHeader extends StatelessWidget implements PreferredSizeWidget {
       height: height + MediaQuery.paddingOf(context).top,
       padding: EdgeInsets.only(
         top: MediaQuery.paddingOf(context).top,
-        left: onBack == null ? 20 : 8,
-        right: 20,
+        left: onBack == null ? 20 : (title == null ? 8 : 4),
+        right: title == null ? 20 : 16,
       ),
       decoration: BoxDecoration(
         color: AppColors.surface.withValues(alpha: 0.9),
@@ -54,46 +54,56 @@ class BrandHeader extends StatelessWidget implements PreferredSizeWidget {
           if (onBack != null)
             IconButton(
               key: const Key('header-back'),
+              visualDensity: title == null ? null : VisualDensity.compact,
               onPressed: onBack,
               tooltip: 'Quay lại',
               icon: const Icon(Icons.arrow_back, color: AppColors.textHeading),
             ),
-          // Có tiêu đề: logo nhỏ lại, ẩn avatar để tiêu đề vừa 1 dòng ở 360-430px.
-          Text(
-            'Nhà Có Hoa',
-            style: AppTextStyles.brandLogo.copyWith(
-              fontSize: title == null ? 26 : 22,
-            ),
-          ),
-          if (title != null) ...[
-            const SizedBox(width: 8),
-            Expanded(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  softWrap: false,
-                  style: AppTextStyles.headerTitle.copyWith(fontSize: 18),
-                ),
+          // Logo (và tiêu đề nếu có) nằm trong vùng co giãn: tự thu nhỏ thay vì
+          // tràn khi font rộng hoặc chữ lớn. Các nút giữ kích thước cố định.
+          // Có tiêu đề: logo nhỏ lại, ẩn avatar để tiêu đề vừa 1 dòng.
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Nhà Có Hoa',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: AppTextStyles.brandLogo.copyWith(
+                      fontSize: title == null ? 26 : 20,
+                    ),
+                  ),
+                  if (title != null) ...[
+                    const SizedBox(width: 4),
+                    Text(
+                      title,
+                      maxLines: 1,
+                      softWrap: false,
+                      style: AppTextStyles.headerTitle.copyWith(fontSize: 16),
+                    ),
+                  ],
+                ],
               ),
             ),
-          ] else
-            const Spacer(),
+          ),
           if (onShare != null)
             IconButton(
               key: const Key('header-share'),
+              visualDensity: title == null ? null : VisualDensity.compact,
               onPressed: onShare,
               tooltip: 'Chia sẻ',
-              icon: const Icon(Icons.share_outlined, color: AppColors.primaryActive),
+              icon: const Icon(
+                Icons.share_outlined,
+                color: AppColors.primaryActive,
+              ),
             )
           else
             _NotificationButton(showDot: showNotificationDot),
-          if (title == null) ...[
-            const SizedBox(width: 4),
-            const _Avatar(),
-          ],
+          if (title == null) ...[const SizedBox(width: 4), const _Avatar()],
         ],
       ),
     );
@@ -148,7 +158,11 @@ class _Avatar extends StatelessWidget {
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.accentBorder),
       ),
-      child: const Icon(Icons.person_outline, size: 18, color: AppColors.accent),
+      child: const Icon(
+        Icons.person_outline,
+        size: 18,
+        color: AppColors.accent,
+      ),
     );
   }
 }

@@ -116,32 +116,48 @@ class _PriceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        // Giá không flex: chiếm đúng kích thước nội dung, SKU lấy phần còn lại.
-        Text(
-          formatVnd(price),
-          key: const Key('detail-price'),
-          style: AppFonts.sans(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            height: 1.3,
-            color: AppColors.primary,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            'SKU: $sku',
-            key: const Key('detail-sku'),
-            textAlign: TextAlign.end,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: AppTextStyles.caption.copyWith(fontWeight: FontWeight.w400),
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Giá không flex: chiếm đúng kích thước nội dung nhưng tối đa 60%
+            // chiều rộng (co lại khi giá dài/chữ lớn); SKU lấy phần còn lại.
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: constraints.maxWidth * 0.6),
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  formatVnd(price),
+                  key: const Key('detail-price'),
+                  maxLines: 1,
+                  softWrap: false,
+                  style: AppFonts.sans(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'SKU: $sku',
+                key: const Key('detail-sku'),
+                textAlign: TextAlign.end,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppTextStyles.caption.copyWith(
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
