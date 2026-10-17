@@ -14,6 +14,7 @@ import { createChatbotRoutes } from "./modules/chatbot/chatbot.routes";
 import { PrismaChatbotRepository } from "./modules/chatbot/prisma-chatbot.repository";
 import { GeminiChatbotProvider } from "./modules/chatbot/gemini.provider";
 import { ChatbotService } from "./modules/chatbot/chatbot.service";
+import { GeminiEmbeddingProvider } from "./modules/chatbot/gemini-embedding.provider";
 
 const chatbotRepository = new PrismaChatbotRepository();
 const chatbotProvider = new GeminiChatbotProvider({
@@ -22,11 +23,22 @@ const chatbotProvider = new GeminiChatbotProvider({
   baseUrl: env.GEMINI_API_BASE_URL,
   timeoutMs: env.GEMINI_TIMEOUT_MS,
 });
+const embeddingProvider = new GeminiEmbeddingProvider({
+  apiKey: env.GEMINI_API_KEY ?? "",
+  model: env.GEMINI_EMBEDDING_MODEL,
+  baseUrl: env.GEMINI_API_BASE_URL,
+  dimensions: env.RAG_EMBEDDING_DIMENSIONS,
+  timeoutMs: env.GEMINI_TIMEOUT_MS,
+});
 const chatbotService = new ChatbotService({
   repository: chatbotRepository,
   provider: chatbotProvider,
+  embeddingProvider,
+  embeddingModel: env.GEMINI_EMBEDDING_MODEL,
+  minSemanticScore: env.RAG_MIN_SEMANTIC_SCORE,
   rateLimitMs: env.CHATBOT_RATE_LIMIT_MS,
-  sendLeaseMs: env.GEMINI_TIMEOUT_MS + 10_000,
+  // Một lượt chat có tối đa hai network calls liên tiếp: embedding rồi generation.
+  sendLeaseMs: env.GEMINI_TIMEOUT_MS * 2 + 10_000,
 });
 const chatbotRoutes = createChatbotRoutes(chatbotService, [
   authMiddleware,

@@ -137,11 +137,40 @@ Thêm cấu hình sau vào `apps/backend/.env` (không commit file hoặc key th
 
 ```env
 GEMINI_API_KEY="your_server_side_key"
-GEMINI_MODEL="gemini-2.5-flash"
+GEMINI_MODEL="gemini-3.6-flash"
+GEMINI_EMBEDDING_MODEL="gemini-embedding-2"
 GEMINI_API_BASE_URL="https://generativelanguage.googleapis.com/v1beta"
 GEMINI_TIMEOUT_MS=15000
 CHATBOT_RATE_LIMIT_MS=1000
+RAG_EMBEDDING_DIMENSIONS=768
+RAG_MIN_SEMANTIC_SCORE=0.55
 ```
+
+### Chuẩn bị dữ liệu Hybrid RAG
+
+Chatbot tìm sản phẩm bằng hai đường: PostgreSQL Full-Text Search cho từ khóa/tên chính xác và `pgvector` cho câu hỏi cùng nghĩa hoặc khác ngôn ngữ. Kết quả được hợp nhất bằng Reciprocal Rank Fusion rồi mới gửi sang bước tạo câu trả lời.
+
+Sau khi clone dự án hoặc khi `Product.description` thay đổi, chạy theo thứ tự:
+
+```bash
+pnpm install
+pnpm prisma:generate
+pnpm prisma:migrate:deploy
+pnpm prisma:seed
+pnpm rag:reindex
+pnpm dev:backend
+```
+
+Hai migration `20261017_add_product_knowledge_vectors` và `20261017_z_add_product_knowledge_search_vector` tự bật extension `vector`, tạo bảng chunk, cột tìm kiếm toàn văn được sinh tự động, GIN index, HNSW index và RLS trên Supabase. Lệnh `pnpm rag:reindex` đọc mô tả tiếng Việt, chunk theo đoạn/câu hoàn chỉnh, tạo embedding rồi thay index trong một transaction. Nếu quá trình embedding lỗi giữa chừng, index đang dùng không bị xóa.
+
+Lưu ý:
+
+- Phải chạy lại `pnpm rag:reindex` sau khi seed, sửa mô tả hoặc đổi `GEMINI_EMBEDDING_MODEL`; các không gian embedding của hai model khác nhau không được trộn với nhau.
+- `RAG_EMBEDDING_DIMENSIONS` phải giữ là `768` vì cột pgvector được tạo với đúng kích thước này.
+- Giá, tồn kho và trạng thái đang bán luôn được lọc trực tiếp từ bảng `products`, không lấy từ nội dung do AI tạo.
+- Nếu semantic embedding tạm lỗi, chatbot tự chuyển sang keyword search.
+- Nếu không tìm thấy kiến thức đã xác minh, chatbot trả lời rằng dữ liệu chưa đủ thay vì sử dụng kiến thức bên ngoài.
+- Supabase Advisor có thể báo `RLS Enabled No Policy` ở mức `INFO` cho `product_knowledge_chunks`; đây là chủ ý vì bảng chỉ dành cho backend, đồng thời quyền của `anon` và `authenticated` đã bị thu hồi.
 
 Gửi tin nhắn tư vấn:
 

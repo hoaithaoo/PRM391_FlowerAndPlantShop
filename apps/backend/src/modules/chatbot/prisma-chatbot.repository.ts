@@ -7,11 +7,14 @@ import {
   ChatbotExchangeInput,
   ChatbotExchangeResult,
   ChatbotHistoryPage,
+  ChatbotKnowledgeChunk,
   ChatbotRepository,
   OwnedOrderContext,
   OwnedPaymentContext,
   StoredChatbotMessage,
+  SearchKnowledgeInput,
 } from "./chatbot.repository";
+import { RAG_EMBEDDING_DIMENSIONS } from "./embedding.provider";
 
 export class PrismaChatbotRepository implements ChatbotRepository {
   constructor(private readonly client: PrismaClient = prisma) {}
@@ -65,6 +68,111 @@ export class PrismaChatbotRepository implements ChatbotRepository {
       },
     });
     return rows.map((row) => ({ ...row, price: row.price.toFixed(0) }));
+  }
+
+  async searchKnowledge(input: SearchKnowledgeInput): Promise<ChatbotKnowledgeChunk[]> {
+    if (
+      input.embedding !== null &&
+      (input.embedding.length !== RAG_EMBEDDING_DIMENSIONS ||
+        !input.embedding.every((value) => Number.isFinite(value)))
+    ) {
+      throw new Error(`Query embedding must contain ${RAG_EMBEDDING_DIMENSIONS} finite numbers.`);
+    }
+
+    const limit = Math.max(1, Math.min(Math.trunc(input.limit), 30));
+    const candidateLimit = Math.min(limit * 4, 120);
+    const hasEmbedding = input.embedding !== null;
+    const vector = input.embedding ? JSON.stringify(input.embedding) : null;
+    const queryVector = Prisma.sql`${vector}::extensions.vector(768)`;
+    const minPrice = input.filters.minPrice ?? null;
+    const maxPrice = input.filters.maxPrice ?? null;
+
+    type KnowledgeRow = Omit<ChatbotKnowledgeChunk, "score"> & { score: number | string };
+
+    // Hai bảng xếp hạng chạy độc lập rồi hợp nhất bằng RRF để tên chính xác và ý nghĩa đều có trọng số.
+    const rows = await this.client.$queryRaw<KnowledgeRow[]>(Prisma.sql`
+      WITH filtered AS (
+        SELECT
+          chunk."id",
+          chunk."product_id",
+          chunk."chunk_index",
+          chunk."content",
+          chunk."search_vector",
+          chunk."embedding_model",
+          chunk."embedding",
+          product."name" AS "product_name",
+          product."price"::text AS "price",
+          product."image_url",
+          product."stock"
+        FROM "product_knowledge_chunks" AS chunk
+        INNER JOIN "products" AS product ON product."id" = chunk."product_id"
+        WHERE product."is_active" = true
+          AND product."stock" > 0
+          AND (${minPrice}::numeric IS NULL OR product."price" >= ${minPrice}::numeric)
+          AND (${maxPrice}::numeric IS NULL OR product."price" <= ${maxPrice}::numeric)
+      ),
+      full_text AS (
+        SELECT
+          "id",
+          row_number() OVER (
+            ORDER BY ts_rank_cd(
+              "search_vector",
+              websearch_to_tsquery('simple', ${input.query})
+            ) DESC, "id"
+          ) AS rank_ix
+        FROM filtered
+        WHERE "search_vector" @@ websearch_to_tsquery('simple', ${input.query})
+        ORDER BY ts_rank_cd(
+          "search_vector",
+          websearch_to_tsquery('simple', ${input.query})
+        ) DESC, "id"
+        LIMIT ${candidateLimit}
+      ),
+      semantic AS (
+        SELECT
+          "id",
+          row_number() OVER (ORDER BY "embedding" OPERATOR(extensions.<=>) ${queryVector}, "id") AS rank_ix
+        FROM filtered
+        WHERE ${hasEmbedding}
+          AND "embedding_model" = ${input.embeddingModel}
+          AND 1 - ("embedding" OPERATOR(extensions.<=>) ${queryVector}) >= ${input.minSemanticScore}
+        ORDER BY "embedding" OPERATOR(extensions.<=>) ${queryVector}, "id"
+        LIMIT ${candidateLimit}
+      ),
+      fused AS (
+        SELECT
+          COALESCE(full_text."id", semantic."id") AS "id",
+          (
+            COALESCE(1.0 / (50 + full_text.rank_ix), 0.0)
+            + COALESCE(1.0 / (50 + semantic.rank_ix), 0.0)
+          )::double precision AS "score"
+        FROM full_text
+        FULL OUTER JOIN semantic ON semantic."id" = full_text."id"
+      ),
+      product_ranked AS (
+        SELECT
+          filtered."product_id" AS "productId",
+          filtered."product_name" AS "productName",
+          filtered."content",
+          filtered."price",
+          filtered."image_url" AS "imageUrl",
+          filtered."stock",
+          fused."score",
+          row_number() OVER (
+            PARTITION BY filtered."product_id"
+            ORDER BY fused."score" DESC, filtered."chunk_index", filtered."id"
+          ) AS product_rank
+        FROM fused
+        INNER JOIN filtered ON filtered."id" = fused."id"
+      )
+      SELECT "productId", "productName", "content", "price", "imageUrl", "stock", "score"
+      FROM product_ranked
+      WHERE product_rank = 1
+      ORDER BY "score" DESC, "productId"
+      LIMIT ${limit}
+    `);
+
+    return rows.map((row) => ({ ...row, score: Number(row.score) }));
   }
 
   async findOwnedOrder(userId: string, id: string): Promise<OwnedOrderContext | null> {

@@ -115,14 +115,33 @@ model Product {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  category     Category      @relation(fields: [categoryId], references: [id])
-  cartItems    CartItem[]
-  orderItems   OrderItem[]
-  invoiceItems InvoiceItem[]
+  category        Category                @relation(fields: [categoryId], references: [id])
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  invoiceItems    InvoiceItem[]
+  knowledgeChunks ProductKnowledgeChunk[]
 
   @@index([categoryId])
   @@index([isActive, createdAt])
   @@map("products")
+}
+
+model ProductKnowledgeChunk {
+  id             String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId      String                     @map("product_id") @db.Uuid
+  chunkIndex     Int                        @map("chunk_index")
+  content        String
+  sourceHash     String                     @map("source_hash") @db.VarChar(64)
+  embeddingModel String                     @map("embedding_model")
+  embedding      Unsupported("vector(768)")
+  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, chunkIndex])
+  @@index([productId])
+  @@map("product_knowledge_chunks")
 }
 
 model Cart {

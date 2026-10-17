@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, describe, test } from "node:test";
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 import { PrismaChatbotRepository } from "./prisma-chatbot.repository";
 
@@ -75,6 +75,136 @@ describe("PrismaChatbotRepository with PostgreSQL", { skip: !databaseUrl }, () =
       assert.deepEqual(history.items.map((message) => message.content), expected);
     } finally {
       await client!.profile.deleteMany({ where: { id: userId } });
+    }
+  });
+
+  test("hybrid retrieval applies active, stock, and price filters before ranking", async () => {
+    const categoryId = "61616161-6161-4616-8616-616161616161";
+    const matchingProductId = "62626262-6262-4626-8626-626262626262";
+    const expensiveProductId = "63636363-6363-4636-8636-636363636363";
+    const unavailableProductId = "64646464-6464-4646-8646-646464646464";
+    const inactiveProductId = "65656565-6565-4656-8656-656565656565";
+    const vector = Array.from({ length: 768 }, (_, index) => (index === 0 ? 1 : 0));
+    const vectorLiteral = JSON.stringify(vector);
+
+    await client!.category.create({
+      data: { id: categoryId, name: "RAG integration", slug: "rag-integration" },
+    });
+    await client!.product.createMany({
+      data: [
+        {
+          id: matchingProductId,
+          categoryId,
+          name: "Cây để bàn hợp lệ",
+          slug: "rag-matching-product",
+          sku: "RAG-MATCH",
+          description: "ragintegrationunique Cây để bàn chịu ánh sáng yếu.",
+          price: new Prisma.Decimal(180_000),
+          stock: 5,
+          isActive: true,
+        },
+        {
+          id: expensiveProductId,
+          categoryId,
+          name: "Cây quá giá",
+          slug: "rag-expensive-product",
+          sku: "RAG-EXPENSIVE",
+          description: "ragintegrationunique Cây để bàn chịu ánh sáng yếu.",
+          price: new Prisma.Decimal(450_000),
+          stock: 5,
+          isActive: true,
+        },
+        {
+          id: unavailableProductId,
+          categoryId,
+          name: "Cây hết hàng",
+          slug: "rag-unavailable-product",
+          sku: "RAG-UNAVAILABLE",
+          description: "ragintegrationunique Cây để bàn chịu ánh sáng yếu.",
+          price: new Prisma.Decimal(150_000),
+          stock: 0,
+          isActive: true,
+        },
+        {
+          id: inactiveProductId,
+          categoryId,
+          name: "Cây ngừng bán",
+          slug: "rag-inactive-product",
+          sku: "RAG-INACTIVE",
+          description: "ragintegrationunique Cây để bàn chịu ánh sáng yếu.",
+          price: new Prisma.Decimal(150_000),
+          stock: 5,
+          isActive: false,
+        },
+      ],
+    });
+
+    try {
+      for (const productId of [matchingProductId, expensiveProductId, unavailableProductId, inactiveProductId]) {
+        await client!.$executeRaw(Prisma.sql`
+          INSERT INTO "product_knowledge_chunks" (
+            "product_id", "chunk_index", "content", "source_hash", "embedding_model", "embedding"
+          ) VALUES (
+            ${productId}::uuid,
+            0,
+            'ragintegrationunique Cây để bàn chịu ánh sáng yếu.',
+            ${"a".repeat(64)},
+            'integration-test',
+            ${vectorLiteral}::extensions.vector(768)
+          )
+        `);
+      }
+      await client!.$executeRaw(Prisma.sql`
+        INSERT INTO "product_knowledge_chunks" (
+          "product_id", "chunk_index", "content", "source_hash", "embedding_model", "embedding"
+        ) VALUES (
+          ${matchingProductId}::uuid,
+          1,
+          'Đoạn thứ hai của cùng sản phẩm.',
+          ${"b".repeat(64)},
+          'integration-test',
+          ${vectorLiteral}::extensions.vector(768)
+        )
+      `);
+
+      const results = await repository!.searchKnowledge({
+        query: "ragintegrationunique",
+        embedding: vector,
+        embeddingModel: "integration-test",
+        filters: { maxPrice: 300_000 },
+        limit: 6,
+        minSemanticScore: 0.55,
+      });
+
+      const productIds = results.map((result) => result.productId);
+      assert.equal(productIds.includes(matchingProductId), true);
+      assert.equal(productIds.includes(expensiveProductId), false);
+      assert.equal(productIds.includes(unavailableProductId), false);
+      assert.equal(productIds.includes(inactiveProductId), false);
+      assert.equal(productIds.filter((id) => id === matchingProductId).length, 1);
+
+      const semanticOnly = await repository!.searchKnowledge({
+        query: "english semantic query without lexical overlap",
+        embedding: vector,
+        embeddingModel: "integration-test",
+        filters: { maxPrice: 300_000 },
+        limit: 6,
+        minSemanticScore: 0.99,
+      });
+      assert.equal(semanticOnly.filter((result) => result.productId === matchingProductId).length, 1);
+
+      const wrongEmbeddingSpace = await repository!.searchKnowledge({
+        query: "english semantic query without lexical overlap",
+        embedding: vector,
+        embeddingModel: "another-model",
+        filters: { maxPrice: 300_000 },
+        limit: 6,
+        minSemanticScore: 0.99,
+      });
+      assert.equal(wrongEmbeddingSpace.some((result) => result.productId === matchingProductId), false);
+    } finally {
+      await client!.product.deleteMany({ where: { categoryId } });
+      await client!.category.deleteMany({ where: { id: categoryId } });
     }
   });
 });

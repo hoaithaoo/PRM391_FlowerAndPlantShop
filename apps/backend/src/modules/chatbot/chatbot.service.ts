@@ -6,6 +6,7 @@ import { ErrorCodes } from "../../common/errors/error-codes";
 import { logger } from "../../lib/logger";
 import { SendChatbotMessageInput } from "./chatbot.schema";
 import { ChatbotProvider, VerifiedIncidentContext } from "./chatbot.provider";
+import { EmbeddingProvider } from "./embedding.provider";
 import {
   ChatbotCatalogProduct,
   ChatbotRepository,
@@ -19,6 +20,10 @@ import {
   SendChatbotMessageResult,
   SuggestedProduct,
 } from "./chatbot.types";
+import {
+  parseProductSearchFilters,
+  stripProductSearchFilters,
+} from "./product-search-query";
 
 const HISTORY_PAGE_SIZE = 20;
 const messageMetadataSchema = z.object({
@@ -48,6 +53,9 @@ const messageMetadataSchema = z.object({
 interface ChatbotServiceOptions {
   repository: ChatbotRepository;
   provider: ChatbotProvider;
+  embeddingProvider: EmbeddingProvider;
+  embeddingModel: string;
+  minSemanticScore: number;
   rateLimitMs: number;
   sendLeaseMs: number;
   newId?: () => string;
@@ -79,12 +87,11 @@ export class ChatbotService {
     // Chỉ đưa dữ liệu đã kiểm tra tồn tại và quyền sở hữu vào prompt của AI.
     const contextProduct = await this.verifyProductContext(repository, input.productId);
     const incidentContext = await this.verifyIncidentContext(repository, userId, input.context);
-    const catalogProducts = await repository.listCatalogProducts(50);
     const history = input.conversationId
       ? await repository.findRecentMessages(input.conversationId, 12)
       : [];
 
-    // Giữ slot trước khi gọi Gemini để chặn gửi trùng giữa nhiều instance backend.
+    // Giữ slot trước các network call để chặn gửi trùng giữa nhiều instance backend.
     const acquired = await repository.tryAcquireSendSlot(
       userId,
       this.options.rateLimitMs,
@@ -95,6 +102,44 @@ export class ChatbotService {
     }
 
     try {
+      let queryEmbedding: number[] | null = null;
+      try {
+        queryEmbedding = await this.options.embeddingProvider.embedQuery(input.message);
+      } catch (error) {
+        // Keyword search vẫn phục vụ được tên/mã chính xác khi dịch vụ embedding tạm thời lỗi.
+        logger.warn("Chatbot semantic retrieval unavailable; using keyword fallback", {
+          reason: error instanceof Error ? error.message : "unknown",
+        });
+      }
+
+      const knowledge = await repository.searchKnowledge({
+        query: stripProductSearchFilters(input.message) || input.message,
+        embedding: queryEmbedding,
+        embeddingModel: this.options.embeddingModel,
+        filters: parseProductSearchFilters(input.message),
+        limit: 6,
+        minSemanticScore: this.options.minSemanticScore,
+      });
+      const catalogProducts = this.buildGroundedCatalog(knowledge, contextProduct);
+      const knowledgeChunks = knowledge.map(({ productId, productName, content, score }) => ({
+        productId,
+        productName,
+        content,
+        score,
+      }));
+
+      if (
+        contextProduct?.description &&
+        !knowledgeChunks.some((chunk) => chunk.productId === contextProduct.id)
+      ) {
+        knowledgeChunks.unshift({
+          productId: contextProduct.id,
+          productName: contextProduct.name,
+          content: contextProduct.description,
+          score: 1,
+        });
+      }
+
       const providerResult = await this.options.provider.generate({
         message: input.message,
         history: history.map(({ role, content }) => ({ role, content })),
@@ -104,6 +149,7 @@ export class ChatbotService {
           description,
           price,
         })),
+        knowledgeChunks,
         contextProduct: contextProduct
           ? {
               id: contextProduct.id,
@@ -115,8 +161,18 @@ export class ChatbotService {
         incidentContext,
       });
 
-      const suggestedProducts = this.resolveSuggestions(providerResult.suggestedProductIds, catalogProducts);
-      const action = providerResult.actionDraft
+      const allowAnswerArtifacts = providerResult.responseType === "ANSWER";
+      const allowIncidentArtifacts =
+        providerResult.responseType === "INCIDENT" && incidentContext !== null;
+      const reply =
+        (allowAnswerArtifacts && catalogProducts.length === 0) ||
+        (providerResult.responseType === "INCIDENT" && !allowIncidentArtifacts)
+          ? noKnowledgeReply(input.message)
+          : providerResult.reply;
+      const suggestedProducts = allowAnswerArtifacts
+        ? this.resolveSuggestions(providerResult.suggestedProductIds, catalogProducts)
+        : [];
+      const action = allowIncidentArtifacts && providerResult.actionDraft
         ? this.buildIncidentAction(conversationId, providerResult.actionDraft, incidentContext)
         : null;
       const assistantMetadata: ChatbotMessageMetadata = { suggestedProducts, action };
@@ -126,14 +182,14 @@ export class ChatbotService {
         userId,
         title: createConversation ? input.message.slice(0, 80) : null,
         userMessage: input.message,
-        assistantReply: providerResult.reply,
+        assistantReply: reply,
         assistantMetadata,
       });
 
       return {
         conversationId: exchange.conversationId,
         messageId: exchange.assistantMessageId,
-        reply: providerResult.reply,
+        reply,
         suggestedProducts,
         action,
         createdAt: exchange.createdAt.toISOString(),
@@ -233,6 +289,30 @@ export class ChatbotService {
     });
   }
 
+  private buildGroundedCatalog(
+    knowledge: Awaited<ReturnType<ChatbotRepository["searchKnowledge"]>>,
+    contextProduct: ChatbotCatalogProduct | null
+  ): ChatbotCatalogProduct[] {
+    const products = new Map<string, ChatbotCatalogProduct>();
+    for (const chunk of knowledge) {
+      products.set(chunk.productId, {
+        id: chunk.productId,
+        name: chunk.productName,
+        description: chunk.content,
+        price: chunk.price,
+        imageUrl: chunk.imageUrl,
+        isActive: true,
+        stock: chunk.stock,
+      });
+    }
+
+    // Sản phẩm người dùng đang xem đã được verify riêng nên cũng là context đáng tin cậy.
+    if (contextProduct?.isActive && contextProduct.stock > 0) {
+      products.set(contextProduct.id, contextProduct);
+    }
+    return [...products.values()];
+  }
+
   private buildIncidentAction(
     conversationId: string,
     draft: { category: string; title: string; description: string },
@@ -258,4 +338,17 @@ export class ChatbotService {
   private conversationNotFound(): AppError {
     return new AppError(404, ErrorCodes.CHATBOT_CONVERSATION_NOT_FOUND, "Không tìm thấy phiên chatbot.");
   }
+}
+
+function noKnowledgeReply(message: string): string {
+  const normalized = message
+    .toLocaleLowerCase("vi")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/gu, "")
+    .replace(/đ/gu, "d");
+  // Không dùng cờ `i` với dải ký tự có dấu: case-folding biến "ſ" (U+017F) thành "s" nên mọi câu tiếng Anh có chữ s bị nhận nhầm.
+  const vietnamese = /[ăâđêôơưĩũẠ-ỹ]/u.test(message.toLocaleLowerCase("vi")) ||/\b(cay|hoa|cho (?:toi|minh)|toi (?:can|muon)|minh (?:can|muon)|ban la|khong|nao)\b/iu.test(normalized);
+  return vietnamese
+    ? "Hiện tại dữ liệu đã xác minh của cửa hàng chưa có đủ thông tin để trả lời câu hỏi này."
+    : "The store's verified data does not currently contain enough information to answer that question.";
 }

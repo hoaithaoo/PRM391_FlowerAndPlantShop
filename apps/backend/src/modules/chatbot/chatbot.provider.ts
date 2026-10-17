@@ -10,6 +10,21 @@ export interface ChatbotProviderMessage {
   content: string;
 }
 
+export interface ChatbotProviderKnowledgeChunk {
+  productId: string;
+  productName: string;
+  content: string;
+  score: number;
+}
+
+export type ChatbotResponseType =
+  | "ANSWER"
+  | "INCIDENT"
+  | "IDENTITY"
+  | "TRANSLATION"
+  | "OFF_TOPIC"
+  | "NO_KNOWLEDGE";
+
 export interface VerifiedIncidentContext {
   orderId: string | null;
   orderNumber: string | null;
@@ -29,11 +44,13 @@ export interface ChatbotProviderInput {
   message: string;
   history: ChatbotProviderMessage[];
   catalogProducts: ChatbotProviderProduct[];
+  knowledgeChunks: ChatbotProviderKnowledgeChunk[];
   contextProduct: ChatbotProviderProduct | null;
   incidentContext: VerifiedIncidentContext | null;
 }
 
 export interface ChatbotProviderResult {
+  responseType: ChatbotResponseType;
   reply: string;
   suggestedProductIds: string[];
   actionDraft: ProviderIncidentDraft | null;

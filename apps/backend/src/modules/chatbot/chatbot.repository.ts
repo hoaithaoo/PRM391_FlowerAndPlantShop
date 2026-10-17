@@ -1,4 +1,5 @@
 import { ChatbotMessageMetadata } from "./chatbot.types";
+import { ProductSearchFilters } from "./product-search-query";
 
 export interface ChatbotConversationRecord {
   id: string;
@@ -61,11 +62,31 @@ export interface ChatbotHistoryPage {
   total: number;
 }
 
+export interface ChatbotKnowledgeChunk {
+  productId: string;
+  productName: string;
+  content: string;
+  price: string;
+  imageUrl: string | null;
+  stock: number;
+  score: number;
+}
+
+export interface SearchKnowledgeInput {
+  query: string;
+  embedding: number[] | null;
+  embeddingModel: string;
+  filters: ProductSearchFilters;
+  limit: number;
+  minSemanticScore: number;
+}
+
 export interface ChatbotRepository {
   findOwnedConversation(id: string, userId: string): Promise<ChatbotConversationRecord | null>;
   findRecentMessages(conversationId: string, limit: number): Promise<StoredChatbotMessage[]>;
   findProductById(id: string): Promise<ChatbotCatalogProduct | null>;
   listCatalogProducts(limit: number): Promise<ChatbotCatalogProduct[]>;
+  searchKnowledge(input: SearchKnowledgeInput): Promise<ChatbotKnowledgeChunk[]>;
   findOwnedOrder(userId: string, id: string): Promise<OwnedOrderContext | null>;
   findOwnedPayment(userId: string, id: string): Promise<OwnedPaymentContext | null>;
   createExchange(input: ChatbotExchangeInput): Promise<ChatbotExchangeResult>;

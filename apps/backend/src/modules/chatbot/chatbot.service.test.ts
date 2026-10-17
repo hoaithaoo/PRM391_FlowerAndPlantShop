@@ -12,17 +12,21 @@ import {
   ChatbotConversationRecord,
   ChatbotExchangeInput,
   ChatbotExchangeResult,
+  ChatbotKnowledgeChunk,
   ChatbotRepository,
   OwnedOrderContext,
   OwnedPaymentContext,
+  SearchKnowledgeInput,
   StoredChatbotMessage,
 } from "./chatbot.repository";
 import { ChatbotService } from "./chatbot.service";
+import { EmbeddingProvider } from "./embedding.provider";
 
 const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OTHER_USER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const CONVERSATION_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const PRODUCT_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+const RETRIEVED_PRODUCT_ID = "13131313-1313-4131-8131-131313131313";
 const ORDER_ID = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const PAYMENT_ID = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 const ASSISTANT_MESSAGE_ID = "12121212-1212-4121-8121-121212121212";
@@ -33,6 +37,7 @@ class FakeProvider implements ChatbotProvider {
 
   constructor(
     private readonly result: ChatbotProviderResult = {
+      responseType: "ANSWER",
       reply: "Bạn có thể tham khảo sản phẩm này.",
       suggestedProductIds: [PRODUCT_ID],
       actionDraft: null,
@@ -58,6 +63,8 @@ class FakeRepository implements ChatbotRepository {
   sendInFlight = false;
   lastFinishedAt: Date | null = null;
   databaseNow = NOW;
+  knowledgeChunks: ChatbotKnowledgeChunk[] = [];
+  searchRequests: SearchKnowledgeInput[] = [];
 
   async findOwnedConversation(id: string, userId: string): Promise<ChatbotConversationRecord | null> {
     const conversation = this.conversations.get(id);
@@ -74,6 +81,11 @@ class FakeRepository implements ChatbotRepository {
 
   async listCatalogProducts(): Promise<ChatbotCatalogProduct[]> {
     return this.products.filter((product) => product.isActive && product.stock > 0);
+  }
+
+  async searchKnowledge(input: SearchKnowledgeInput) {
+    this.searchRequests.push(input);
+    return this.knowledgeChunks;
   }
 
   async findOwnedOrder(userId: string, id: string): Promise<OwnedOrderContext | null> {
@@ -143,7 +155,27 @@ class BlockingProvider implements ChatbotProvider {
   }
 
   finish(): void {
-    this.resolveResult({ reply: "Xong", suggestedProductIds: [], actionDraft: null });
+    this.resolveResult({
+      responseType: "ANSWER",
+      reply: "Xong",
+      suggestedProductIds: [],
+      actionDraft: null,
+    });
+  }
+}
+
+class FakeEmbeddingProvider implements EmbeddingProvider {
+  queries: string[] = [];
+  failure: Error | null = null;
+
+  async embedDocument(): Promise<number[]> {
+    throw new Error("not used while sending a message");
+  }
+
+  async embedQuery(text: string): Promise<number[]> {
+    this.queries.push(text);
+    if (this.failure) throw this.failure;
+    return Array.from({ length: 768 }, () => 0.01);
   }
 }
 
@@ -160,10 +192,17 @@ function product(overrides: Partial<ChatbotCatalogProduct> = {}): ChatbotCatalog
   };
 }
 
-function service(repository: FakeRepository, provider: ChatbotProvider): ChatbotService {
+function service(
+  repository: FakeRepository,
+  provider: ChatbotProvider,
+  embeddingProvider: EmbeddingProvider = new FakeEmbeddingProvider()
+): ChatbotService {
   return new ChatbotService({
     repository,
     provider,
+    embeddingProvider,
+    embeddingModel: "embedding-test",
+    minSemanticScore: 0.55,
     rateLimitMs: 1000,
     sendLeaseMs: 25_000,
     newId: () => CONVERSATION_ID,
@@ -199,6 +238,25 @@ describe("ChatbotService.sendMessage", () => {
       description: "Cây chịu bóng",
       price: "120000",
     });
+  });
+
+  test("can answer from verified selected-product facts even when description is empty", async () => {
+    const repository = new FakeRepository();
+    repository.products = [product({ description: null })];
+    const provider = new FakeProvider({
+      responseType: "ANSWER",
+      reply: "Sản phẩm này có giá 120.000 đồng.",
+      suggestedProductIds: [PRODUCT_ID],
+      actionDraft: null,
+    });
+
+    const result = await service(repository, provider).sendMessage(USER_ID, {
+      message: "Sản phẩm này giá bao nhiêu?",
+      productId: PRODUCT_ID,
+    });
+
+    assert.equal(result.reply, "Sản phẩm này có giá 120.000 đồng.");
+    assert.deepEqual(result.suggestedProducts.map((item) => item.id), [PRODUCT_ID]);
   });
 
   test("rejects a missing or foreign conversation before calling the provider", async () => {
@@ -253,6 +311,7 @@ describe("ChatbotService.sendMessage", () => {
       orderStatus: "PENDING",
     });
     const provider = new FakeProvider({
+      responseType: "INCIDENT",
       reply: "Mình đã chuẩn bị form báo lỗi.",
       suggestedProductIds: [],
       actionDraft: {
@@ -287,6 +346,157 @@ describe("ChatbotService.sendMessage", () => {
       },
     });
     assert.deepEqual(repository.exchanges[0]?.assistantMetadata.action, result.action);
+  });
+
+  test("retrieves knowledge before generation and exposes only retrieved products", async () => {
+    const repository = new FakeRepository();
+    repository.knowledgeChunks = [
+      {
+        productId: RETRIEVED_PRODUCT_ID,
+        productName: "Cây Kim Tiền",
+        content: "Cây Kim Tiền phù hợp ánh sáng gián tiếp.",
+        price: "250000",
+        imageUrl: null,
+        stock: 4,
+        score: 0.031,
+      },
+    ];
+    const embeddingProvider = new FakeEmbeddingProvider();
+    const provider = new FakeProvider({
+      responseType: "ANSWER",
+      reply: "Bạn có thể tham khảo Cây Kim Tiền.",
+      suggestedProductIds: [RETRIEVED_PRODUCT_ID, PRODUCT_ID],
+      actionDraft: null,
+    });
+
+    const result = await service(repository, provider, embeddingProvider).sendMessage(USER_ID, {
+      message: "Tìm cây để bàn dưới 300k",
+    });
+
+    assert.deepEqual(embeddingProvider.queries, ["Tìm cây để bàn dưới 300k"]);
+    assert.equal(repository.searchRequests[0]?.query, "Tìm cây để bàn");
+    assert.equal(repository.searchRequests[0]?.embeddingModel, "embedding-test");
+    assert.equal(repository.searchRequests[0]?.filters.maxPrice, 300_000);
+    assert.deepEqual(provider.calls[0]?.knowledgeChunks, [
+      {
+        productId: RETRIEVED_PRODUCT_ID,
+        productName: "Cây Kim Tiền",
+        content: "Cây Kim Tiền phù hợp ánh sáng gián tiếp.",
+        score: 0.031,
+      },
+    ]);
+    assert.deepEqual(provider.calls[0]?.catalogProducts.map((item) => item.id), [RETRIEVED_PRODUCT_ID]);
+    assert.deepEqual(result.suggestedProducts.map((item) => item.id), [RETRIEVED_PRODUCT_ID]);
+  });
+
+  test("falls back to keyword retrieval when query embedding fails", async () => {
+    const repository = new FakeRepository();
+    const embeddingProvider = new FakeEmbeddingProvider();
+    embeddingProvider.failure = new Error("embedding unavailable");
+
+    await service(repository, new FakeProvider(), embeddingProvider).sendMessage(USER_ID, {
+      message: "Cây lưỡi hổ",
+    });
+
+    assert.equal(repository.searchRequests.length, 1);
+    assert.equal(repository.searchRequests[0]?.embedding, null);
+  });
+
+  test("clears product cards and actions for a non-answer response", async () => {
+    const repository = new FakeRepository();
+    repository.knowledgeChunks = [
+      {
+        productId: RETRIEVED_PRODUCT_ID,
+        productName: "Cây Kim Tiền",
+        content: "Cây Kim Tiền phù hợp ánh sáng gián tiếp.",
+        price: "250000",
+        imageUrl: null,
+        stock: 4,
+        score: 0.031,
+      },
+    ];
+    const provider = new FakeProvider({
+      responseType: "OFF_TOPIC",
+      reply: "Tôi chỉ hỗ trợ nội dung cửa hàng.",
+      suggestedProductIds: [RETRIEVED_PRODUCT_ID],
+      actionDraft: {
+        category: "OTHER",
+        title: "Không được giữ",
+        description: "Không được giữ",
+      },
+    });
+
+    const result = await service(repository, provider).sendMessage(USER_ID, {
+      message: "Viết code sắp xếp",
+    });
+
+    assert.deepEqual(result.suggestedProducts, []);
+    assert.equal(result.action, null);
+  });
+
+  test("replaces an ungrounded answer when retrieval found no verified knowledge", async () => {
+    const repository = new FakeRepository();
+    const provider = new FakeProvider({
+      responseType: "ANSWER",
+      reply: "Cây tưởng tượng này chắc chắn phù hợp.",
+      suggestedProductIds: [],
+      actionDraft: null,
+    });
+
+    const result = await service(repository, provider).sendMessage(USER_ID, {
+      message: "Cây nào sống được trong phòng hoàn toàn tối?",
+    });
+
+    assert.equal(
+      result.reply,
+      "Hiện tại dữ liệu đã xác minh của cửa hàng chưa có đủ thông tin để trả lời câu hỏi này."
+    );
+    assert.equal(repository.exchanges[0]?.assistantReply, result.reply);
+  });
+
+  test("keeps the no-knowledge fallback in English for an English message containing 's'", async () => {
+    const repository = new FakeRepository();
+    const provider = new FakeProvider({
+      responseType: "ANSWER",
+      reply: "This imaginary plant suits you.",
+      suggestedProductIds: [],
+      actionDraft: null,
+    });
+
+    const result = await service(repository, provider).sendMessage(USER_ID, {
+      message: "Which plants survive in a dark room?",
+    });
+
+    assert.equal(
+      result.reply,
+      "The store's verified data does not currently contain enough information to answer that question."
+    );
+  });
+
+  test("does not let unrelated incident context bypass catalog grounding", async () => {
+    const repository = new FakeRepository();
+    repository.orders.set(ORDER_ID, {
+      id: ORDER_ID,
+      userId: USER_ID,
+      orderNumber: "ORD-1001",
+      status: "PENDING",
+    });
+    const provider = new FakeProvider({
+      responseType: "ANSWER",
+      reply: "Cây tưởng tượng này phù hợp.",
+      suggestedProductIds: [],
+      actionDraft: null,
+    });
+
+    const result = await service(repository, provider).sendMessage(USER_ID, {
+      message: "Tư vấn cây cho phòng tối",
+      context: { orderId: ORDER_ID },
+    });
+
+    assert.equal(
+      result.reply,
+      "Hiện tại dữ liệu đã xác minh của cửa hàng chưa có đủ thông tin để trả lời câu hỏi này."
+    );
   });
 
   test("rejects rapid messages while holding the per-user send lock", async () => {
