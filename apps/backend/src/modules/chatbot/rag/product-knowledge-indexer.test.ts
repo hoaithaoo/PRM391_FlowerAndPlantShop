@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { EmbeddingProvider } from "./embedding.provider";
+import { EmbeddingProvider } from "../providers/embedding.provider";
 import {
   ProductKnowledgeIndexStore,
   ProductKnowledgeRow,

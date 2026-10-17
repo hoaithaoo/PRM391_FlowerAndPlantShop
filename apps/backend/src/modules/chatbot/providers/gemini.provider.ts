@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-import { AppError } from "../../common/errors/app-error";
-import { ErrorCodes } from "../../common/errors/error-codes";
+import { AppError } from "../../../common/errors/app-error";
+import { ErrorCodes } from "../../../common/errors/error-codes";
 import {
   ChatbotProvider,
   ChatbotProviderInput,

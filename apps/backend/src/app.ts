@@ -11,10 +11,10 @@ import { authMiddleware } from "./middlewares/auth.middleware";
 import { profileMiddleware } from "./middlewares/profile.middleware";
 import { accountStatusMiddleware } from "./middlewares/account-status.middleware";
 import { createChatbotRoutes } from "./modules/chatbot/chatbot.routes";
-import { PrismaChatbotRepository } from "./modules/chatbot/prisma-chatbot.repository";
-import { GeminiChatbotProvider } from "./modules/chatbot/gemini.provider";
+import { PrismaChatbotRepository } from "./modules/chatbot/repository/prisma-chatbot.repository";
+import { GeminiChatbotProvider } from "./modules/chatbot/providers/gemini.provider";
 import { ChatbotService } from "./modules/chatbot/chatbot.service";
-import { GeminiEmbeddingProvider } from "./modules/chatbot/gemini-embedding.provider";
+import { GeminiEmbeddingProvider } from "./modules/chatbot/providers/gemini-embedding.provider";
 
 const chatbotRepository = new PrismaChatbotRepository();
 const chatbotProvider = new GeminiChatbotProvider({

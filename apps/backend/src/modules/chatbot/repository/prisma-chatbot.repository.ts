@@ -1,6 +1,6 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 
-import { prisma } from "../../lib/prisma";
+import { prisma } from "../../../lib/prisma";
 import {
   ChatbotCatalogProduct,
   ChatbotConversationRecord,
@@ -14,7 +14,7 @@ import {
   StoredChatbotMessage,
   SearchKnowledgeInput,
 } from "./chatbot.repository";
-import { RAG_EMBEDDING_DIMENSIONS } from "./embedding.provider";
+import { RAG_EMBEDDING_DIMENSIONS } from "../providers/embedding.provider";
 
 export class PrismaChatbotRepository implements ChatbotRepository {
   constructor(private readonly client: PrismaClient = prisma) {}

@@ -1,5 +1,5 @@
-import { ChatbotMessageMetadata } from "./chatbot.types";
-import { ProductSearchFilters } from "./product-search-query";
+import { ChatbotMessageMetadata } from "../chatbot.types";
+import { ProductSearchFilters } from "../rag/product-search-query";
 
 export interface ChatbotConversationRecord {
   id: string;

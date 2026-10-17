@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { AppError } from "../../common/errors/app-error";
+import { AppError } from "../../../common/errors/app-error";
 import { GeminiChatbotProvider } from "./gemini.provider";
 
 const PRODUCT_ID = "11111111-1111-4111-8111-111111111111";

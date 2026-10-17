@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 
-import { EmbeddingProvider } from "./embedding.provider";
+import { EmbeddingProvider } from "../providers/embedding.provider";
 import {
   buildContextualChunk,
   ChunkOptions,

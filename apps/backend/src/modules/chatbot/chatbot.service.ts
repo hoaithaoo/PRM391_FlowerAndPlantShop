@@ -5,14 +5,14 @@ import { AppError } from "../../common/errors/app-error";
 import { ErrorCodes } from "../../common/errors/error-codes";
 import { logger } from "../../lib/logger";
 import { SendChatbotMessageInput } from "./chatbot.schema";
-import { ChatbotProvider, VerifiedIncidentContext } from "./chatbot.provider";
-import { EmbeddingProvider } from "./embedding.provider";
+import { ChatbotProvider, VerifiedIncidentContext } from "./providers/chatbot.provider";
+import { EmbeddingProvider } from "./providers/embedding.provider";
 import {
   ChatbotCatalogProduct,
   ChatbotRepository,
   OwnedOrderContext,
   OwnedPaymentContext,
-} from "./chatbot.repository";
+} from "./repository/chatbot.repository";
 import {
   ChatbotAction,
   ChatbotHistoryResult,
@@ -23,7 +23,7 @@ import {
 import {
   parseProductSearchFilters,
   stripProductSearchFilters,
-} from "./product-search-query";
+} from "./rag/product-search-query";
 
 const HISTORY_PAGE_SIZE = 20;
 const messageMetadataSchema = z.object({

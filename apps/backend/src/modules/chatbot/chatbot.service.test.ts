@@ -6,7 +6,7 @@ import {
   ChatbotProvider,
   ChatbotProviderInput,
   ChatbotProviderResult,
-} from "./chatbot.provider";
+} from "./providers/chatbot.provider";
 import {
   ChatbotCatalogProduct,
   ChatbotConversationRecord,
@@ -18,9 +18,9 @@ import {
   OwnedPaymentContext,
   SearchKnowledgeInput,
   StoredChatbotMessage,
-} from "./chatbot.repository";
+} from "./repository/chatbot.repository";
 import { ChatbotService } from "./chatbot.service";
-import { EmbeddingProvider } from "./embedding.provider";
+import { EmbeddingProvider } from "./providers/embedding.provider";
 
 const USER_ID = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const OTHER_USER_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";

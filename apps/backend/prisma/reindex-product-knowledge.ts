@@ -1,13 +1,13 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 
 import { env } from "../src/config/env";
-import { RAG_EMBEDDING_DIMENSIONS } from "../src/modules/chatbot/embedding.provider";
-import { GeminiEmbeddingProvider } from "../src/modules/chatbot/gemini-embedding.provider";
+import { RAG_EMBEDDING_DIMENSIONS } from "../src/modules/chatbot/providers/embedding.provider";
+import { GeminiEmbeddingProvider } from "../src/modules/chatbot/providers/gemini-embedding.provider";
 import {
   ProductKnowledgeIndexStore,
   ProductKnowledgeRow,
   reindexProductKnowledge,
-} from "../src/modules/chatbot/product-knowledge-indexer";
+} from "../src/modules/chatbot/rag/product-knowledge-indexer";
 
 const prisma = new PrismaClient();
 
