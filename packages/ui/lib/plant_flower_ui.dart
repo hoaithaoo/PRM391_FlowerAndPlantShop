@@ -1,3 +1,3 @@
 library plant_flower_ui;
 
-export 'src/theme/app_colors.dart';
+export 'src/app_theme.dart';

@@ -4,7 +4,7 @@ publish_to: none
 environment:
   sdk: ^3.9.0
 
-# Pub workspace members. Add apps/mobile and apps/admin here after `flutter create`.
+# Pub workspace members. Add apps/admin here after `flutter create`.
 workspace:
   - packages/shared
   - packages/api_client

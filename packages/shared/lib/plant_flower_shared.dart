@@ -8,3 +8,5 @@ export 'src/models/order_model.dart';
 export 'src/models/dashboard_stats_model.dart';
 export 'src/models/invoice_model.dart';
 export 'src/models/sepay_transaction_model.dart';
+export 'src/money.dart';
+export 'src/products.dart';
