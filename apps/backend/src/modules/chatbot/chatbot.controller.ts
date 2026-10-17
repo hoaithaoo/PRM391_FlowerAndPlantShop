@@ -5,6 +5,14 @@ import { ErrorCodes } from "../../common/errors/error-codes";
 import { sendSuccess } from "../../common/utils/response";
 import type { ChatbotServiceContract } from "./chatbot.routes";
 
+/**
+ * Controller HTTP của chatbot: lấy userId đã xác thực từ request, gọi ChatbotService
+ * và trả kết quả theo định dạng chung { success, data, meta }.
+ * - sendMessage: POST /messages, gửi tin nhắn và nhận câu trả lời.
+ * - getHistory: GET /conversations/:id/messages, xem lịch sử có phân trang.
+ * - deleteConversation: DELETE /conversations/:id, xóa cuộc trò chuyện (trả 204).
+ * Không chứa nghiệp vụ; mọi lỗi được chuyển cho error middleware qua next().
+ */
 export class ChatbotController {
   constructor(private readonly service: ChatbotServiceContract) {}
 

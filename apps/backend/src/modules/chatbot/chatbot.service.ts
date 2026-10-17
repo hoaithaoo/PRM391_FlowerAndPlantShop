@@ -61,6 +61,16 @@ interface ChatbotServiceOptions {
   newId?: () => string;
 }
 
+/**
+ * Nghiệp vụ chính của chatbot RAG.
+ * - sendMessage: kiểm tra quyền sở hữu conversation/sản phẩm/đơn hàng → giữ slot chống spam
+ *   → embed câu hỏi (lỗi thì chỉ tìm bằng từ khóa) → hybrid search sản phẩm → gọi AI chỉ với
+ *   dữ liệu vừa tìm được → lọc an toàn (chỉ ANSWER mới có gợi ý sản phẩm, chỉ INCIDENT đã
+ *   xác minh mới có bản nháp báo sự cố) → lưu tin nhắn và câu trả lời vào DB.
+ * - getHistory: trả lịch sử tin nhắn có phân trang, kèm product card/action đã lưu.
+ * - deleteConversation: xóa cuộc trò chuyện của chính user.
+ * Phụ thuộc vào interface (repository, provider, embeddingProvider) nên test được bằng bản giả.
+ */
 export class ChatbotService {
   private readonly newId: () => string;
 

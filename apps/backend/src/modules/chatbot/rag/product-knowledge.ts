@@ -1,8 +1,14 @@
+/**
+ * Tùy chọn cắt chunk: số từ tối đa mỗi chunk (mặc định 320) và số từ gối đầu (mặc định 50).
+ */
 export interface ChunkOptions {
   maxWords?: number;
   overlapWords?: number;
 }
 
+/**
+ * Thông tin sản phẩm gắn vào đầu mỗi chunk.
+ */
 export interface ProductChunkContext {
   productId: string;
   productName: string;
@@ -18,6 +24,11 @@ interface SentenceUnit {
 const DEFAULT_MAX_WORDS = 320;
 const DEFAULT_OVERLAP_WORDS = 50;
 
+/**
+ * Cắt mô tả sản phẩm thành các chunk theo đoạn văn và câu hoàn chỉnh, không cắt giữa câu.
+ * Chunk sau lặp lại vài câu cuối của chunk trước (overlap) để không mất ngữ cảnh.
+ * Mô tả rỗng trả về mảng rỗng; cùng đầu vào luôn cho cùng kết quả.
+ */
 export function chunkProductDescription(
   description: string,
   options: ChunkOptions = {}
@@ -64,6 +75,10 @@ export function chunkProductDescription(
   return chunks;
 }
 
+/**
+ * Thêm mã, tên và danh mục sản phẩm vào đầu chunk để mỗi chunk tự đủ ngữ cảnh khi
+ * được tìm thấy riêng lẻ (tránh nhầm chunk của sản phẩm này với sản phẩm khác).
+ */
 export function buildContextualChunk(context: ProductChunkContext, chunk: string): string {
   return [
     `Mã sản phẩm: ${context.productId}`,

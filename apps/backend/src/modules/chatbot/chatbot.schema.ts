@@ -2,6 +2,11 @@ import { z } from "zod";
 
 const optionalNullableUuid = z.string().uuid().nullable().optional();
 
+/**
+ * Body của POST /messages: message (1–2000 ký tự), conversationId để nối tiếp cuộc trò chuyện,
+ * productId khi hỏi về một sản phẩm cụ thể, và context (orderId/paymentId) khi báo sự cố.
+ * Dùng .strict() để từ chối trường lạ.
+ */
 export const sendChatbotMessageSchema = z
   .object({
     conversationId: optionalNullableUuid,
@@ -18,8 +23,14 @@ export const sendChatbotMessageSchema = z
   })
   .strict();
 
+/**
+ * Params :id của conversation, bắt buộc là UUID.
+ */
 export const conversationParamsSchema = z.object({ id: z.string().uuid() }).strict();
 
+/**
+ * Query ?page= của lịch sử tin nhắn, số nguyên ≥ 1, mặc định 1.
+ */
 export const historyQuerySchema = z
   .object({
     page: z.coerce.number().int().min(1).default(1),

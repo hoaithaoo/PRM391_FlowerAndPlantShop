@@ -12,12 +12,20 @@ import {
 import { ChatbotHistoryResult, SendChatbotMessageResult } from "./chatbot.types";
 import { ChatbotController } from "./chatbot.controller";
 
+/**
+ * Các hàm mà router/controller cần từ service. Tách thành interface để test route
+ * bằng service giả mà không cần database hay AI thật.
+ */
 export interface ChatbotServiceContract {
   sendMessage(userId: string, input: SendChatbotMessageInput): Promise<SendChatbotMessageResult>;
   getHistory(userId: string, conversationId: string, page: number): Promise<ChatbotHistoryResult>;
   deleteConversation(userId: string, conversationId: string): Promise<void>;
 }
 
+/**
+ * Tạo router /chatbot: chạy middleware xác thực cho mọi route, validate body/params/query
+ * bằng Zod schema rồi mới chuyển cho ChatbotController.
+ */
 export function createChatbotRoutes(
   service: ChatbotServiceContract,
   authenticationMiddlewares: RequestHandler[]

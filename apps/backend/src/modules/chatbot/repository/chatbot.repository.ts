@@ -1,12 +1,18 @@
 import { ChatbotMessageMetadata } from "../chatbot.types";
 import { ProductSearchFilters } from "../rag/product-search-query";
 
+/**
+ * Conversation đã kiểm tra thuộc về user.
+ */
 export interface ChatbotConversationRecord {
   id: string;
   userId: string;
   title: string | null;
 }
 
+/**
+ * Sản phẩm kèm giá, tồn kho, ảnh; nguồn dữ liệu thật cho product card.
+ */
 export interface ChatbotCatalogProduct {
   id: string;
   name: string;
@@ -17,6 +23,9 @@ export interface ChatbotCatalogProduct {
   stock: number;
 }
 
+/**
+ * Đơn hàng đã kiểm tra thuộc về user.
+ */
 export interface OwnedOrderContext {
   id: string;
   userId: string;
@@ -24,6 +33,9 @@ export interface OwnedOrderContext {
   status: string;
 }
 
+/**
+ * Thanh toán đã kiểm tra thuộc về user, kèm trạng thái đơn hàng.
+ */
 export interface OwnedPaymentContext {
   id: string;
   userId: string;
@@ -33,6 +45,9 @@ export interface OwnedPaymentContext {
   orderStatus: string;
 }
 
+/**
+ * Tin nhắn đã lưu trong DB.
+ */
 export interface StoredChatbotMessage {
   id: string;
   role: "USER" | "ASSISTANT";
@@ -41,6 +56,9 @@ export interface StoredChatbotMessage {
   createdAt: Date;
 }
 
+/**
+ * Một lượt hỏi–đáp cần lưu (tin nhắn user + câu trả lời + metadata).
+ */
 export interface ChatbotExchangeInput {
   conversationId: string;
   createConversation: boolean;
@@ -51,17 +69,26 @@ export interface ChatbotExchangeInput {
   assistantMetadata: ChatbotMessageMetadata;
 }
 
+/**
+ * Kết quả sau khi lưu lượt hỏi–đáp.
+ */
 export interface ChatbotExchangeResult {
   conversationId: string;
   assistantMessageId: string;
   createdAt: Date;
 }
 
+/**
+ * Một trang lịch sử tin nhắn và tổng số tin nhắn.
+ */
 export interface ChatbotHistoryPage {
   items: StoredChatbotMessage[];
   total: number;
 }
 
+/**
+ * Kết quả tìm kiếm RAG: chunk mô tả kèm dữ liệu sản phẩm và điểm xếp hạng.
+ */
 export interface ChatbotKnowledgeChunk {
   productId: string;
   productName: string;
@@ -72,6 +99,10 @@ export interface ChatbotKnowledgeChunk {
   score: number;
 }
 
+/**
+ * Tham số hybrid search: câu tìm kiếm, vector câu hỏi (null nếu embedding lỗi), bộ lọc giá,
+ * số kết quả và ngưỡng điểm ngữ nghĩa tối thiểu.
+ */
 export interface SearchKnowledgeInput {
   query: string;
   embedding: number[] | null;
@@ -81,6 +112,10 @@ export interface SearchKnowledgeInput {
   minSemanticScore: number;
 }
 
+/**
+ * Interface truy cập dữ liệu mà ChatbotService cần: conversation, tin nhắn, sản phẩm,
+ * đơn hàng/thanh toán, tìm kiếm RAG và slot chống spam. Các hàm findOwned* lọc theo userId.
+ */
 export interface ChatbotRepository {
   findOwnedConversation(id: string, userId: string): Promise<ChatbotConversationRecord | null>;
   findRecentMessages(conversationId: string, limit: number): Promise<StoredChatbotMessage[]>;

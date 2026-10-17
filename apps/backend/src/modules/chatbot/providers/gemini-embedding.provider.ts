@@ -11,6 +11,13 @@ interface GeminiEmbeddingProviderOptions {
   fetchImpl?: typeof fetch;
 }
 
+/**
+ * Cài đặt EmbeddingProvider bằng Gemini Embedding REST API.
+ * - Thêm tiền tố định dạng khác nhau cho document và query.
+ * - Có timeout và hỗ trợ hủy (AbortSignal).
+ * - Kiểm tra vector trả về đúng 768 số hợp lệ; sai thì ném CHATBOT_PROVIDER_ERROR.
+ * - Thông báo lỗi không nêu tên nhà cung cấp.
+ */
 export class GeminiEmbeddingProvider implements EmbeddingProvider {
   private readonly fetchImpl: typeof fetch;
 

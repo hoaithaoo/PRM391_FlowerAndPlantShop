@@ -7,6 +7,9 @@ import {
   chunkProductDescription,
 } from "./product-knowledge";
 
+/**
+ * Sản phẩm đọc từ DB để lập chỉ mục.
+ */
 export interface ProductKnowledgeSource {
   id: string;
   name: string;
@@ -14,6 +17,9 @@ export interface ProductKnowledgeSource {
   categoryName: string;
 }
 
+/**
+ * Một dòng chunk + embedding sẽ ghi vào bảng product_knowledge_chunks.
+ */
 export interface ProductKnowledgeRow {
   productId: string;
   chunkIndex: number;
@@ -23,6 +29,9 @@ export interface ProductKnowledgeRow {
   embedding: number[];
 }
 
+/**
+ * Nơi đọc sản phẩm và ghi chỉ mục. replaceAll xóa chỉ mục cũ và ghi chỉ mục mới trong cùng một transaction.
+ */
 export interface ProductKnowledgeIndexStore {
   listProducts(): Promise<ProductKnowledgeSource[]>;
   replaceAll(rows: ProductKnowledgeRow[]): Promise<void>;
@@ -35,12 +44,20 @@ interface ReindexDependencies {
   chunkOptions?: ChunkOptions;
 }
 
+/**
+ * Thống kê sau khi reindex: số sản phẩm đã đọc, đã lập chỉ mục và số chunk.
+ */
 export interface ReindexSummary {
   productsRead: number;
   productsIndexed: number;
   chunksIndexed: number;
 }
 
+/**
+ * Lập lại chỉ mục RAG cho toàn bộ sản phẩm: cắt mô tả thành chunk → tạo embedding → ghi DB.
+ * Tạo xong mọi embedding rồi mới ghi, nên nếu dịch vụ embedding lỗi giữa chừng thì chỉ mục cũ
+ * vẫn được giữ nguyên. Chạy bằng lệnh pnpm rag:reindex.
+ */
 export async function reindexProductKnowledge(
   dependencies: ReindexDependencies
 ): Promise<ReindexSummary> {

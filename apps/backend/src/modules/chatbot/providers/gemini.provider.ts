@@ -41,6 +41,16 @@ Chỉ suggestedProductIds có trong catalogProducts. Không hứa hoàn tiền v
 Chọn đúng một responseType: ANSWER, INCIDENT, IDENTITY, TRANSLATION, OFF_TOPIC hoặc NO_KNOWLEDGE.
 Chỉ trả JSON hợp lệ gồm responseType, reply, suggestedProductIds và actionDraft. actionDraft là null hoặc gồm category, title, description.`;
 
+/**
+ * Cài đặt ChatbotProvider bằng Gemini: gửi system prompt + lịch sử + dữ liệu RAG,
+ * yêu cầu trả JSON có cấu trúc rồi kiểm tra bằng Zod.
+ * Lớp an toàn sau khi nhận kết quả:
+ * - Câu hỏi danh tính hoặc câu trả lời lộ tên nhà cung cấp AI → ép thành IDENTITY.
+ * - Chỉ giữ suggestedProductIds có trong catalogProducts và chỉ cho ANSWER.
+ * - Chỉ giữ actionDraft cho INCIDENT.
+ * - Câu từ chối quá dài hoặc lộ nhà cung cấp → thay bằng câu mẫu.
+ * Trả lời theo ngôn ngữ người dùng viết. Lỗi mạng/timeout được đổi thành AppError 502/504.
+ */
 export class GeminiChatbotProvider implements ChatbotProvider {
   private readonly fetchImpl: typeof fetch;
 

@@ -16,6 +16,14 @@ import {
 } from "./chatbot.repository";
 import { RAG_EMBEDDING_DIMENSIONS } from "../providers/embedding.provider";
 
+/**
+ * Cài đặt ChatbotRepository bằng Prisma/PostgreSQL.
+ * - searchKnowledge: hybrid search bằng SQL có tham số: lọc sản phẩm đang bán, còn hàng, đúng
+ *   khoảng giá; xếp hạng theo full-text search và pgvector, gộp bằng RRF; mỗi sản phẩm lấy 1 chunk tốt nhất.
+ *   Không có vector thì chỉ dùng từ khóa.
+ * - tryAcquireSendSlot/releaseSendSlot: khóa theo user trong DB để chặn gửi trùng giữa nhiều instance.
+ * - createExchange: lưu tin nhắn user và câu trả lời của assistant.
+ */
 export class PrismaChatbotRepository implements ChatbotRepository {
   constructor(private readonly client: PrismaClient = prisma) {}
 

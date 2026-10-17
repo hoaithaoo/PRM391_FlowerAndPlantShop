@@ -1,3 +1,6 @@
+/**
+ * Khoảng giá (VND) tách từ câu hỏi, dùng để lọc chính xác bằng SQL.
+ */
 export interface ProductSearchFilters {
   minPrice?: number;
   maxPrice?: number;
@@ -6,6 +9,10 @@ export interface ProductSearchFilters {
 const AMOUNT = String.raw`(\d+(?:[.,]\d{1,3})?(?:[.,]\d{3})*)\s*(trieu|million|nghin|ngan|thousand|k|dong|vnd|d)?`;
 const PRICE_AMOUNT = String.raw`\d+(?:[.,]\d{1,3})?(?:[.,]\d{3})*\s*(?:triệu|trieu|million|nghìn|nghin|ngàn|ngan|thousand|k|đồng|dong|vnd|đ|d)?`;
 
+/**
+ * Tách khoảng giá từ câu hỏi tiếng Việt/Anh, ví dụ "dưới 300k", "từ 200.000 đến 500.000",
+ * "under 300000", "trên 1 triệu". Không có giá thì trả object rỗng.
+ */
 export function parseProductSearchFilters(query: string): ProductSearchFilters {
   const normalized = normalizeForMatching(query);
   const range = new RegExp(
