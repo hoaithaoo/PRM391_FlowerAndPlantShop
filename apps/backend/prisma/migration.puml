@@ -1,0 +1,236 @@
+@startuml
+title Database ERD - PostgreSQL / Prisma
+
+hide circle
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+
+entity "profiles" as profiles {
+  * id : UUID <<PK>>
+  --
+  email : String
+  full_name : String
+  avatar_url : String
+  phone : String
+  role : Role
+  status : UserStatus
+  created_at : DateTime
+  updated_at : DateTime
+}
+
+entity "categories" as categories {
+  * id : UUID <<PK>>
+  --
+  name : String
+  slug : String <<UQ>>
+  image_url : String
+  is_active : Boolean
+  created_at : DateTime
+  updated_at : DateTime
+}
+
+entity "products" as products {
+  * id : UUID <<PK>>
+  --
+  category_id : UUID <<FK>>
+  name : String
+  slug : String <<UQ>>
+  sku : String <<UQ>>
+  description : String
+  price : Decimal
+  tax_rate : Decimal
+  stock : Integer
+  image_url : String
+  images : String[]
+  is_active : Boolean
+  created_at : DateTime
+  updated_at : DateTime
+}
+
+entity "carts" as carts {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK, UQ>>
+  created_at : DateTime
+  updated_at : DateTime
+}
+
+entity "cart_items" as cart_items {
+  * id : UUID <<PK>>
+  --
+  cart_id : UUID <<FK>>
+  product_id : UUID <<FK>>
+  quantity : Integer
+  created_at : DateTime
+  updated_at : DateTime
+}
+
+entity "orders" as orders {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  order_number : String <<UQ>>
+  idempotency_key : String <<UQ>>
+  status : OrderStatus
+  payment_method : PaymentMethod
+  total_amount : Decimal
+  shipping_address : String
+  shipping_latitude : Decimal
+  shipping_longitude : Decimal
+  recipient_name : String
+  recipient_phone : String
+  note : String
+  cancelled_at : DateTime
+  completed_at : DateTime
+  created_at : DateTime
+  updated_at : DateTime
+}
+
+entity "order_items" as order_items {
+  * id : UUID <<PK>>
+  --
+  order_id : UUID <<FK>>
+  product_id : UUID <<FK>>
+  name : String
+  sku : String
+  unit_price : Decimal
+  quantity : Integer
+  subtotal : Decimal
+}
+
+entity "invoices" as invoices {
+  * id : UUID <<PK>>
+  --
+  order_id : UUID <<FK, UQ>>
+  user_id : UUID <<FK>>
+  invoice_no : String <<UQ>>
+  status : InvoiceStatus
+  customer_name : String
+  customer_phone : String
+  customer_address : String
+  subtotal_amount : Decimal
+  discount_amount : Decimal
+  tax_amount : Decimal
+  shipping_fee : Decimal
+  grand_total : Decimal
+  issued_at : DateTime
+  paid_at : DateTime
+  created_at : DateTime
+  updated_at : DateTime
+}
+
+entity "invoice_items" as invoice_items {
+  * id : UUID <<PK>>
+  --
+  invoice_id : UUID <<FK>>
+  product_id : UUID <<FK, nullable>>
+  name : String
+  sku : String
+  unit_price : Decimal
+  quantity : Integer
+  discount_amount : Decimal
+  taxable_amount : Decimal
+  tax_rate : Decimal
+  tax_amount : Decimal
+  line_total : Decimal
+}
+
+entity "payments" as payments {
+  * id : UUID <<PK>>
+  --
+  invoice_id : UUID <<FK>>
+  payment_code : String <<UQ>>
+  provider : PaymentMethod
+  amount : Decimal
+  status : PaymentStatus
+  qr_url : String
+  paid_at : DateTime
+  expires_at : DateTime
+  created_at : DateTime
+  updated_at : DateTime
+}
+
+entity "sepay_transactions" as sepay_transactions {
+  * id : UUID <<PK>>
+  --
+  sepay_transaction_id : String <<UQ>>
+  payment_id : UUID <<FK, nullable>>
+  gateway : String
+  transaction_date : DateTime
+  account_number : String
+  transfer_type : TransferType
+  transfer_amount : Decimal
+  payment_code : String
+  content : String
+  reference_code : String
+  raw_payload : JSON
+  received_at : DateTime
+}
+
+entity "notifications" as notifications {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  type : NotificationType
+  title : String
+  message : String
+  data : JSON
+  is_read : Boolean
+  read_at : DateTime
+  created_at : DateTime
+}
+
+entity "stores" as stores {
+  * id : UUID <<PK>>
+  --
+  name : String
+  address : String
+  latitude : Decimal
+  longitude : Decimal
+  phone : String
+  opening_hours : String
+  is_active : Boolean
+  created_at : DateTime
+  updated_at : DateTime
+}
+
+entity "chatbot_conversations" as chatbot_conversations {
+  * id : UUID <<PK>>
+  --
+  user_id : UUID <<FK>>
+  title : String
+  created_at : DateTime
+  updated_at : DateTime
+}
+
+entity "chatbot_messages" as chatbot_messages {
+  * id : UUID <<PK>>
+  --
+  conversation_id : UUID <<FK>>
+  role : ChatRole
+  content : String
+  created_at : DateTime
+}
+
+categories ||--o{ products
+profiles ||--o| carts
+carts ||--o{ cart_items
+products ||--o{ cart_items
+
+profiles ||--o{ orders
+orders ||--o{ order_items
+products ||--o{ order_items
+
+orders ||--o| invoices
+profiles ||--o{ invoices
+invoices ||--o{ invoice_items
+products |o--o{ invoice_items
+
+invoices ||--o{ payments
+payments |o--o{ sepay_transactions
+
+profiles ||--o{ notifications
+profiles ||--o{ chatbot_conversations
+chatbot_conversations ||--o{ chatbot_messages
+
+@enduml

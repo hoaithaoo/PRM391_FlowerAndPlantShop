@@ -12,6 +12,8 @@ import {
   productRoutes,
 } from "./modules/products/product.routes";
 import { storeRoutes } from "./modules/stores/store.routes";
+import { cartRoutes } from "./modules/carts/cart.routes";
+import { checkoutRoutes } from "./modules/checkout/checkout.routes";
 
 export const createApp = (): Application => {
   const app = express();
@@ -47,6 +49,8 @@ export const createApp = (): Application => {
   app.use("/api/v1/products", productRoutes);
   app.use("/api/v1/admin/products", adminProductRoutes);
   app.use("/api/v1/stores", storeRoutes);
+  app.use("/api/v1/cart", cartRoutes);
+  app.use("/api/v1/checkout", checkoutRoutes);
 
   // 4. Fallback 404 handler
   app.use((req: Request, _res: Response, next: NextFunction) => {
