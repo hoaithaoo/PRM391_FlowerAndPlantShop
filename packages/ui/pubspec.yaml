@@ -12,4 +12,5 @@ resolution: workspace
 dependencies:
   flutter:
     sdk: flutter
+  google_fonts: ^6.2.1
   plant_flower_shared: ^0.1.0
