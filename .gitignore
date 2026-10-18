@@ -167,3 +167,12 @@ pubspec_overrides.yaml
 .idea/
 .vscode/
 .DS_Store
+
+# AI agent working files (plans/specs, session state, generated graphs)
+.superpowers/
+docs/superpowers/
+graphify-out/
+.claude/
+.codex/
+.cursor/
+docs/postman/

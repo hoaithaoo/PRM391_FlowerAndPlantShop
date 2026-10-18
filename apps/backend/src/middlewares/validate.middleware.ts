@@ -21,7 +21,14 @@ export const validateRequest = (schemas: ValidationSchemas) => {
         req.body = await schemas.body.parseAsync(req.body);
       }
       if (schemas.query) {
-        req.query = await schemas.query.parseAsync(req.query);
+        const validatedQuery = await schemas.query.parseAsync(req.query);
+        // Express 5 exposes query through a configurable getter without a setter.
+        Object.defineProperty(req, "query", {
+          value: validatedQuery,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
       }
       if (schemas.params) {
         req.params = await schemas.params.parseAsync(req.params);

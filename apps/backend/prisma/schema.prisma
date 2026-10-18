@@ -80,6 +80,7 @@ model Profile {
   invoices             Invoice[]
   notifications        Notification[]
   chatbotConversations ChatbotConversation[]
+  chatbotRateLimit     ChatbotRateLimit?
 
   @@map("profiles")
 }
@@ -114,14 +115,33 @@ model Product {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  category     Category      @relation(fields: [categoryId], references: [id])
-  cartItems    CartItem[]
-  orderItems   OrderItem[]
-  invoiceItems InvoiceItem[]
+  category        Category                @relation(fields: [categoryId], references: [id])
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  invoiceItems    InvoiceItem[]
+  knowledgeChunks ProductKnowledgeChunk[]
 
   @@index([categoryId])
   @@index([isActive, createdAt])
   @@map("products")
+}
+
+model ProductKnowledgeChunk {
+  id             String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId      String                     @map("product_id") @db.Uuid
+  chunkIndex     Int                        @map("chunk_index")
+  content        String
+  sourceHash     String                     @map("source_hash") @db.VarChar(64)
+  embeddingModel String                     @map("embedding_model")
+  embedding      Unsupported("vector(768)")
+  createdAt      DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime                   @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, chunkIndex])
+  @@index([productId])
+  @@map("product_knowledge_chunks")
 }
 
 model Cart {
@@ -340,12 +360,24 @@ model ChatbotConversation {
 model ChatbotMessage {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   conversationId String   @map("conversation_id") @db.Uuid
+  sequence       BigInt   @unique @default(autoincrement())
   role           ChatRole // USER | ASSISTANT
   content        String
+  metadata       Json?
   createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
   conversation ChatbotConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
-  @@index([conversationId, createdAt])
+  @@index([conversationId, sequence])
   @@map("chatbot_messages")
+}
+
+model ChatbotRateLimit {
+  userId         String    @id @map("user_id") @db.Uuid
+  lastFinishedAt DateTime? @map("last_finished_at") @db.Timestamptz(3)
+  inFlightUntil  DateTime  @map("in_flight_until") @db.Timestamptz(3)
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("chatbot_rate_limits")
 }

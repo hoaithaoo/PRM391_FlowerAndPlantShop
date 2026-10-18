@@ -7,6 +7,44 @@ import { errorHandler } from "./middlewares/error-handler";
 import { AppError } from "./common/errors/app-error";
 import { ErrorCodes } from "./common/errors/error-codes";
 import { profileRoutes } from "./modules/profiles/profile.routes";
+import { authMiddleware } from "./middlewares/auth.middleware";
+import { profileMiddleware } from "./middlewares/profile.middleware";
+import { accountStatusMiddleware } from "./middlewares/account-status.middleware";
+import { createChatbotRoutes } from "./modules/chatbot/chatbot.routes";
+import { PrismaChatbotRepository } from "./modules/chatbot/repository/prisma-chatbot.repository";
+import { GeminiChatbotProvider } from "./modules/chatbot/providers/gemini.provider";
+import { ChatbotService } from "./modules/chatbot/chatbot.service";
+import { GeminiEmbeddingProvider } from "./modules/chatbot/providers/gemini-embedding.provider";
+
+const chatbotRepository = new PrismaChatbotRepository();
+const chatbotProvider = new GeminiChatbotProvider({
+  apiKey: env.GEMINI_API_KEY ?? "",
+  model: env.GEMINI_MODEL,
+  baseUrl: env.GEMINI_API_BASE_URL,
+  timeoutMs: env.GEMINI_TIMEOUT_MS,
+});
+const embeddingProvider = new GeminiEmbeddingProvider({
+  apiKey: env.GEMINI_API_KEY ?? "",
+  model: env.GEMINI_EMBEDDING_MODEL,
+  baseUrl: env.GEMINI_API_BASE_URL,
+  dimensions: env.RAG_EMBEDDING_DIMENSIONS,
+  timeoutMs: env.GEMINI_TIMEOUT_MS,
+});
+const chatbotService = new ChatbotService({
+  repository: chatbotRepository,
+  provider: chatbotProvider,
+  embeddingProvider,
+  embeddingModel: env.GEMINI_EMBEDDING_MODEL,
+  minSemanticScore: env.RAG_MIN_SEMANTIC_SCORE,
+  rateLimitMs: env.CHATBOT_RATE_LIMIT_MS,
+  // Một lượt chat có tối đa hai network calls liên tiếp: embedding rồi generation.
+  sendLeaseMs: env.GEMINI_TIMEOUT_MS * 2 + 10_000,
+});
+const chatbotRoutes = createChatbotRoutes(chatbotService, [
+  authMiddleware,
+  profileMiddleware,
+  accountStatusMiddleware,
+]);
 
 export const createApp = (): Application => {
   const app = express();
@@ -39,6 +77,7 @@ export const createApp = (): Application => {
 
   // 3. API Routes v1
   app.use("/api/v1/profile", profileRoutes);
+  app.use("/api/v1/chatbot", chatbotRoutes);
 
   // 4. Fallback 404 handler
   app.use((req: Request, _res: Response, next: NextFunction) => {

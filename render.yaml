@@ -29,3 +29,13 @@ services:
         sync: false
       - key: SEPAY_WEBHOOK_SECRET
         sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: GEMINI_API_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta
+      - key: GEMINI_TIMEOUT_MS
+        value: 15000
+      - key: CHATBOT_RATE_LIMIT_MS
+        value: 1000
