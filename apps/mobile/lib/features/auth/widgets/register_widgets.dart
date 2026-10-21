@@ -2,7 +2,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../state/register_state.dart';
-import '../utils/auth_assets.dart';
 import '../utils/auth_theme.dart';
 import '../utils/auth_validators.dart';
 import 'auth_common.dart';
