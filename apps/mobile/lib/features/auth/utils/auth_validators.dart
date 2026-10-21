@@ -12,10 +12,8 @@ abstract final class AuthValidators {
   static final _uppercase = RegExp(r'[A-Z]');
   static final _digit = RegExp(r'\d');
   static final _special = RegExp(r'[^A-Za-z0-9\s]');
-  static final _otpPattern = RegExp(r'^\d{6}$');
 
   static const passwordMinLength = 8;
-  static const otpLength = 6;
 
   static bool isEmail(String value) => _emailPattern.hasMatch(value.trim());
 
@@ -107,24 +105,6 @@ abstract final class AuthValidators {
     return value.isEmpty ? 'Vui lòng nhập mật khẩu.' : null;
   }
 
-  static String? otp(String value) {
-    if (!_otpPattern.hasMatch(value)) {
-      return 'Vui lòng nhập đủ 6 chữ số của mã OTP.';
-    }
-    return null;
-  }
-
-  /// Che email để hiển thị trên chip OTP: phuongha@gmail.com -> ph***@gmail.com.
-  static String maskEmail(String value) {
-    final email = value.trim();
-    final at = email.indexOf('@');
-    if (at <= 0) return email;
-    final name = email.substring(0, at);
-    final visible = name.length <= 2
-        ? name.substring(0, 1)
-        : name.substring(0, 2);
-    return '$visible***${email.substring(at)}';
-  }
 }
 
 /// Trạng thái từng điều kiện mật khẩu, dùng cho checklist ở màn đăng ký lỗi.

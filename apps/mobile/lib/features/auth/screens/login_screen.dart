@@ -5,14 +5,13 @@ import 'package:flutter/material.dart';
 import '../auth_routes.dart';
 import '../data/auth_repository.dart';
 import '../data/auth_scope.dart';
-import '../models/auth_models.dart';
 import '../state/login_controller.dart';
 import '../state/login_state.dart';
 import '../utils/auth_theme.dart';
 import '../widgets/auth_common.dart';
 import '../widgets/login_widgets.dart';
 
-/// Màn đăng nhập bằng email + mật khẩu, OTP hoặc Google.
+/// Màn đăng nhập (màn đầu của app) bằng email + mật khẩu hoặc Google.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -45,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _onSignedInChanged(bool signedIn) {
-    // Bỏ qua khi màn khác (OTP) đang nằm trên và tự xử lý
+    // Bỏ qua khi màn khác (vd Đăng ký) đang nằm trên; AuthSessionGate tự chuyển màn
     if (!signedIn || !mounted) return;
     if (ModalRoute.of(context)?.isCurrent == false) return;
     _complete();
@@ -73,26 +72,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  Future<void> _onSendOtp() async {
-    final result = await _controller.sendOtp();
-    if (!mounted) return;
-    switch (result.status) {
-      case LoginResultStatus.success:
-        await AuthRoutes.openOtp(
-          context,
-          OtpArgs(
-            email: _controller.identifierController.text.trim(),
-            purpose: OtpPurpose.login,
-          ),
-        );
-      case LoginResultStatus.failure:
-        showAuthError(context, result.message!);
-      case LoginResultStatus.invalid:
-      case LoginResultStatus.ignored:
-        break;
-    }
-  }
-
   Future<void> _onGoogle() async {
     final result = await _controller.signInWithGoogle();
     if (!mounted) return;
@@ -107,14 +86,9 @@ class _LoginScreenState extends State<LoginScreen> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _onExplore() {
-    final navigator = Navigator.of(context);
-    if (navigator.canPop()) {
-      navigator.pop();
-    } else {
-      _showMessage('Trang chủ đang được phát triển.');
-    }
-  }
+  /// Màn này là màn gốc nên không có route bên dưới để quay về; app chưa có
+  /// trang chủ nên luôn báo đang phát triển (không pop để tránh thoát app).
+  void _onExplore() => _showMessage('Trang chủ đang được phát triển.');
 
   @override
   Widget build(BuildContext context) {
@@ -179,28 +153,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Widget _buildForm(LoginState state) {
-    final labelLinkStyle = AuthFonts.sans(
-      fontSize: 11,
-      fontWeight: FontWeight.w500,
-      color: AuthPalette.sage,
-      letterSpacing: 0.44,
-    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Expanded(child: LoginFieldLabel('Số điện thoại hoặc Email')),
-            LoginTextLink(
-              key: const Key('login_otp_link'),
-              label: 'Đăng nhập OTP',
-              style: labelLinkStyle,
-              isLoading: state.isSendingOtp,
-              onPressed: state.isBusy ? null : _onSendOtp,
-            ),
-          ],
-        ),
+        const LoginFieldLabel('Số điện thoại hoặc Email'),
         const SizedBox(height: 6),
         AuthTextField(
           key: const Key('login_identifier_field'),

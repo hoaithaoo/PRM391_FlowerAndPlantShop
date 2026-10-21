@@ -20,17 +20,9 @@ abstract interface class AuthRepository {
   /// phiên đăng nhập đến sau qua [signedInChanges].
   Future<void> signInWithGoogle();
 
-  /// Gửi mã OTP 6 số để đăng nhập không mật khẩu.
-  Future<void> sendLoginOtp({required String email});
-
-  Future<void> verifyOtp({
-    required String email,
-    required String token,
-    required OtpPurpose purpose,
-  });
-
-  /// Gửi lại mã theo mục đích (đăng nhập hoặc xác thực đăng ký).
-  Future<void> resendOtp({required String email, required OtpPurpose purpose});
+  /// Gửi lại email chứa link xác nhận đăng ký. Bấm link sẽ mở lại app qua deep
+  /// link và phiên đăng nhập đến qua [signedInChanges].
+  Future<void> resendSignupEmail({required String email});
 
   Future<SignUpResult> signUp(RegisterRequest request);
 

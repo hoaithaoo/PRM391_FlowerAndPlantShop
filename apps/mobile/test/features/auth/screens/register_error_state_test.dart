@@ -65,7 +65,7 @@ void main() {
         await openRegister(tester, repo);
         await submitEmpty(tester);
 
-        expect(find.text('FLEURÉ ATELIER'), findsNothing);
+        expect(find.text('GIA NHẬP FLEURÉ PRIVÉ'), findsNothing);
         expect(find.text('Tạo tài khoản mới'), findsNothing);
         expect(byKey('register_google_button'), findsNothing);
         expect(find.text('Hoặc đăng ký nhanh bằng'), findsNothing);
@@ -329,7 +329,7 @@ void main() {
       await settle(tester);
 
       expect(byKey('register_error_summary'), findsNothing);
-      expect(find.text('FLEURÉ ATELIER'), findsOneWidget);
+      expect(find.text('GIA NHẬP FLEURÉ PRIVÉ'), findsOneWidget);
       expect(byKey('register_google_button'), findsOneWidget);
       expect(isChecked(tester), isTrue);
       expect(textOf(tester, 'register_email_field'), 'phuongha@gmail.com');
@@ -339,7 +339,7 @@ void main() {
       await tapKey(tester, 'register_submit_button');
       await settle(tester);
       expect(repo.count('signUp'), 1);
-      expect(find.byType(OtpVerificationScreen), findsOneWidget);
+      expect(find.byType(EmailVerificationScreen), findsOneWidget);
     });
 
     authTestWidgets(

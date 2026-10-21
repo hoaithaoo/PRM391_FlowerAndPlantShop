@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_flower_mobile/features/auth/auth.dart';
 import 'package:plant_flower_mobile/features/auth/widgets/auth_common.dart';
+import 'package:plant_flower_mobile/features/auth/widgets/login_widgets.dart';
 
 import '../support/auth_test_harness.dart';
 
@@ -45,7 +46,6 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Số điện thoại hoặc Email'), findsOneWidget);
-      expect(find.text('Đăng nhập OTP'), findsOneWidget);
       expect(find.text('Mật khẩu'), findsOneWidget);
       expect(
         find.text('Nhập số điện thoại hoặc email của bạn'),
@@ -285,7 +285,6 @@ void main() {
       await tester.tap(byKey('login_submit_button'));
       await tester.pump();
       await tester.tap(byKey('login_google_button'), warnIfMissed: false);
-      await tester.tap(byKey('login_otp_link'), warnIfMissed: false);
       await tester.pump();
       expect(repo.calls, ['signInWithPassword']);
 
@@ -430,124 +429,6 @@ void main() {
     });
   });
 
-  group('Đăng nhập OTP', () {
-    authTestWidgets('để trống: chỉ báo lỗi ô định danh, không gọi repo', (
-      tester,
-      repo,
-    ) async {
-      await openLogin(tester, repo);
-      await tapKey(tester, 'login_otp_link');
-
-      expect(find.text(_emptyId), findsOneWidget);
-      expect(byKey(_pwError), findsNothing);
-      expect(repo.calls, isEmpty);
-      expect(find.byType(OtpVerificationScreen), findsNothing);
-    });
-
-    authTestWidgets('số điện thoại: câu "chưa được hỗ trợ"', (
-      tester,
-      repo,
-    ) async {
-      await openLogin(tester, repo);
-      await enterIn(tester, _idField, '0912345678');
-      await tapKey(tester, 'login_otp_link');
-
-      expect(find.text(_phoneUnsupported), findsOneWidget);
-      expect(repo.calls, isEmpty);
-    });
-
-    authTestWidgets('email hợp lệ: gửi OTP rồi mở màn OTP (purpose=login)', (
-      tester,
-      repo,
-    ) async {
-      await openLogin(tester, repo);
-      await enterIn(tester, _idField, ' phuongha@gmail.com ');
-      await tapKey(tester, 'login_otp_link');
-      await settle(tester);
-
-      expect(repo.calls, ['sendLoginOtp']);
-      expect(repo.lastEmail, 'phuongha@gmail.com');
-      final otp = tester.widget<OtpVerificationScreen>(
-        find.byType(OtpVerificationScreen),
-      );
-      expect(otp.email, 'phuongha@gmail.com');
-      expect(otp.purpose, OtpPurpose.login);
-      expect(find.text('ph***@gmail.com'), findsOneWidget);
-
-      // Nhập đúng mã ở màn OTP -> đóng toàn bộ luồng, chỉ một SnackBar chào
-      await tester.enterText(byKey('otp_input'), '123456');
-      await tester.pump();
-      await tester.tap(byKey('otp_confirm_button'));
-      await settle(tester);
-      expect(find.text(kHomeText), findsOneWidget);
-      expect(find.text(kLoginSuccessText), findsOneWidget);
-    });
-
-    authTestWidgets('đang gửi: link bị khoá, hiện spinner, chặn bấm đôi', (
-      tester,
-      repo,
-    ) async {
-      final blocker = repo.block('sendLoginOtp');
-      await openLogin(tester, repo);
-      await enterIn(tester, _idField, 'a@b.vn');
-      await tapKey(tester, 'login_otp_link');
-
-      expect(
-        find.descendant(
-          of: byKey('login_otp_link'),
-          matching: find.byType(CircularProgressIndicator),
-        ),
-        findsOneWidget,
-      );
-      await tester.tap(byKey('login_otp_link'), warnIfMissed: false);
-      await tester.tap(byKey('login_submit_button'), warnIfMissed: false);
-      await tester.pump();
-      expect(repo.calls, ['sendLoginOtp']);
-
-      blocker.complete();
-      await settle(tester);
-      expect(find.byType(OtpVerificationScreen), findsOneWidget);
-    });
-
-    authTestWidgets('quá nhiều yêu cầu: SnackBar lỗi, ở lại màn đăng nhập', (
-      tester,
-      repo,
-    ) async {
-      repo.failWith(
-        'sendLoginOtp',
-        const AuthFailure(
-          AuthFailureCode.rateLimited,
-          'Bạn thao tác quá nhanh.',
-        ),
-      );
-      await openLogin(tester, repo);
-      await enterIn(tester, _idField, 'a@b.vn');
-      await tapKey(tester, 'login_otp_link');
-      await settle(tester);
-
-      expect(snackText('Bạn thao tác quá nhanh.'), findsOneWidget);
-      expect(find.byType(OtpVerificationScreen), findsNothing);
-      expect(find.byType(LoginScreen), findsOneWidget);
-    });
-
-    authTestWidgets('sửa email ở màn OTP (back) quay lại màn đăng nhập', (
-      tester,
-      repo,
-    ) async {
-      await openLogin(tester, repo);
-      await enterIn(tester, _idField, 'phuongha@gmail.com');
-      await tapKey(tester, 'login_otp_link');
-      await settle(tester);
-
-      await tester.tap(byKey('otp_edit_email_button'));
-      await tester.pumpAndSettle();
-
-      expect(find.byType(OtpVerificationScreen), findsNothing);
-      expect(find.byType(LoginScreen), findsOneWidget);
-      expect(textOf(tester, _idField), 'phuongha@gmail.com');
-    });
-  });
-
   group('Google', () {
     authTestWidgets('thành công: hoàn tất đăng nhập', (tester, repo) async {
       await openLogin(tester, repo);
@@ -631,17 +512,17 @@ void main() {
       );
     });
 
-    authTestWidgets('Khám phá cửa hàng: pop khi có route trước', (
-      tester,
-      repo,
-    ) async {
-      await openLogin(tester, repo);
-      await tapKey(tester, 'login_explore_link');
-      await tester.pumpAndSettle();
+    authTestWidgets(
+      'Khám phá cửa hàng: SnackBar, không pop dù có route trước',
+      (tester, repo) async {
+        await openLogin(tester, repo);
+        await tapKey(tester, 'login_explore_link');
+        await tester.pumpAndSettle();
 
-      expect(find.byType(LoginScreen), findsNothing);
-      expect(find.text(kHomeText), findsOneWidget);
-    });
+        expect(snackText('Trang chủ đang được phát triển.'), findsOneWidget);
+        expect(find.byType(LoginScreen), findsOneWidget);
+      },
+    );
 
     authTestWidgets('Khám phá cửa hàng: SnackBar khi là route đầu', (
       tester,
@@ -655,6 +536,18 @@ void main() {
       expect(find.byType(LoginScreen), findsOneWidget);
     });
 
+    authTestWidgets('bấm Khám phá nhiều lần chỉ giữ một SnackBar', (
+      tester,
+      repo,
+    ) async {
+      await pumpAuthApp(tester, repo, home: const LoginScreen());
+      await tapKey(tester, 'login_explore_link');
+      await tapKey(tester, 'login_explore_link');
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SnackBar), findsOneWidget);
+    });
+
     authTestWidgets('Đăng ký ngay mở màn đăng ký', (tester, repo) async {
       await openLogin(tester, repo);
       await tapKey(tester, 'login_register_link');
@@ -663,5 +556,86 @@ void main() {
       expect(find.byType(RegisterScreen), findsOneWidget);
       expect(find.text('Tạo tài khoản mới'), findsOneWidget);
     });
+
+    authTestWidgets('Đăng ký ngay đẩy route AuthRoutes.register', (
+      tester,
+      repo,
+    ) async {
+      await pumpAuthApp(tester, repo, home: const LoginScreen());
+      await tapKey(tester, 'login_register_link');
+      await tester.pumpAndSettle();
+
+      final route = ModalRoute.of(tester.element(find.byType(RegisterScreen)));
+      expect(route!.settings.name, AuthRoutes.register);
+      // Màn đăng nhập vẫn nằm bên dưới để quay lại
+      expect(find.byType(LoginScreen, skipOffstage: false), findsOneWidget);
+    });
+  });
+
+  group('màn gốc', () {
+    authTestWidgets('không có nút back và không thể pop', (tester, repo) async {
+      await pumpAuthApp(tester, repo, home: const LoginScreen());
+
+      expect(find.byType(BackButton), findsNothing);
+      expect(find.byIcon(Icons.arrow_back), findsNothing);
+      expect(find.byTooltip('Quay lại'), findsNothing);
+      expect(
+        Navigator.of(tester.element(find.byType(LoginScreen))).canPop(),
+        isFalse,
+      );
+    });
+
+    authTestWidgets('không còn link "Đăng nhập OTP"', (tester, repo) async {
+      await pumpAuthApp(tester, repo, home: const LoginScreen());
+
+      expect(byKey('login_otp_link'), findsNothing);
+      expect(find.textContaining('OTP'), findsNothing);
+    });
+
+    authTestWidgets('đăng nhập thành công khi là route đầu: không lỗi, '
+        'hiện SnackBar chào', (tester, repo) async {
+      await pumpAuthApp(tester, repo, home: const LoginScreen());
+      await enterIn(tester, _idField, 'name@example.com');
+      await enterIn(tester, _pwField, 'Hoa@12345');
+      await tapKey(tester, 'login_submit_button');
+      await settle(tester);
+
+      expect(repo.count('signInWithPassword'), 1);
+      expect(find.text(kLoginSuccessText), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('thanh trên ở cỡ chữ thường', () {
+    for (final size in [kSmallPhone, kPhone]) {
+      authTestWidgets(
+        'logo và pill Botanical không bị co ở ${size.width.toInt()}px',
+        (tester, repo) async {
+          await pumpAuthApp(
+            tester,
+            repo,
+            size: size,
+            home: const LoginScreen(),
+          );
+
+          for (final inner in [
+            find.byType(FleureMark),
+            find.byType(AuthPill),
+          ]) {
+            final fitted = find.ancestor(
+              of: inner,
+              matching: find.byType(FittedBox),
+            );
+            expect(fitted, findsWidgets);
+            // scaleDown không co: khung FittedBox bằng đúng kích thước nội dung
+            expect(
+              tester.getSize(fitted.first).width,
+              greaterThanOrEqualTo(tester.getSize(inner).width - 0.01),
+            );
+          }
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   });
 }

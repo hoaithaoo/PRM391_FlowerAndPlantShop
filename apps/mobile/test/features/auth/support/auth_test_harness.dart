@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +8,11 @@ import 'package:plant_flower_mobile/features/auth/auth.dart';
 /// Màn hình cỡ nhỏ và cỡ phổ biến dùng cho test overflow.
 const kSmallPhone = Size(360, 640);
 const kPhone = Size(390, 844);
+
+/// true khi chạy với `PFS_TEST_FONT=ahem` (font Ahem rộng 1em mỗi ký tự).
+/// Test chỉ hợp lệ với font thật dùng `skip: kAhemFont`.
+final bool kAhemFont =
+    Platform.environment['PFS_TEST_FONT']?.toLowerCase() == 'ahem';
 
 const kHomeText = 'HOME_STUB';
 const kLoginSuccessText = 'Đăng nhập thành công. Chào mừng bạn đến Fleuré!';
@@ -30,8 +36,6 @@ class FakeAuthRepository implements AuthRepository {
 
   String? lastEmail;
   String? lastPassword;
-  String? lastToken;
-  OtpPurpose? lastPurpose;
   RegisterRequest? lastSignUp;
 
   /// Ép kết quả signUp (mặc định theo Mock: needsEmailVerification).
@@ -47,7 +51,13 @@ class FakeAuthRepository implements AuthRepository {
   /// Khiến [method] ném [error] (sau khi hết block nếu có).
   void failWith(String method, Object error) => _failures[method] = error;
 
+  /// Gỡ lỗi đã ép bằng [failWith].
+  void clearFailure(String method) => _failures.remove(method);
+
   void emitSignedIn(bool value) => _signedIn.add(value);
+
+  /// Giả lập người dùng bấm link xác nhận trong email (phát signedIn = true).
+  void simulateEmailConfirmed() => _inner.simulateEmailConfirmed();
 
   Future<void> _enter(String method) async {
     calls.add(method);
@@ -87,34 +97,10 @@ class FakeAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> sendLoginOtp({required String email}) async {
+  Future<void> resendSignupEmail({required String email}) async {
     lastEmail = email;
-    await _enter('sendLoginOtp');
-    return _inner.sendLoginOtp(email: email);
-  }
-
-  @override
-  Future<void> verifyOtp({
-    required String email,
-    required String token,
-    required OtpPurpose purpose,
-  }) async {
-    lastEmail = email;
-    lastToken = token;
-    lastPurpose = purpose;
-    await _enter('verifyOtp');
-    return _inner.verifyOtp(email: email, token: token, purpose: purpose);
-  }
-
-  @override
-  Future<void> resendOtp({
-    required String email,
-    required OtpPurpose purpose,
-  }) async {
-    lastEmail = email;
-    lastPurpose = purpose;
-    await _enter('resendOtp');
-    return _inner.resendOtp(email: email, purpose: purpose);
+    await _enter('resendSignupEmail');
+    return _inner.resendSignupEmail(email: email);
   }
 
   @override
@@ -239,7 +225,7 @@ void authTestWidgets(
     final repo = FakeAuthRepository();
     await body(tester, repo);
     unawaited(repo.dispose());
-  }, skip: skip != null ? true : null);
+  }, skip: skip == null || skip == false ? null : true);
 }
 
 /// Bàn phím ảo che [height] px đáy màn hình.

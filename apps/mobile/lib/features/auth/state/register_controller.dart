@@ -22,7 +22,7 @@ class RegisterSubmitResult {
 
   final RegisterOutcome outcome;
 
-  /// Email đã đăng ký (khi cần xác thực OTP).
+  /// Email đã đăng ký (khi cần bấm link xác nhận trong email).
   final String? email;
 
   /// Câu báo lỗi từ server (khi [outcome] là failed).

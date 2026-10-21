@@ -1,12 +1,13 @@
 export 'auth_routes.dart';
+export 'data/address_geocoder.dart';
 export 'data/auth_failure.dart';
 export 'data/auth_repository.dart';
 export 'data/auth_scope.dart';
 export 'data/mock_auth_repository.dart';
 export 'data/supabase_auth_repository.dart';
 export 'models/auth_models.dart';
-export 'screens/login_gate_screen.dart';
+export 'screens/auth_session_gate.dart';
+export 'screens/email_verification_screen.dart';
 export 'screens/login_screen.dart';
-export 'screens/otp_verification_screen.dart';
 export 'screens/register_screen.dart';
 export 'utils/auth_theme.dart';

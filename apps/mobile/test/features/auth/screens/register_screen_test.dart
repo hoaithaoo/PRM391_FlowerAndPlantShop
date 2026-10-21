@@ -17,8 +17,6 @@ void main() {
 
       expect(find.byType(RegisterScreen), findsOneWidget);
       expect(find.text('FLEURÉ'), findsOneWidget);
-      expect(find.text('FLEURÉ ATELIER'), findsOneWidget);
-      expect(find.text('Nghệ thuật hoa tươi thủ công'), findsOneWidget);
       expect(find.text('GIA NHẬP FLEURÉ PRIVÉ'), findsOneWidget);
       expect(find.text('Tạo tài khoản mới'), findsOneWidget);
       for (final label in [
@@ -45,11 +43,6 @@ void main() {
       expect(find.text('Hoặc đăng ký nhanh bằng'), findsOneWidget);
       expect(find.text('Google'), findsOneWidget);
       expect(find.text('Đăng nhập ngay'), findsOneWidget);
-      expect(find.text('Đặc quyền chào đón thành viên'), findsOneWidget);
-      expect(
-        find.textContaining('giảm 10%', findRichText: true),
-        findsOneWidget,
-      );
     });
 
     authTestWidgets(
@@ -112,7 +105,7 @@ void main() {
         );
         await tester.pump();
         expect(tester.takeException(), isNull);
-        expect(find.text('Đặc quyền chào đón thành viên'), findsOneWidget);
+        expect(find.text('Đăng nhập ngay'), findsOneWidget);
       });
 
       authTestWidgets('không overflow ở $label khi bàn phím mở', (
@@ -180,7 +173,7 @@ void main() {
       await fillDesignErrorData(tester);
 
       expect(byKey('register_error_summary'), findsNothing);
-      expect(find.text('FLEURÉ ATELIER'), findsOneWidget);
+      expect(find.text('GIA NHẬP FLEURÉ PRIVÉ'), findsOneWidget);
     });
 
     authTestWidgets('ô "next" nhảy sang ô kế tiếp', (tester, repo) async {
@@ -246,39 +239,46 @@ void main() {
   });
 
   group('đăng ký thành công', () {
-    authTestWidgets('gọi signUp với dữ liệu đã trim rồi mở màn OTP (signup)', (
-      tester,
-      repo,
-    ) async {
-      await openRegister(tester, repo);
-      await fillRegister(
-        tester,
-        name: '  Nguyễn Phương Hà ',
-        phone: ' 0912345678 ',
-        email: ' phuongha@gmail.com ',
-        address: ' $validAddress ',
-      );
-      await tapAgreement(tester);
-      await tapKey(tester, 'register_submit_button');
-      await settle(tester);
+    authTestWidgets(
+      'gọi signUp với dữ liệu đã trim rồi mở màn kiểm tra email',
+      (tester, repo) async {
+        await openRegister(tester, repo);
+        await fillRegister(
+          tester,
+          name: '  Nguyễn Phương Hà ',
+          phone: ' 0912345678 ',
+          email: ' phuongha@gmail.com ',
+          address: ' $validAddress ',
+        );
+        await tapAgreement(tester);
+        await tapKey(tester, 'register_submit_button');
+        await settle(tester);
 
-      expect(repo.calls, ['signUp']);
-      final request = repo.lastSignUp!;
-      expect(request.fullName, 'Nguyễn Phương Hà');
-      expect(request.phone, '0912345678');
-      expect(request.email, 'phuongha@gmail.com');
-      expect(request.address, validAddress);
-      expect(request.password, 'Hoa@12345');
+        expect(repo.calls, ['signUp']);
+        final request = repo.lastSignUp!;
+        expect(request.fullName, 'Nguyễn Phương Hà');
+        expect(request.phone, '0912345678');
+        expect(request.email, 'phuongha@gmail.com');
+        expect(request.address, validAddress);
+        expect(request.password, 'Hoa@12345');
 
-      final otp = tester.widget<OtpVerificationScreen>(
-        find.byType(OtpVerificationScreen),
-      );
-      expect(otp.email, 'phuongha@gmail.com');
-      expect(otp.purpose, OtpPurpose.signup);
-      expect(find.text('ph***@gmail.com'), findsOneWidget);
-    });
+        final screen = tester.widget<EmailVerificationScreen>(
+          find.byType(EmailVerificationScreen),
+        );
+        expect(screen.email, 'phuongha@gmail.com');
+        final route = ModalRoute.of(
+          tester.element(find.byType(EmailVerificationScreen)),
+        );
+        expect(route!.settings.name, AuthRoutes.verifyEmail);
+        // Email hiển thị đầy đủ (không che)
+        expect(
+          tester.widget<Text>(byKey('verify_email_address')).data,
+          'phuongha@gmail.com',
+        );
+      },
+    );
 
-    authTestWidgets('xác thực OTP xong đóng cả luồng, chỉ một SnackBar chào', (
+    authTestWidgets('bấm link xác nhận xong đóng cả luồng, một SnackBar chào', (
       tester,
       repo,
     ) async {
@@ -287,17 +287,16 @@ void main() {
       await tapAgreement(tester);
       await tapKey(tester, 'register_submit_button');
       await settle(tester);
+      expect(find.byType(EmailVerificationScreen), findsOneWidget);
 
-      await tester.enterText(byKey('otp_input'), '123456');
-      await tester.pump();
-      await tester.tap(byKey('otp_confirm_button'));
+      repo.emitSignedIn(true);
       await settle(tester);
 
-      expect(repo.lastPurpose, OtpPurpose.signup);
       expect(find.byType(RegisterScreen), findsNothing);
-      expect(find.byType(OtpVerificationScreen), findsNothing);
+      expect(find.byType(EmailVerificationScreen), findsNothing);
       expect(find.text(kHomeText), findsOneWidget);
       expect(find.text(kLoginSuccessText), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
     });
 
     authTestWidgets('signUp trả signedIn thì hoàn tất đăng nhập luôn', (
@@ -311,7 +310,7 @@ void main() {
       await tapKey(tester, 'register_submit_button');
       await settle(tester);
 
-      expect(find.byType(OtpVerificationScreen), findsNothing);
+      expect(find.byType(EmailVerificationScreen), findsNothing);
       expect(find.byType(RegisterScreen), findsNothing);
       expect(find.text(kHomeText), findsOneWidget);
       expect(find.text(kLoginSuccessText), findsOneWidget);
@@ -332,7 +331,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.byType(RegisterScreen), findsOneWidget);
-      expect(find.byType(OtpVerificationScreen), findsNothing);
+      expect(find.byType(EmailVerificationScreen), findsNothing);
       expect(byKey('register_error_summary'), findsNothing);
       expect(textOf(tester, 'register_email_field'), 'existing@fleure.vn');
       expect(textOf(tester, 'register_full_name_field'), 'Nguyễn Phương Hà');
@@ -367,7 +366,7 @@ void main() {
       blocker.complete();
       await settle(tester);
       expect(repo.calls, ['signUp']);
-      expect(find.byType(OtpVerificationScreen), findsOneWidget);
+      expect(find.byType(EmailVerificationScreen), findsOneWidget);
     });
 
     authTestWidgets('mất mạng khi đăng ký: câu lỗi mạng', (tester, repo) async {

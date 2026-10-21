@@ -8,12 +8,10 @@ import 'auth_repository.dart';
 ///
 /// Quy ước demo:
 /// - Mật khẩu [wrongPassword] luôn bị từ chối, mật khẩu khác đều đăng nhập được.
-/// - Mã OTP đúng là [validOtp].
 /// - Email [existingEmail] coi như đã được đăng ký.
 class MockAuthRepository implements AuthRepository {
   MockAuthRepository({this.delay = const Duration(milliseconds: 600)});
 
-  static const validOtp = '123456';
   static const wrongPassword = 'wrong-password';
   static const existingEmail = 'existing@fleure.vn';
 
@@ -49,33 +47,12 @@ class MockAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> sendLoginOtp({required String email}) async {
+  Future<void> resendSignupEmail({required String email}) async {
     await Future<void>.delayed(delay);
   }
 
-  @override
-  Future<void> verifyOtp({
-    required String email,
-    required String token,
-    required OtpPurpose purpose,
-  }) async {
-    await Future<void>.delayed(delay);
-    if (token != validOtp) {
-      throw const AuthFailure(
-        AuthFailureCode.invalidOtp,
-        'Mã OTP không đúng hoặc đã hết hạn.',
-      );
-    }
-    _setSignedIn(true);
-  }
-
-  @override
-  Future<void> resendOtp({
-    required String email,
-    required OtpPurpose purpose,
-  }) async {
-    await Future<void>.delayed(delay);
-  }
+  /// Giả lập người dùng bấm link xác nhận trong email (test và demo).
+  void simulateEmailConfirmed() => _setSignedIn(true);
 
   @override
   Future<SignUpResult> signUp(RegisterRequest request) async {
