@@ -2,12 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/auth_models.dart';
+import 'address_geocoder.dart';
 import 'auth_failure.dart';
 import 'auth_repository.dart';
 
 /// Hiện thực [AuthRepository] bằng Supabase Auth.
 class SupabaseAuthRepository implements AuthRepository {
-  SupabaseAuthRepository(this._auth);
+  SupabaseAuthRepository(this._auth, {AddressGeocoder? geocoder})
+    : _geocoder = geocoder;
 
   /// Deep link phải khai báo trong Supabase Dashboard > Redirect URLs và
   /// AndroidManifest/Info.plist (xem docs/supabase-auth.md).
@@ -15,6 +17,7 @@ class SupabaseAuthRepository implements AuthRepository {
       'com.plantflowershop.mobile://login-callback/';
 
   final GoTrueClient _auth;
+  final AddressGeocoder? _geocoder;
 
   @override
   bool get isSignedIn => _auth.currentSession != null;
@@ -56,49 +59,27 @@ class SupabaseAuthRepository implements AuthRepository {
   }
 
   @override
-  Future<void> sendLoginOtp({required String email}) {
+  Future<void> resendSignupEmail({required String email}) {
     return _guard(
-      () => _auth.signInWithOtp(email: email.trim(), shouldCreateUser: false),
-    );
-  }
-
-  @override
-  Future<void> verifyOtp({
-    required String email,
-    required String token,
-    required OtpPurpose purpose,
-  }) {
-    return _guard(
-      () => _auth.verifyOTP(
+      () => _auth.resend(
+        type: OtpType.signup,
         email: email.trim(),
-        token: token.trim(),
-        type: purpose == OtpPurpose.signup ? OtpType.signup : OtpType.email,
+        emailRedirectTo: kIsWeb ? null : mobileRedirectUrl,
       ),
     );
-  }
-
-  @override
-  Future<void> resendOtp({required String email, required OtpPurpose purpose}) {
-    return switch (purpose) {
-      OtpPurpose.login => sendLoginOtp(email: email),
-      OtpPurpose.signup => _guard(
-        () => _auth.resend(type: OtpType.signup, email: email.trim()),
-      ),
-    };
   }
 
   @override
   Future<SignUpResult> signUp(RegisterRequest request) {
     return _guard(() async {
+      // Không tìm được toạ độ thì vẫn đăng ký, lat/lng để null
+      final point = await _geocoder?.geocode(request.address);
       final response = await _auth.signUp(
         email: request.email.trim(),
         password: request.password,
-        // Backend đọc full_name khi tạo profile lần đầu
-        data: {
-          'full_name': request.fullName.trim(),
-          'phone': request.phone.trim(),
-          'address': request.address.trim(),
-        },
+        // Link trong email xác nhận sẽ mở lại app qua deep link này
+        emailRedirectTo: kIsWeb ? null : mobileRedirectUrl,
+        data: signUpMetadata(request, point),
       );
       // Supabase trả user không có identity khi email đã tồn tại
       if (response.user?.identities?.isEmpty ?? false) {
@@ -116,16 +97,38 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<void> signOut() => _guard(_auth.signOut);
 
+  /// Metadata lưu vào `raw_user_meta_data`. Trigger trên `auth.users` đọc các
+  /// key này để tạo profile và địa chỉ mặc định khi email được xác nhận.
+  @visibleForTesting
+  static Map<String, dynamic> signUpMetadata(
+    RegisterRequest request,
+    GeoPoint? point,
+  ) {
+    return {
+      'full_name': request.fullName.trim(),
+      'phone': request.phone.trim(),
+      'address': request.address.trim(),
+      'latitude': point?.latitude,
+      'longitude': point?.longitude,
+    };
+  }
+
   Future<T> _guard<T>(Future<T> Function() action) async {
     try {
       return await action();
     } on AuthFailure {
       rethrow;
-    } on AuthRetryableFetchException {
+    } on AuthRetryableFetchException catch (error) {
+      debugPrint('[Auth] Lỗi mạng: ${error.message}');
       throw AuthFailure.network;
     } on AuthException catch (error) {
+      debugPrint(
+        '[Auth] AuthException: code=${error.code}, '
+        'status=${error.statusCode}, message=${error.message}',
+      );
       throw mapAuthException(error);
-    } catch (_) {
+    } catch (error, stackTrace) {
+      debugPrint('[Auth] Lỗi không xác định: $error\n$stackTrace');
       throw AuthFailure.unknown;
     }
   }
@@ -145,10 +148,6 @@ class SupabaseAuthRepository implements AuthRepository {
       'user_already_exists' || 'email_exists' => const AuthFailure(
         AuthFailureCode.userAlreadyExists,
         'Email này đã được đăng ký. Vui lòng đăng nhập.',
-      ),
-      'otp_expired' || 'otp_disabled' => const AuthFailure(
-        AuthFailureCode.invalidOtp,
-        'Mã OTP không đúng hoặc đã hết hạn.',
       ),
       'user_not_found' => const AuthFailure(
         AuthFailureCode.invalidCredentials,

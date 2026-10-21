@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_flower_mobile/features/auth/utils/auth_theme.dart';
 import 'package:plant_flower_mobile/features/auth/widgets/auth_common.dart';
@@ -367,6 +368,148 @@ void main() {
       expect(find.text('HOẶC'), findsOneWidget);
       expect(find.text('BOTANICAL'), findsOneWidget);
       expect(find.byType(GoogleLogo), findsOneWidget);
+    });
+  });
+
+  group('AuthLabeledDivider / AuthPill: không cắt chữ ở cỡ thường', () {
+    bool ellipsized(WidgetTester tester, String text) =>
+        tester.renderObject<RenderParagraph>(find.text(text)).didExceedMaxLines;
+
+    testWidgets('divider 300px: nhãn đầy đủ, hai đường kẻ hai bên', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          const SizedBox(width: 300, child: AuthLabeledDivider(label: 'HOẶC')),
+        ),
+      );
+      expect(ellipsized(tester, 'HOẶC'), isFalse);
+      final label = tester.getRect(find.text('HOẶC'));
+      final row = tester.getRect(find.byType(AuthLabeledDivider));
+      expect(label.left - row.left, greaterThan(20));
+      expect(row.right - label.right, greaterThan(20));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('divider rất hẹp: không tràn, nhãn ellipsis 1 dòng', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          const SizedBox(
+            width: 60,
+            child: AuthLabeledDivider(label: 'NHÃN RẤT DÀI DÀI DÀI'),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getSize(find.text('NHÃN RẤT DÀI DÀI DÀI')).width,
+        lessThanOrEqualTo(60 * 0.8 + 0.5),
+      );
+    });
+
+    testWidgets('pill trong Row không bị chặn ngang: chữ trần, không cắt', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [AuthPill(label: 'Botanical', showDot: true)],
+          ),
+        ),
+      );
+      expect(ellipsized(tester, 'BOTANICAL'), isFalse);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('pill bị chặn ngang hẹp: chữ ellipsis, không tràn', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          const SizedBox(
+            width: 70,
+            child: AuthPill(label: 'Botanical rất dài', showDot: true),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getSize(find.byType(AuthPill)).width,
+        lessThanOrEqualTo(70),
+      );
+    });
+  });
+
+  group('AuthLabeledDivider / AuthPill: không cắt chữ ở cỡ thường', () {
+    bool ellipsized(WidgetTester tester, String text) =>
+        tester.renderObject<RenderParagraph>(find.text(text)).didExceedMaxLines;
+
+    testWidgets('divider 300px: nhãn đầy đủ, hai đường kẻ hai bên', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          const SizedBox(width: 300, child: AuthLabeledDivider(label: 'HOẶC')),
+        ),
+      );
+      expect(ellipsized(tester, 'HOẶC'), isFalse);
+      final label = tester.getRect(find.text('HOẶC'));
+      final row = tester.getRect(find.byType(AuthLabeledDivider));
+      expect(label.left - row.left, greaterThan(20));
+      expect(row.right - label.right, greaterThan(20));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('divider rất hẹp: không tràn, nhãn tối đa 80% bề ngang', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          const SizedBox(
+            width: 60,
+            child: AuthLabeledDivider(label: 'NHÃN RẤT DÀI DÀI DÀI'),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getSize(find.text('NHÃN RẤT DÀI DÀI DÀI')).width,
+        lessThanOrEqualTo(60 * 0.8 + 0.5),
+      );
+    });
+
+    testWidgets('pill trong Row không bị chặn ngang: chữ trần, không cắt', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [AuthPill(label: 'Botanical', showDot: true)],
+          ),
+        ),
+      );
+      expect(ellipsized(tester, 'BOTANICAL'), isFalse);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('pill bị chặn ngang hẹp: không tràn', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          const SizedBox(
+            width: 70,
+            child: AuthPill(label: 'Botanical rất dài', showDot: true),
+          ),
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.getSize(find.byType(AuthPill)).width,
+        lessThanOrEqualTo(70),
+      );
     });
   });
 }

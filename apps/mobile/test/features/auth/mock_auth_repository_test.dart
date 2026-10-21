@@ -104,54 +104,47 @@ void main() {
     });
   });
 
-  group('verifyOtp', () {
-    test('mã đúng 123456 -> đăng nhập (cả login lẫn signup)', () async {
-      await repository.verifyOtp(
-        email: 'a@b.vn',
-        token: '123456',
-        purpose: OtpPurpose.login,
-      );
-      expect(repository.isSignedIn, isTrue);
-
-      await repository.signOut();
-      await repository.verifyOtp(
-        email: 'a@b.vn',
-        token: MockAuthRepository.validOtp,
-        purpose: OtpPurpose.signup,
-      );
-      expect(repository.isSignedIn, isTrue);
-    });
-
-    test('mã sai -> AuthFailure invalidOtp, không đăng nhập', () async {
-      await expectFailure(
-        () => repository.verifyOtp(
-          email: 'a@b.vn',
-          token: '000000',
-          purpose: OtpPurpose.login,
-        ),
-        AuthFailureCode.invalidOtp,
-      );
+  group('resendSignupEmail', () {
+    test('hoàn tất không lỗi và không đăng nhập', () async {
+      await repository.resendSignupEmail(email: 'a@b.vn');
+      await repository.resendSignupEmail(email: 'a@b.vn');
       expect(repository.isSignedIn, isFalse);
     });
 
-    test('mã rỗng cũng bị từ chối', () async {
-      await expectFailure(
-        () => repository.verifyOtp(
-          email: 'a@b.vn',
-          token: '',
-          purpose: OtpPurpose.signup,
-        ),
-        AuthFailureCode.invalidOtp,
-      );
+    test('không phát sự kiện signedInChanges', () async {
+      final events = <bool>[];
+      final sub = repository.signedInChanges.listen(events.add);
+      await repository.resendSignupEmail(email: 'a@b.vn');
+      await Future<void>.delayed(Duration.zero);
+      expect(events, isEmpty);
+      await sub.cancel();
     });
   });
 
-  group('sendLoginOtp / resendOtp', () {
-    test('hoàn tất không lỗi và không đăng nhập', () async {
-      await repository.sendLoginOtp(email: 'a@b.vn');
-      await repository.resendOtp(email: 'a@b.vn', purpose: OtpPurpose.login);
-      await repository.resendOtp(email: 'a@b.vn', purpose: OtpPurpose.signup);
+  group('simulateEmailConfirmed', () {
+    test('đặt isSignedIn = true và phát true', () async {
+      final events = <bool>[];
+      final sub = repository.signedInChanges.listen(events.add);
+
+      repository.simulateEmailConfirmed();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repository.isSignedIn, isTrue);
+      expect(events, [true]);
+      await sub.cancel();
+    });
+
+    test('sau đó signOut phát false', () async {
+      final events = <bool>[];
+      final sub = repository.signedInChanges.listen(events.add);
+
+      repository.simulateEmailConfirmed();
+      await repository.signOut();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events, [true, false]);
       expect(repository.isSignedIn, isFalse);
+      await sub.cancel();
     });
   });
 

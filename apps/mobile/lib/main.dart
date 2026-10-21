@@ -18,9 +18,12 @@ Future<void> main() async {
       url: _supabaseUrl,
       publishableKey: _supabasePublishableKey,
     );
-    authRepository = SupabaseAuthRepository(Supabase.instance.client.auth);
+    authRepository = SupabaseAuthRepository(
+      Supabase.instance.client.auth,
+      geocoder: NominatimAddressGeocoder(),
+    );
   } else {
-    // Chưa cấu hình Supabase: chạy demo với dữ liệu giả (OTP đúng là 123456)
+    // Chưa cấu hình Supabase: chạy demo với dữ liệu giả (MockAuthRepository)
     debugPrint('SUPABASE_URL chưa được cấu hình, dùng MockAuthRepository.');
     authRepository = MockAuthRepository();
   }
@@ -41,7 +44,7 @@ class PlantFlowerApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         title: 'Flower & Plant Shop',
         theme: AuthTheme.data(ThemeData(useMaterial3: true)),
-        initialRoute: AuthRoutes.gate,
+        home: const AuthSessionGate(),
         onGenerateRoute: AuthRoutes.onGenerateRoute,
       ),
     );

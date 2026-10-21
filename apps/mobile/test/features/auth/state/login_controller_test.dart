@@ -1,7 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_flower_mobile/features/auth/auth.dart';
 import 'package:plant_flower_mobile/features/auth/state/login_controller.dart';
-import 'package:plant_flower_mobile/features/auth/state/login_gate_controller.dart';
 import 'package:plant_flower_mobile/features/auth/state/login_state.dart';
 
 import '../support/auth_test_harness.dart';
@@ -25,10 +24,9 @@ void main() {
       expect(base.copyWith(passwordError: 'c').passwordError, 'c');
     });
 
-    test('isBusy là hợp của ba cờ đang chạy', () {
+    test('isBusy là hợp của hai cờ đang chạy', () {
       expect(const LoginState().isBusy, isFalse);
       expect(const LoginState(isSubmitting: true).isBusy, isTrue);
-      expect(const LoginState(isSendingOtp: true).isBusy, isTrue);
       expect(const LoginState(isGoogleLoading: true).isBusy, isTrue);
     });
   });
@@ -99,7 +97,6 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       expect(c.state.isSubmitting, isTrue);
       expect((await c.submit()).status, LoginResultStatus.ignored);
-      expect((await c.sendOtp()).status, LoginResultStatus.ignored);
       expect((await c.signInWithGoogle()).status, LoginResultStatus.ignored);
 
       blocker.complete();
@@ -113,42 +110,6 @@ void main() {
       expect(c.state.obscurePassword, isFalse);
       c.togglePasswordVisibility();
       expect(c.state.obscurePassword, isTrue);
-    });
-  });
-
-  group('LoginController.sendOtp', () {
-    test('chỉ validate ô định danh (bỏ qua mật khẩu trống)', () async {
-      c.identifierController.text = 'a@b.vn';
-      final result = await c.sendOtp();
-
-      expect(result.status, LoginResultStatus.success);
-      expect(c.state.passwordError, isNull);
-      expect(repo.calls, ['sendLoginOtp']);
-      expect(c.state.isSendingOtp, isFalse);
-    });
-
-    test('email sai: invalid, không gọi repo', () async {
-      c.identifierController.text = '0912345678';
-      final result = await c.sendOtp();
-
-      expect(result.status, LoginResultStatus.invalid);
-      expect(
-        c.state.identifierError,
-        'Đăng nhập bằng số điện thoại chưa được hỗ trợ, vui lòng dùng email.',
-      );
-      expect(repo.calls, isEmpty);
-    });
-
-    test('lỗi từ server: failure kèm message', () async {
-      repo.failWith(
-        'sendLoginOtp',
-        const AuthFailure(AuthFailureCode.rateLimited, 'Quá nhanh.'),
-      );
-      c.identifierController.text = 'a@b.vn';
-      final result = await c.sendOtp();
-
-      expect(result.status, LoginResultStatus.failure);
-      expect(result.message, 'Quá nhanh.');
     });
   });
 
@@ -186,41 +147,6 @@ void main() {
       other.dispose();
       blocker.complete();
       await expectLater(pending, completes);
-    });
-  });
-
-  group('LoginGateController', () {
-    test('Google thành công / huỷ / lỗi / chặn bấm đôi', () async {
-      final gate = LoginGateController(repository: repo);
-      expect((await gate.signInWithGoogle()).status, LoginResultStatus.success);
-      expect(gate.isGoogleLoading, isFalse);
-
-      repo.failWith(
-        'signInWithGoogle',
-        const AuthFailure(AuthFailureCode.cancelled, 'x'),
-      );
-      expect((await gate.signInWithGoogle()).status, LoginResultStatus.ignored);
-
-      repo.failWith('signInWithGoogle', AuthFailure.network);
-      final failed = await gate.signInWithGoogle();
-      expect(failed.status, LoginResultStatus.failure);
-      expect(failed.message, AuthFailure.network.message);
-
-      repo.failWith('signInWithGoogle', StateError('x'));
-      expect(
-        (await gate.signInWithGoogle()).message,
-        'Đã có lỗi xảy ra. Vui lòng thử lại sau.',
-      );
-
-      final blocker = repo.block('signInWithGoogle');
-      repo.failWith('signInWithGoogle', StateError('bỏ'));
-      final first = gate.signInWithGoogle();
-      await Future<void>.delayed(Duration.zero);
-      expect(gate.isGoogleLoading, isTrue);
-      expect((await gate.signInWithGoogle()).status, LoginResultStatus.ignored);
-      blocker.complete();
-      await first;
-      gate.dispose();
     });
   });
 }

@@ -23,7 +23,6 @@ enum AuthFailureCode {
   invalidCredentials,
   emailNotConfirmed,
   userAlreadyExists,
-  invalidOtp,
   rateLimited,
   weakPassword,
   cancelled,

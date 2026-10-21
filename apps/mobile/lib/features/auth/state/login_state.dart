@@ -1,6 +1,6 @@
 /// Kết quả một thao tác ở màn đăng nhập để màn hình quyết định điều hướng.
 enum LoginResultStatus {
-  /// Thao tác thành công (đã đăng nhập hoặc đã gửi OTP).
+  /// Thao tác thành công (đã đăng nhập hoặc đã mở trình duyệt Google).
   success,
 
   /// Dữ liệu nhập chưa hợp lệ, lỗi đã hiện dưới từng ô.
@@ -37,7 +37,6 @@ class LoginState {
     this.passwordError,
     this.obscurePassword = true,
     this.isSubmitting = false,
-    this.isSendingOtp = false,
     this.isGoogleLoading = false,
   });
 
@@ -45,18 +44,16 @@ class LoginState {
   final String? passwordError;
   final bool obscurePassword;
   final bool isSubmitting;
-  final bool isSendingOtp;
   final bool isGoogleLoading;
 
   /// Có thao tác nào đang chạy không (để chặn bấm đôi).
-  bool get isBusy => isSubmitting || isSendingOtp || isGoogleLoading;
+  bool get isBusy => isSubmitting || isGoogleLoading;
 
   LoginState copyWith({
     Object? identifierError = _unset,
     Object? passwordError = _unset,
     bool? obscurePassword,
     bool? isSubmitting,
-    bool? isSendingOtp,
     bool? isGoogleLoading,
   }) {
     return LoginState(
@@ -68,7 +65,6 @@ class LoginState {
           : passwordError as String?,
       obscurePassword: obscurePassword ?? this.obscurePassword,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      isSendingOtp: isSendingOtp ?? this.isSendingOtp,
       isGoogleLoading: isGoogleLoading ?? this.isGoogleLoading,
     );
   }

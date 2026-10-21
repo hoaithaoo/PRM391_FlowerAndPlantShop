@@ -18,7 +18,7 @@ abstract final class AuthPalette {
 
   static const background = Color(0xFFFCF9F3); // Nền màn hình
   static const surface = Color(0xFFFFFDF9); // Nền input, nút Google, thẻ
-  static const surfaceMuted = Color(0xFFF6F3ED); // Ô OTP trống, ghi chú bảo mật
+  static const surfaceMuted = Color(0xFFF6F3ED); // Ghi chú bảo mật, ô nền nhạt
   static const surfaceStone = Color(0xFFF0EEE8); // Nền khung ảnh
   static const chipGrey = Color(0xFFEBE8E2); // Nút đóng tròn, divider
   static const divider = Color(0xFFE5E2DC);

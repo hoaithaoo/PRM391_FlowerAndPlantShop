@@ -42,6 +42,7 @@ dependencies:
   supabase_flutter: ^2.18.3
   google_fonts: ^9.0.0
   flutter_svg: ^2.3.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

@@ -211,24 +211,38 @@ class AuthLabeledDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(child: Container(height: 1, color: lineColor)),
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: gap),
-          child: Text(
-            label,
-            style:
-                labelStyle ??
-                AuthFonts.sans(
-                  fontSize: 12,
-                  color: AuthPalette.muted,
-                  height: 1.5,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Chừa chỗ cho hai đường kẻ: chữ quá dài thì cắt bằng dấu ba chấm
+        // thay vì làm Row tràn ngang (font rộng, chữ phóng to)
+        final maxLabelWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth * 0.8
+            : double.infinity;
+        return Row(
+          children: [
+            Expanded(child: Container(height: 1, color: lineColor)),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxLabelWidth),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: gap),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style:
+                      labelStyle ??
+                      AuthFonts.sans(
+                        fontSize: 12,
+                        color: AuthPalette.muted,
+                        height: 1.5,
+                      ),
                 ),
-          ),
-        ),
-        Expanded(child: Container(height: 1, color: lineColor)),
-      ],
+              ),
+            ),
+            Expanded(child: Container(height: 1, color: lineColor)),
+          ],
+        );
+      },
     );
   }
 }
@@ -260,41 +274,50 @@ class AuthPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(9999),
-        boxShadow: shadows,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (showDot)
-            Container(
-              width: 6,
-              height: 6,
-              decoration: BoxDecoration(
+    // Trong FittedBox (màn đăng nhập) chiều ngang không bị chặn nên không dùng
+    // Flexible; còn lại chữ dài bị cắt bằng dấu ba chấm thay vì làm Row tràn
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final text = Text(
+          label.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style:
+              textStyle ??
+              AuthFonts.sans(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
                 color: foreground,
-                shape: BoxShape.circle,
+                height: 16 / 11,
+                letterSpacing: 0.55,
               ),
-            ),
-          if (icon != null) Icon(icon, size: 12, color: foreground),
-          if (showDot || icon != null) SizedBox(width: gap),
-          Text(
-            label.toUpperCase(),
-            style:
-                textStyle ??
-                AuthFonts.sans(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: foreground,
-                  height: 16 / 11,
-                  letterSpacing: 0.55,
-                ),
+        );
+        return Container(
+          padding: padding,
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(9999),
+            boxShadow: shadows,
           ),
-        ],
-      ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showDot)
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: foreground,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              if (icon != null) Icon(icon, size: 12, color: foreground),
+              if (showDot || icon != null) SizedBox(width: gap),
+              if (constraints.hasBoundedWidth) Flexible(child: text) else text,
+            ],
+          ),
+        );
+      },
     );
   }
 }

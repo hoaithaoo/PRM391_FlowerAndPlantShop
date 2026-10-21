@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../auth_routes.dart';
 import '../data/auth_scope.dart';
-import '../models/auth_models.dart';
 import '../state/register_controller.dart';
 import '../state/register_state.dart';
 import '../utils/auth_theme.dart';
@@ -103,10 +102,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       case RegisterOutcome.invalid:
         _scrollToTop();
       case RegisterOutcome.needsEmailVerification:
-        AuthRoutes.openOtp(
-          context,
-          OtpArgs(email: result.email!, purpose: OtpPurpose.signup),
-        );
+        AuthRoutes.openVerifyEmail(context, result.email!);
       case RegisterOutcome.signedIn:
         _complete();
       case RegisterOutcome.failed:
@@ -178,11 +174,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         children: [
           RegisterHeader(onBack: _goBack),
           const Padding(
-            padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
-            child: RegisterBanner(),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 9, 20, 12),
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: RegisterGreeting(),
           ),
           Padding(
@@ -221,8 +213,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 14),
                 RegisterLoginLink(onPressed: _goToLogin),
-                const SizedBox(height: 14),
-                const RegisterPerkCard(),
                 const SizedBox(height: 32),
               ],
             ),

@@ -59,25 +59,6 @@ class LoginController extends ChangeNotifier {
     }
   }
 
-  /// Link "Đăng nhập OTP": chỉ kiểm tra email rồi gửi mã.
-  Future<LoginResult> sendOtp() async {
-    if (_state.isBusy) return LoginResult.ignored;
-    _identifierTouched = true;
-    if (!_revalidate()) return LoginResult.invalid;
-
-    _setState(_state.copyWith(isSendingOtp: true));
-    try {
-      await _repository.sendLoginOtp(email: identifierController.text.trim());
-      return LoginResult.success;
-    } on AuthFailure catch (failure) {
-      return LoginResult(LoginResultStatus.failure, failure.message);
-    } catch (_) {
-      return LoginResult.unknown;
-    } finally {
-      _setState(_state.copyWith(isSendingOtp: false));
-    }
-  }
-
   /// Mở trình duyệt Google; phiên đăng nhập đến qua `signedInChanges`.
   Future<LoginResult> signInWithGoogle() async {
     if (_state.isBusy) return LoginResult.ignored;

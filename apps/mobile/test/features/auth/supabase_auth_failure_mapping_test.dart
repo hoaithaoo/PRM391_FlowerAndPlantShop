@@ -39,13 +39,9 @@ void main() {
     }
   });
 
-  test('otp_expired và otp_disabled -> invalidOtp', () {
+  test('otp_expired và otp_disabled không còn map riêng -> unknown', () {
     for (final code in ['otp_expired', 'otp_disabled']) {
-      expectMapped(
-        code,
-        AuthFailureCode.invalidOtp,
-        'Mã OTP không đúng hoặc đã hết hạn.',
-      );
+      expectMapped(code, AuthFailureCode.unknown, AuthFailure.unknown.message);
     }
   });
 
