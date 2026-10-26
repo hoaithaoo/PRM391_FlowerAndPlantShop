@@ -1,12 +1,12 @@
 import { Request, Response, NextFunction } from "express";
-import { AnyZodObject, ZodError } from "zod";
+import { AnyZodObject, ZodError, ZodTypeAny } from "zod";
 import { AppError } from "../common/errors/app-error";
 import { ErrorCodes } from "../common/errors/error-codes";
 
 interface ValidationSchemas {
-  body?: AnyZodObject;
-  query?: AnyZodObject;
-  params?: AnyZodObject;
+  body?: ZodTypeAny;
+  query?: ZodTypeAny;
+  params?: ZodTypeAny;
 }
 
 /**
