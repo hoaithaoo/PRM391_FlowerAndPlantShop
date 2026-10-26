@@ -7,6 +7,7 @@ import { errorHandler } from "./middlewares/error-handler";
 import { AppError } from "./common/errors/app-error";
 import { ErrorCodes } from "./common/errors/error-codes";
 import { profileRoutes } from "./modules/profiles/profile.routes";
+import { addressRoutes } from "./modules/addresses/address.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
 import { profileMiddleware } from "./middlewares/profile.middleware";
 import { accountStatusMiddleware } from "./middlewares/account-status.middleware";
@@ -77,6 +78,8 @@ export const createApp = (): Application => {
 
   // 3. API Routes v1
   app.use("/api/v1/profile", profileRoutes);
+  app.use("/api/v1/user-addresses", addressRoutes);
+  app.use("/api/v1/addresses", addressRoutes);
   app.use("/api/v1/chatbot", chatbotRoutes);
 
   // 4. Fallback 404 handler
