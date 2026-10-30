@@ -1679,7 +1679,7 @@ Tất cả /api/v1/admin/\* yêu cầu Bearer token hợp lệ, profiles.role \=
 | Entity | Allowed flow |
 | :---- | :---- |
 | Order | PENDING → CONFIRMED → PREPARING → SHIPPING → COMPLETED; PENDING/CONFIRMED có thể → CANCELLED theo rule. |
-| Payment | PENDING → PAID | FAILED | EXPIRED | REVIEW. |
+| Payment | PENDING → PAID | FAILED | EXPIRED | REVIEW; EXPIRED → REVIEW khi nhận được giao dịch đến muộn. |
 | Invoice | ISSUED → PAID | CANCELLED. |
 | User | ACTIVE ↔ DISABLED. |
 

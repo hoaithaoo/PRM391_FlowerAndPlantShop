@@ -67,6 +67,9 @@ function fixture(t) {
         status: "PENDING",
       })),
     },
+    notification: {
+      create: t.mock.fn(async ({ data }) => ({ id: "notification-a", ...data })),
+    },
     cartItem: {
       deleteMany: t.mock.fn(async () => ({ count: 1 })),
     },
@@ -122,6 +125,17 @@ test("COD checkout maps API delivery fields into Order and creates tax snapshots
   assert.equal(invoiceData.items.create[0].taxAmount.toString(), "20000");
   assert.equal(invoiceData.items.create[0].lineTotal.toString(), "270000");
   assert.equal(tx.payment.create.mock.callCount(), 0);
+  assert.deepEqual(tx.notification.create.mock.calls[0].arguments[0].data, {
+    userId: "user-a",
+    type: "ORDER",
+    title: "Đặt hàng thành công",
+    message: `Đơn hàng ${result.order.orderCode} đã được tạo.`,
+    data: {
+      orderId: "order-a",
+      invoiceId: "invoice-a",
+      status: "PENDING",
+    },
+  });
   assert.deepEqual(tx.cartItem.deleteMany.mock.calls[0].arguments[0].where, {
     id: { in: ["cart-item-a"] },
     cartId: "cart-a",
@@ -143,6 +157,19 @@ test("SEPAY checkout creates one pending payment with a code and expiry", async 
   assert.equal(paymentData.amount.toString(), "285000");
   assert.match(paymentData.paymentCode, /^PAY\d{8}[A-F0-9]{12}$/);
   assert.ok(paymentData.expiresAt instanceof Date);
+  assert.deepEqual(tx.notification.create.mock.calls[0].arguments[0].data, {
+    userId: "user-a",
+    type: "PAYMENT",
+    title: "Chờ thanh toán",
+    message: `Vui lòng thanh toán đơn hàng ${result.order.orderCode}.`,
+    data: {
+      orderId: "order-a",
+      invoiceId: "invoice-a",
+      paymentId: "payment-a",
+      paymentCode: result.payment.paymentCode,
+      status: "PENDING",
+    },
+  });
 });
 
 test("checkout rejects an empty or missing cart without writing an order", async (t) => {

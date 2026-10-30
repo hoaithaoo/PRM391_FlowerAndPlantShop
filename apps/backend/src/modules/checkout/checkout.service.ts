@@ -321,6 +321,34 @@ export class CheckoutService {
           })
         : null;
 
+    await tx.notification.create({
+      data: payment
+        ? {
+            userId,
+            type: "PAYMENT",
+            title: "Chờ thanh toán",
+            message: `Vui lòng thanh toán đơn hàng ${order.orderNumber}.`,
+            data: {
+              orderId: order.id,
+              invoiceId: invoice.id,
+              paymentId: payment.id,
+              paymentCode: payment.paymentCode,
+              status: payment.status,
+            },
+          }
+        : {
+            userId,
+            type: "ORDER",
+            title: "Đặt hàng thành công",
+            message: `Đơn hàng ${order.orderNumber} đã được tạo.`,
+            data: {
+              orderId: order.id,
+              invoiceId: invoice.id,
+              status: order.status,
+            },
+          },
+    });
+
     // Delete only the snapshot items. Items concurrently added after the cart
     // read are not accidentally removed.
     await tx.cartItem.deleteMany({

@@ -22,6 +22,8 @@
     "typecheck": "tsc --noEmit",
     "test:cart": "tsc && node --test tests/cart.*.test.cjs",
     "test:checkout": "tsc && node --test tests/checkout.*.test.cjs",
+    "test:notification": "tsc && node --test tests/notification.*.test.cjs",
+    "test:payment": "tsc && node --test tests/payment*.test.cjs tests/sepay-webhook.*.test.cjs",
     "typecheck:seed": "tsc -p tsconfig.seed.json"
   },
   "prisma": {

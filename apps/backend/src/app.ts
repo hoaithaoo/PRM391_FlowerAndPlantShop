@@ -14,6 +14,10 @@ import {
 import { storeRoutes } from "./modules/stores/store.routes";
 import { cartRoutes } from "./modules/carts/cart.routes";
 import { checkoutRoutes } from "./modules/checkout/checkout.routes";
+import { notificationRoutes } from "./modules/notifications/notification.routes";
+import { paymentRoutes } from "./modules/payments/payment.routes";
+import { sepayWebhookRoutes } from "./modules/webhooks/sepay-webhook.routes";
+import { rejectCompressedSepayWebhook } from "./modules/webhooks/sepay-signature";
 
 export const createApp = (): Application => {
   const app = express();
@@ -31,9 +35,16 @@ export const createApp = (): Application => {
       credentials: !allowAnyOrigin,
     })
   );
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
   app.use(requestIdMiddleware);
+  app.use("/api/v1/webhooks/sepay", rejectCompressedSepayWebhook);
+  app.use(
+    express.json({
+      verify: (req, _res, buffer) => {
+        (req as Request).rawBody = Buffer.from(buffer);
+      },
+    })
+  );
+  app.use(express.urlencoded({ extended: true }));
 
   // 2. Health check route
   app.get("/health", (_req: Request, res: Response) => {
@@ -51,6 +62,9 @@ export const createApp = (): Application => {
   app.use("/api/v1/stores", storeRoutes);
   app.use("/api/v1/cart", cartRoutes);
   app.use("/api/v1/checkout", checkoutRoutes);
+  app.use("/api/v1/payments", paymentRoutes);
+  app.use("/api/v1/notifications", notificationRoutes);
+  app.use("/api/v1/webhooks/sepay", sepayWebhookRoutes);
 
   // 4. Fallback 404 handler
   app.use((req: Request, _res: Response, next: NextFunction) => {
