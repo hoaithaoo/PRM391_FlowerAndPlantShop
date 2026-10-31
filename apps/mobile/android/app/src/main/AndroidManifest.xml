@@ -9,8 +9,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop"
-            android:taskAffinity=""
+            android:launchMode="singleTask"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
@@ -27,8 +26,9 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Supabase Auth OAuth callback (Google): khớp
-                 SupabaseAuthRepository.mobileRedirectUrl, xem docs/supabase-auth.md -->
+            <!-- Supabase Auth callbacks:
+                 - login-callback: Google OAuth và xác nhận đăng ký
+                 - reset-password-callback: Quên và đổi mật khẩu -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
@@ -36,6 +36,10 @@
                 <data
                     android:scheme="com.plantflowershop.mobile"
                     android:host="login-callback"/>
+                <data
+                    android:scheme="com.plantflowershop.mobile"
+                    android:host="reset-password-callback"/>
+                <data android:scheme="com.plantflowershop.mobile"/>
             </intent-filter>
             <!-- supabase_flutter (app_links) tự xử lý deep link; tắt deep linking
                  mặc định của Flutter để Navigator không push route callback -->

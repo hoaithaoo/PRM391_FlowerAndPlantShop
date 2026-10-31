@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -9,15 +11,40 @@ import 'auth_repository.dart';
 /// Hiện thực [AuthRepository] bằng Supabase Auth.
 class SupabaseAuthRepository implements AuthRepository {
   SupabaseAuthRepository(this._auth, {AddressGeocoder? geocoder})
-    : _geocoder = geocoder;
+      : _geocoder = geocoder {
+    _auth.onAuthStateChange.listen((state) {
+      if (state.event == AuthChangeEvent.passwordRecovery) {
+        _isInPasswordRecovery = true;
+        _passwordRecoveryController.add(true);
+      } else if (state.event == AuthChangeEvent.signedOut) {
+        _isInPasswordRecovery = false;
+        _passwordRecoveryController.add(false);
+      }
+    });
+  }
 
-  /// Deep link phải khai báo trong Supabase Dashboard > Redirect URLs và
-  /// AndroidManifest/Info.plist (xem docs/supabase-auth.md).
-  static const mobileRedirectUrl =
+  /// Deep link đăng nhập / OAuth / xác nhận tài khoản
+  static const mobileLoginCallbackUrl =
       'com.plantflowershop.mobile://login-callback/';
+
+  /// Deep link riêng cho luồng đặt lại mật khẩu
+  static const mobileResetPasswordCallbackUrl =
+      'com.plantflowershop.mobile://reset-password-callback/';
+
+  /// Tương thích ngược với các nơi gọi [mobileRedirectUrl]
+  static const mobileRedirectUrl = mobileLoginCallbackUrl;
 
   final GoTrueClient _auth;
   final AddressGeocoder? _geocoder;
+  bool _isInPasswordRecovery = false;
+  final _passwordRecoveryController = StreamController<bool>.broadcast();
+
+  @override
+  bool get isInPasswordRecovery => _isInPasswordRecovery;
+
+  @override
+  Stream<bool> get passwordRecoveryChanges =>
+      _passwordRecoveryController.stream;
 
   @override
   bool get isSignedIn => _auth.currentSession != null;
@@ -27,7 +54,8 @@ class SupabaseAuthRepository implements AuthRepository {
       .where(
         (state) =>
             state.event == AuthChangeEvent.signedIn ||
-            state.event == AuthChangeEvent.signedOut,
+            state.event == AuthChangeEvent.signedOut ||
+            state.event == AuthChangeEvent.userUpdated,
       )
       .map((state) => state.session != null);
 
@@ -97,6 +125,68 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<void> signOut() => _guard(_auth.signOut);
 
+  @override
+  bool get isProfileComplete {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    final meta = user.userMetadata ?? {};
+    final phone = meta['phone']?.toString().trim();
+    final address = meta['address']?.toString().trim();
+    return phone != null && phone.isNotEmpty && address != null && address.isNotEmpty;
+  }
+
+  @override
+  Map<String, dynamic>? get currentUserMetadata =>
+      _auth.currentUser?.userMetadata;
+
+  @override
+  String? get currentUserEmail => _auth.currentUser?.email;
+
+  @override
+  Future<void> completeProfile(CompleteProfileRequest request) {
+    return _guard(() async {
+      final point = await _geocoder?.geocode(request.address);
+      await _auth.updateUser(
+        UserAttributes(
+          data: {
+            'full_name': request.fullName.trim(),
+            'phone': request.phone.trim(),
+            'address': request.address.trim(),
+            'latitude': point?.latitude,
+            'longitude': point?.longitude,
+          },
+        ),
+      );
+    });
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail({required String email}) {
+    return _guard(
+      () => _auth.resetPasswordForEmail(
+        email.trim(),
+        redirectTo: kIsWeb ? null : mobileResetPasswordCallbackUrl,
+      ),
+    );
+  }
+
+  @override
+  Future<void> updatePassword({required String newPassword}) {
+    return _guard(() async {
+      await _auth.updateUser(UserAttributes(password: newPassword));
+      _isInPasswordRecovery = false;
+      _passwordRecoveryController.add(false);
+      await _auth.signOut();
+    });
+  }
+
+  @override
+  Future<void> cancelPasswordRecovery() async {
+    _isInPasswordRecovery = false;
+    _passwordRecoveryController.add(false);
+    await _guard(_auth.signOut);
+  }
+
   /// Metadata lưu vào `raw_user_meta_data`. Trigger trên `auth.users` đọc các
   /// key này để tạo profile và địa chỉ mặc định khi email được xác nhận.
   @visibleForTesting
@@ -161,6 +251,17 @@ class SupabaseAuthRepository implements AuthRepository {
       'weak_password' => const AuthFailure(
         AuthFailureCode.weakPassword,
         'Mật khẩu quá yếu. Vui lòng chọn mật khẩu mạnh hơn.',
+      ),
+      'same_password' => const AuthFailure(
+        AuthFailureCode.samePassword,
+        'Mật khẩu mới không được trùng với mật khẩu cũ.',
+      ),
+      'otp_expired' ||
+      'invalid_otp' ||
+      'bad_code' ||
+      'token_expired' => const AuthFailure(
+        AuthFailureCode.invalidOtp,
+        'Mã OTP không đúng hoặc đã hết hạn.',
       ),
       _ => AuthFailure.unknown,
     };

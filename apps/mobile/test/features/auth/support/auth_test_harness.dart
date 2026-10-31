@@ -23,11 +23,14 @@ class FakeAuthRepository implements AuthRepository {
   FakeAuthRepository({Duration delay = Duration.zero})
     : _inner = MockAuthRepository(delay: delay) {
     _innerSub = _inner.signedInChanges.listen(_signedIn.add);
+    _recoverySub = _inner.passwordRecoveryChanges.listen(_passwordRecovery.add);
   }
 
   final MockAuthRepository _inner;
   late final StreamSubscription<bool> _innerSub;
+  late final StreamSubscription<bool> _recoverySub;
   final _signedIn = StreamController<bool>.broadcast();
+  final _passwordRecovery = StreamController<bool>.broadcast();
 
   /// Nhật ký tên phương thức đã gọi theo thứ tự.
   final calls = <String>[];
@@ -55,9 +58,13 @@ class FakeAuthRepository implements AuthRepository {
   void clearFailure(String method) => _failures.remove(method);
 
   void emitSignedIn(bool value) => _signedIn.add(value);
+  void emitPasswordRecovery(bool value) => _passwordRecovery.add(value);
 
   /// Giả lập người dùng bấm link xác nhận trong email (phát signedIn = true).
   void simulateEmailConfirmed() => _inner.simulateEmailConfirmed();
+
+  /// Giả lập người dùng bấm link recovery trong email.
+  void simulatePasswordRecovery() => _inner.simulatePasswordRecovery();
 
   Future<void> _enter(String method) async {
     calls.add(method);
@@ -69,12 +76,20 @@ class FakeAuthRepository implements AuthRepository {
 
   Future<void> dispose() async {
     await _innerSub.cancel();
+    await _recoverySub.cancel();
     await _signedIn.close();
+    await _passwordRecovery.close();
     await _inner.dispose();
   }
 
   @override
   bool get isSignedIn => _inner.isSignedIn;
+
+  @override
+  bool get isInPasswordRecovery => _inner.isInPasswordRecovery;
+
+  @override
+  Stream<bool> get passwordRecoveryChanges => _passwordRecovery.stream;
 
   @override
   Stream<bool> get signedInChanges => _signedIn.stream;
@@ -116,6 +131,49 @@ class FakeAuthRepository implements AuthRepository {
   Future<void> signOut() async {
     await _enter('signOut');
     return _inner.signOut();
+  }
+
+  @override
+  bool get isProfileComplete => _inner.isProfileComplete;
+  set isProfileComplete(bool value) => _inner.mockIsProfileComplete = value;
+
+  @override
+  Map<String, dynamic>? get currentUserMetadata => _inner.currentUserMetadata;
+  set currentUserMetadata(Map<String, dynamic>? value) =>
+      _inner.mockMetadata = value;
+
+  @override
+  String? get currentUserEmail => _inner.currentUserEmail;
+  set currentUserEmail(String? value) => _inner.mockEmail = value;
+
+  CompleteProfileRequest? lastCompleteProfile;
+  String? lastNewPassword;
+
+  @override
+  Future<void> completeProfile(CompleteProfileRequest request) async {
+    lastCompleteProfile = request;
+    await _enter('completeProfile');
+    return _inner.completeProfile(request);
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail({required String email}) async {
+    lastEmail = email;
+    await _enter('sendPasswordResetEmail');
+    return _inner.sendPasswordResetEmail(email: email);
+  }
+
+  @override
+  Future<void> updatePassword({required String newPassword}) async {
+    lastNewPassword = newPassword;
+    await _enter('updatePassword');
+    return _inner.updatePassword(newPassword: newPassword);
+  }
+
+  @override
+  Future<void> cancelPasswordRecovery() async {
+    await _enter('cancelPasswordRecovery');
+    return _inner.cancelPasswordRecovery();
   }
 }
 

@@ -17,3 +17,16 @@ class RegisterRequest {
 
 /// Kết quả đăng ký: có thể cần bấm link xác nhận trong email trước khi có phiên.
 enum SignUpResult { signedIn, needsEmailVerification }
+
+/// Dữ liệu hoàn thiện thông tin còn thiếu (sau khi đăng ký Google).
+class CompleteProfileRequest {
+  const CompleteProfileRequest({
+    required this.fullName,
+    required this.phone,
+    required this.address,
+  });
+
+  final String fullName;
+  final String phone;
+  final String address;
+}

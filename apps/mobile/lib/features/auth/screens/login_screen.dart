@@ -229,7 +229,7 @@ class _LoginScreenState extends State<LoginScreen> {
             label: 'Quên mật khẩu?',
             style: AuthFonts.sans(fontSize: 12, color: AuthPalette.muted),
             onPressed: () =>
-                _showMessage('Tính năng đặt lại mật khẩu sẽ sớm ra mắt.'),
+                Navigator.of(context).pushNamed(AuthRoutes.forgotPassword),
           ),
         ),
         const SizedBox(height: 8),

@@ -192,6 +192,40 @@ void main() {
     });
   });
 
+  group('passwordRecovery', () {
+    test('simulatePasswordRecovery phát true qua stream và cập nhật trạng thái', () async {
+      expect(repository.isInPasswordRecovery, isFalse);
+      final events = <bool>[];
+      final sub = repository.passwordRecoveryChanges.listen(events.add);
+
+      repository.simulatePasswordRecovery();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repository.isInPasswordRecovery, isTrue);
+      expect(events, [true]);
+
+      await repository.updatePassword(newPassword: 'Password@123');
+      await Future<void>.delayed(Duration.zero);
+
+      expect(repository.isInPasswordRecovery, isFalse);
+      expect(events, [true, false]);
+      await sub.cancel();
+    });
+
+    test('cancelPasswordRecovery đặt lại trạng thái và phát false', () async {
+      repository.simulatePasswordRecovery();
+      expect(repository.isInPasswordRecovery, isTrue);
+
+      await repository.cancelPasswordRecovery();
+      expect(repository.isInPasswordRecovery, isFalse);
+    });
+
+    test('sendPasswordResetEmail lưu email đã gửi', () async {
+      await repository.sendPasswordResetEmail(email: 'user@fleure.vn');
+      expect(repository.currentUserEmail, 'user@fleure.vn');
+    });
+  });
+
   group('signOut', () {
     test('đăng xuất sau khi đăng nhập', () async {
       await repository.signInWithGoogle();

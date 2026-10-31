@@ -27,6 +27,8 @@ enum AuthFailureCode {
   weakPassword,
   cancelled,
   network,
+  invalidOtp,
+  samePassword,
   notConfigured,
   unknown,
 }

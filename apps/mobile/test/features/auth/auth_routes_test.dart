@@ -11,10 +11,19 @@ void main() {
     expect(AuthRoutes.login, '/auth/login');
     expect(AuthRoutes.register, '/auth/register');
     expect(AuthRoutes.verifyEmail, '/auth/verify-email');
+    expect(AuthRoutes.forgotPassword, '/auth/forgot-password');
+    expect(AuthRoutes.completeProfile, '/auth/complete-profile');
+    expect(AuthRoutes.resetPassword, '/auth/reset-password');
   });
 
   group('onGenerateRoute', () {
-    for (final name in [AuthRoutes.login, AuthRoutes.register]) {
+    for (final name in [
+      AuthRoutes.login,
+      AuthRoutes.register,
+      AuthRoutes.forgotPassword,
+      AuthRoutes.completeProfile,
+      AuthRoutes.resetPassword,
+    ]) {
       test('trả MaterialPageRoute cho $name', () {
         final route = AuthRoutes.onGenerateRoute(RouteSettings(name: name));
         expect(route, isA<MaterialPageRoute<void>>());

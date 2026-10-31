@@ -17,10 +17,36 @@ class MockAuthRepository implements AuthRepository {
 
   final Duration delay;
   final _signedIn = StreamController<bool>.broadcast();
+  final _passwordRecovery = StreamController<bool>.broadcast();
   bool _isSignedIn = false;
+  bool _isInPasswordRecovery = false;
+  bool mockIsProfileComplete = true;
+  Map<String, dynamic>? mockMetadata;
+  String? mockEmail;
 
   @override
   bool get isSignedIn => _isSignedIn;
+
+  @override
+  bool get isInPasswordRecovery => _isInPasswordRecovery;
+
+  @override
+  Stream<bool> get passwordRecoveryChanges => _passwordRecovery.stream;
+
+  void simulatePasswordRecovery() {
+    _isInPasswordRecovery = true;
+    _passwordRecovery.add(true);
+  }
+
+  @override
+  bool get isProfileComplete => mockIsProfileComplete;
+
+  @override
+  Map<String, dynamic>? get currentUserMetadata =>
+      mockMetadata ?? {'full_name': 'Người dùng Google'};
+
+  @override
+  String? get currentUserEmail => mockEmail ?? 'google_user@gmail.com';
 
   @override
   Stream<bool> get signedInChanges => _signedIn.stream;
@@ -71,10 +97,41 @@ class MockAuthRepository implements AuthRepository {
     _setSignedIn(false);
   }
 
+  @override
+  Future<void> completeProfile(CompleteProfileRequest request) async {
+    await Future<void>.delayed(delay);
+    mockIsProfileComplete = true;
+    _setSignedIn(true);
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail({required String email}) async {
+    await Future<void>.delayed(delay);
+    mockEmail = email;
+  }
+
+  @override
+  Future<void> updatePassword({required String newPassword}) async {
+    await Future<void>.delayed(delay);
+    _isInPasswordRecovery = false;
+    _passwordRecovery.add(false);
+    _setSignedIn(false);
+  }
+
+  @override
+  Future<void> cancelPasswordRecovery() async {
+    _isInPasswordRecovery = false;
+    _passwordRecovery.add(false);
+    _setSignedIn(false);
+  }
+
   void _setSignedIn(bool value) {
     _isSignedIn = value;
     _signedIn.add(value);
   }
 
-  Future<void> dispose() => _signedIn.close();
+  Future<void> dispose() async {
+    await _signedIn.close();
+    await _passwordRecovery.close();
+  }
 }
