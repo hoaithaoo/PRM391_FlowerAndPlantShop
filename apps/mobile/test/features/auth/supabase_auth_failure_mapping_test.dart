@@ -39,10 +39,17 @@ void main() {
     }
   });
 
-  test('otp_expired và otp_disabled không còn map riêng -> unknown', () {
-    for (final code in ['otp_expired', 'otp_disabled']) {
-      expectMapped(code, AuthFailureCode.unknown, AuthFailure.unknown.message);
-    }
+  test('otp_expired map sang invalidOtp, otp_disabled -> unknown', () {
+    expectMapped(
+      'otp_expired',
+      AuthFailureCode.invalidOtp,
+      'Mã OTP không đúng hoặc đã hết hạn.',
+    );
+    expectMapped(
+      'otp_disabled',
+      AuthFailureCode.unknown,
+      AuthFailure.unknown.message,
+    );
   });
 
   test('user_not_found', () {
@@ -71,6 +78,14 @@ void main() {
       'weak_password',
       AuthFailureCode.weakPassword,
       'Mật khẩu quá yếu. Vui lòng chọn mật khẩu mạnh hơn.',
+    );
+  });
+
+  test('same_password', () {
+    expectMapped(
+      'same_password',
+      AuthFailureCode.samePassword,
+      'Mật khẩu mới không được trùng với mật khẩu cũ.',
     );
   });
 

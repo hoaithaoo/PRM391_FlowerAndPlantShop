@@ -499,17 +499,15 @@ void main() {
   });
 
   group('liên kết khác', () {
-    authTestWidgets('Quên mật khẩu? hiện SnackBar "sớm ra mắt"', (
+    authTestWidgets('Quên mật khẩu? điều hướng sang màn ForgotPasswordScreen', (
       tester,
       repo,
     ) async {
       await openLogin(tester, repo);
       await tapKey(tester, 'login_forgot_password_link');
+      await tester.pumpAndSettle();
 
-      expect(
-        snackText('Tính năng đặt lại mật khẩu sẽ sớm ra mắt.'),
-        findsOneWidget,
-      );
+      expect(find.byType(ForgotPasswordScreen), findsOneWidget);
     });
 
     authTestWidgets(

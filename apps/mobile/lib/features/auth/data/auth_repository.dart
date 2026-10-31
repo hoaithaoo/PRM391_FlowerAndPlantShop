@@ -27,4 +27,33 @@ abstract interface class AuthRepository {
   Future<SignUpResult> signUp(RegisterRequest request);
 
   Future<void> signOut();
+
+  /// Kiểm tra xem tài khoản hiện tại đã có đầy đủ SĐT và Địa chỉ hay chưa.
+  bool get isProfileComplete;
+
+  /// Metadata của người dùng hiện tại (e.g. từ Google OAuth: full_name, avatar_url).
+  Map<String, dynamic>? get currentUserMetadata;
+
+  /// Email của người dùng hiện tại (nếu có phiên).
+  String? get currentUserEmail;
+
+  /// Cập nhật thông tin còn thiếu (SĐT, Địa chỉ, toạ độ, Họ tên) sau khi đăng ký bằng Google.
+  Future<void> completeProfile(CompleteProfileRequest request);
+
+  /// Phát `true` khi người dùng nhấp vào link đặt lại mật khẩu từ email
+  /// (Supabase phát sự kiện passwordRecovery), và `false` khi kết thúc/huỷ khôi phục.
+  Stream<bool> get passwordRecoveryChanges;
+
+  /// Kiểm tra xem hiện tại có đang trong phiên khôi phục mật khẩu hay không.
+  bool get isInPasswordRecovery;
+
+  /// Gửi email chứa link đặt lại mật khẩu về hòm thư người dùng.
+  Future<void> sendPasswordResetEmail({required String email});
+
+  /// Cập nhật mật khẩu mới cho phiên khôi phục hiện tại.
+  /// Sau khi đổi mật khẩu thành công, phiên khôi phục tự động đăng xuất.
+  Future<void> updatePassword({required String newPassword});
+
+  /// Huỷ phiên khôi phục mật khẩu (đăng xuất khỏi phiên tạm thời).
+  Future<void> cancelPasswordRecovery();
 }

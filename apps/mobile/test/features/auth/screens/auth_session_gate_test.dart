@@ -118,6 +118,21 @@ void main() {
       expect(find.text(kLoginSuccessText), findsOneWidget);
     });
 
+    gateTest('Google quay về app nhưng chưa đủ thông tin -> CompleteProfileScreen', (
+      tester,
+      repo,
+    ) async {
+      repo.isProfileComplete = false;
+      await pumpGate(tester, repo);
+
+      repo.emitSignedIn(true);
+      await settle(tester);
+
+      expect(find.byType(CompleteProfileScreen), findsOneWidget);
+      expect(find.byType(SignedInPlaceholder), findsNothing);
+      expect(find.byType(LoginScreen), findsNothing);
+    });
+
     gateTest('đăng xuất -> quay lại LoginScreen mới (ô nhập trống)', (
       tester,
       repo,
@@ -391,6 +406,50 @@ void main() {
   });
 
   group('bố cục màn đã đăng nhập', () {
+    gateTest('khi isInPasswordRecovery sẵn -> hiển thị ResetPasswordScreen', (
+      tester,
+      repo,
+    ) async {
+      repo.simulatePasswordRecovery();
+      await pumpGate(tester, repo);
+
+      expect(find.byType(ResetPasswordScreen), findsOneWidget);
+      expect(find.byType(LoginScreen), findsNothing);
+    });
+
+    gateTest('đang ở ForgotPasswordScreen, deep link recovery kích hoạt -> chuyển sang ResetPasswordScreen', (
+      tester,
+      repo,
+    ) async {
+      final nav = await pumpGate(tester, repo);
+      await pushRoute(tester, nav, AuthRoutes.forgotPassword);
+      expect(find.byType(ForgotPasswordScreen), findsOneWidget);
+
+      repo.simulatePasswordRecovery();
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ResetPasswordScreen), findsOneWidget);
+      expect(find.byType(ForgotPasswordScreen), findsNothing);
+    });
+
+    gateTest('đổi mật khẩu xong trong ResetPasswordScreen -> tự chuyển về LoginScreen', (
+      tester,
+      repo,
+    ) async {
+      repo.simulatePasswordRecovery();
+      await pumpGate(tester, repo);
+      expect(find.byType(ResetPasswordScreen), findsOneWidget);
+
+      await enterIn(tester, 'reset_password_new_password_field', 'Hoa@12345');
+      await enterIn(tester, 'reset_password_confirm_password_field', 'Hoa@12345');
+      await tapKey(tester, 'reset_password_submit_button');
+      await settle(tester);
+
+      expect(find.byType(ResetPasswordScreen), findsNothing);
+      expect(find.byType(LoginScreen), findsOneWidget);
+    });
+
     for (final size in [kSmallPhone, kPhone]) {
       final label = '${size.width.toInt()}x${size.height.toInt()}';
       gateTest('không overflow ở $label, chữ 1.3x', (tester, repo) async {
