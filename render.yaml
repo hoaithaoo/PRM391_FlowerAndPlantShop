@@ -26,6 +26,10 @@ services:
         sync: false
       - key: SEPAY_WEBHOOK_SECRET
         sync: false
+      - key: SEPAY_BANK_ACCOUNT
+        sync: false
+      - key: SEPAY_BANK_CODE
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: GEMINI_MODEL
