@@ -22,4 +22,6 @@ ENV NODE_ENV=production
 COPY --from=build /prod/backend ./
 
 EXPOSE 5000
-CMD ["node", "dist/server.js"]
+# Chạy migration (idempotent) trước khi bật API, nên nền tảng deploy không cần
+# cấu hình Docker Command riêng.
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma && exec node dist/server.js"]
