@@ -1,0 +1,13 @@
+export 'data/chatbot_failure.dart';
+export 'data/chatbot_remote_data_source.dart';
+export 'data/chatbot_repository.dart';
+export 'data/chatbot_repository_impl.dart';
+export 'data/mock_chatbot_repository.dart';
+export 'models/chatbot_models.dart';
+export 'state/chatbot_controller.dart';
+export 'state/chatbot_state.dart';
+export 'widgets/chat_message_bubble.dart';
+export 'widgets/chatbot_launcher.dart';
+export 'widgets/chatbot_overlay_host.dart';
+export 'widgets/chatbot_panel.dart';
+export 'widgets/suggested_product_card.dart';
