@@ -6,11 +6,8 @@ services:
     region: singapore
     dockerfilePath: ./apps/backend/Dockerfile
     dockerContext: .
-    # The free plan has no pre-deploy command, so the idempotent production
-    # migration runs before the API process starts.
-    dockerCommand: >-
-      sh -c "./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma
-      && node dist/server.js"
+    # Dockerfile CMD runs the idempotent migration before starting the API,
+    # so no dockerCommand override is needed (the free plan has no pre-deploy step).
     healthCheckPath: /health
     autoDeployTrigger: checksPass
     maxShutdownDelaySeconds: 30
