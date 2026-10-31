@@ -31,7 +31,8 @@ async function main(): Promise<void> {
       name: "Bó hoa hồng đỏ",
       slug: "bo-hoa-hong-do",
       sku: "FLOWER-ROSE-001",
-      description: "Bó hoa hồng đỏ phù hợp làm quà tặng.",
+      description:
+        "Bó hoa hồng đỏ mang phong cách trang trọng và lãng mạn, phù hợp làm quà sinh nhật, kỷ niệm hoặc gửi lời chúc. Khi cắm bình, nên đặt hoa ở nơi thoáng mát, tránh nắng trực tiếp và nguồn nhiệt. Thay nước sạch mỗi ngày, cắt chéo một đoạn nhỏ ở gốc và loại bỏ lá nằm dưới mặt nước để hoa giữ được độ tươi lâu hơn.",
       price: "250000",
       stock: 50,
       taxRate: "8.00",
@@ -41,7 +42,8 @@ async function main(): Promise<void> {
       name: "Bó hoa hướng dương",
       slug: "bo-hoa-huong-duong",
       sku: "FLOWER-SUN-001",
-      description: "Bó hoa hướng dương với phong cách tươi sáng.",
+      description:
+        "Bó hoa hướng dương có màu sắc tươi sáng, phù hợp làm quà chúc mừng, khai trương hoặc trang trí không gian. Khi cắm bình, đặt hoa ở nơi thoáng mát có ánh sáng dịu, tránh nắng gắt và luồng gió mạnh. Thay nước mỗi ngày, cắt chéo gốc hoa và giữ phần lá không ngập trong nước để hạn chế hư hỏng.",
       price: "320000",
       stock: 35,
       taxRate: "8.00",
@@ -51,7 +53,8 @@ async function main(): Promise<void> {
       name: "Cây lưỡi hổ",
       slug: "cay-luoi-ho",
       sku: "PLANT-SNAKE-001",
-      description: "Cây để bàn dễ chăm sóc, phù hợp không gian trong nhà.",
+      description:
+        "Cây lưỡi hổ là cây cảnh trong nhà dễ chăm sóc, phù hợp đặt trên bàn làm việc, kệ hoặc trong văn phòng. Cây chịu được ánh sáng yếu nhưng phát triển tốt hơn ở nơi có ánh sáng gián tiếp. Chỉ tưới khi đất đã khô, thông thường khoảng 7–14 ngày tùy nhiệt độ và độ ẩm. Cây chịu hạn tốt, không thích đất bị úng và phù hợp với người mới trồng cây.",
       price: "180000",
       stock: 25,
       taxRate: "8.00",
@@ -61,7 +64,8 @@ async function main(): Promise<void> {
       name: "Cây Monstera",
       slug: "cay-monstera",
       sku: "PLANT-MONSTERA-001",
-      description: "Cây lá lớn trang trí phòng khách hoặc văn phòng.",
+      description:
+        "Cây Monstera có lá lớn tạo điểm nhấn, phù hợp trang trí phòng khách hoặc văn phòng có không gian rộng. Cây phát triển tốt ở nơi có ánh sáng sáng nhưng gián tiếp; nắng gắt có thể làm cháy lá. Tưới khi lớp đất mặt đã khô và bảo đảm chậu thoát nước để tránh úng rễ. Có thể lau lá định kỳ và đặt cây ở nơi có độ ẩm vừa phải.",
       price: "450000",
       stock: 15,
       taxRate: "8.00",
@@ -71,7 +75,8 @@ async function main(): Promise<void> {
       name: "Chậu gốm tối giản",
       slug: "chau-gom-toi-gian",
       sku: "ACC-POT-001",
-      description: "Chậu gốm màu trung tính dùng cho cây để bàn.",
+      description:
+        "Chậu gốm có màu trung tính và phong cách tối giản, phù hợp phối cùng cây để bàn trong nhà, văn phòng hoặc góc làm việc. Sản phẩm dùng để trang trí và giữ bầu cây. Trước khi chọn, nên đối chiếu kích thước bầu cây và kiểm tra nhu cầu thoát nước của loại cây đang trồng.",
       price: "120000",
       stock: 60,
       taxRate: "8.00",
@@ -81,7 +86,8 @@ async function main(): Promise<void> {
       name: "Đất trồng hữu cơ 5 lít",
       slug: "dat-trong-huu-co-5-lit",
       sku: "ACC-SOIL-001",
-      description: "Đất trồng đóng gói dùng cho hoa và cây cảnh.",
+      description:
+        "Đất trồng hữu cơ đóng gói 5 lít dùng cho hoa và cây cảnh. Sản phẩm phù hợp để bổ sung hoặc thay đất cho chậu cây quy mô nhỏ. Khi sử dụng, cần chọn chậu có khả năng thoát nước và điều chỉnh lượng tưới theo nhu cầu của từng loại cây; không nên để hỗn hợp đất ngập nước kéo dài.",
       price: "90000",
       stock: 80,
       taxRate: "5.00",

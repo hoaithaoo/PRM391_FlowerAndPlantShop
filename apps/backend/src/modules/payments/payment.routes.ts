@@ -6,9 +6,18 @@ import { profileMiddleware } from "../../middlewares/profile.middleware";
 import { requireRole } from "../../middlewares/role.middleware";
 import { validateRequest } from "../../middlewares/validate.middleware";
 import { paymentController } from "./payment.controller";
-import { paymentIdParamsSchema } from "./payment.schema";
+import { adminGuard } from "../../middlewares/admin-guard.middleware";
+import {
+  adminListPaymentsQuerySchema,
+  adminListSepayTransactionsQuerySchema,
+  adminMatchSepayTransactionSchema,
+  paymentIdParamsSchema,
+  sepayTransactionIdParamsSchema,
+} from "./payment.schema";
 
 export const paymentRoutes = Router();
+export const adminPaymentRoutes = Router();
+export const adminSepayTransactionRoutes = Router();
 
 paymentRoutes.use(
   authMiddleware,
@@ -21,4 +30,26 @@ paymentRoutes.get(
   "/:id/status",
   validateRequest({ params: paymentIdParamsSchema }),
   (req, res, next) => paymentController.getStatus(req, res, next)
+);
+
+adminPaymentRoutes.use(...adminGuard);
+adminPaymentRoutes.get(
+  "/",
+  validateRequest({ query: adminListPaymentsQuerySchema }),
+  (req, res, next) => paymentController.adminListPayments(req, res, next)
+);
+
+adminSepayTransactionRoutes.use(...adminGuard);
+adminSepayTransactionRoutes.get(
+  "/",
+  validateRequest({ query: adminListSepayTransactionsQuerySchema }),
+  (req, res, next) => paymentController.adminListSepayTransactions(req, res, next)
+);
+adminSepayTransactionRoutes.post(
+  "/:id/match",
+  validateRequest({
+    params: sepayTransactionIdParamsSchema,
+    body: adminMatchSepayTransactionSchema,
+  }),
+  (req, res, next) => paymentController.adminMatchSepayTransaction(req, res, next)
 );

@@ -13,10 +13,12 @@
     "prisma:migrate:status": "pnpm --filter @plant-flower/backend prisma:migrate:status",
     "prisma:validate": "pnpm --filter @plant-flower/backend prisma:validate",
     "prisma:seed": "pnpm --filter @plant-flower/backend prisma:seed",
+    "rag:reindex": "pnpm --filter @plant-flower/backend rag:reindex",
     "dev:landing": "pnpm --filter @plant-flower/landing dev",
     "build:landing": "pnpm --filter @plant-flower/landing build"
   },
   "dependencies": {
+    "@supabase/server": "^1.9.2",
     "postgres": "^3.4.9"
   }
 }

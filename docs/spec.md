@@ -1011,6 +1011,9 @@ Chat trong project được sửa thành chatbot. Không có conversation Custom
 | conversationId | Body | uuid|null | No | Null \= tạo conversation mới. |
 | message | Body | string | Yes | 1-2000 ký tự. |
 | productId | Body | uuid|null | No | Context sản phẩm đang xem. |
+| context.orderId | Body | uuid|null | No | Đơn hàng liên quan. Backend chỉ chuyển đơn thuộc user hiện tại cho chatbot. |
+| context.paymentId | Body | uuid|null | No | Thanh toán liên quan. Backend chỉ chuyển thanh toán thuộc user hiện tại cho chatbot. |
+| context.source | Body | string|null | No | Màn hình hoặc luồng đã mở chatbot, tối đa 100 ký tự. |
 
 **Request example**
 
@@ -1025,7 +1028,21 @@ Chat trong project được sửa thành chatbot. Không có conversation Custom
 | messageId | uuid | Assistant message ID. |
 | reply | string | Nội dung chatbot trả lời. |
 | suggestedProducts | array | Danh sách product liên quan (optional). |
+| suggestedProducts[].id | uuid | Product ID dùng để mở màn hình chi tiết sản phẩm. |
+| suggestedProducts[].name | string | Tên sản phẩm lấy từ database. |
+| suggestedProducts[].price | string | Giá VND lấy từ database, biểu diễn dạng chuỗi số nguyên. |
+| suggestedProducts[].imageUrl | string|null | Ảnh đại diện sản phẩm. |
+| action | object|null | Điều hướng có cấu trúc do chatbot đề xuất. |
+| action.type | OPEN_INCIDENT_REPORT | Mở form báo cáo sự cố trên client. |
+| action.draft.category | string | Nhóm sự cố có thể chỉnh sửa. |
+| action.draft.title | string | Tiêu đề điền sẵn, có thể chỉnh sửa. |
+| action.draft.description | string | Mô tả điền sẵn, có thể chỉnh sửa. |
+| action.draft.orderId | uuid|null | Đơn hàng đã được backend xác minh thuộc user. |
+| action.draft.paymentId | uuid|null | Thanh toán đã được backend xác minh thuộc user. |
+| action.draft.conversationId | uuid | Phiên chatbot tạo báo cáo. |
 | createdAt | datetime | Thời điểm trả lời. |
+
+Khi nhận `OPEN_INCIDENT_REPORT`, client chỉ mở form và điền sẵn `draft`. Người dùng được sửa nội dung và phải xác nhận ở API báo cáo sự cố riêng; chatbot không tự gửi báo cáo hoặc thay đổi trạng thái đơn hàng/thanh toán.
 
 **Response example**
 
@@ -1067,6 +1084,8 @@ Chat trong project được sửa thành chatbot. Không có conversation Custom
 | items\[\].id | uuid | Message ID. |
 | items\[\].role | USER|ASSISTANT | Vai trò message. |
 | items\[\].content | string | Nội dung. |
+| items\[\].suggestedProducts | array | Các product card đã lưu của assistant message; rỗng với user message. |
+| items\[\].action | object|null | Action đã lưu của assistant message; null với user message. |
 | items\[\].createdAt | datetime | Time. |
 
 **Errors / states**

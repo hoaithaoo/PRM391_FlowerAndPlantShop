@@ -169,3 +169,12 @@ pubspec_overrides.yaml
 .DS_Store
 # Widget Preview related
 .widget_preview/
+
+# AI agent working files (plans/specs, session state, generated graphs)
+.superpowers/
+docs/superpowers/
+graphify-out/
+.claude/
+.codex/
+.cursor/
+docs/postman/

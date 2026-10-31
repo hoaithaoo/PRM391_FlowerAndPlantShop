@@ -39,34 +39,64 @@ export const listProductsQuerySchema = z
     }
   );
 
-export const createProductSchema = z
+export const adminListProductsQuerySchema = z
   .object({
-    sku: z.string().trim().min(1).max(100),
-    name: z.string().trim().min(1).max(200),
-    description: z.string().trim().max(5000).nullable().optional(),
-    price: moneySchema,
-    stock: z.number().int().min(0),
-    taxRate: taxRateSchema,
-    categoryId: uuidSchema,
-    imageUrls: imageUrlsSchema.optional().default([]),
-    isActive: z.boolean().optional().default(true),
+    page: z.coerce.number().int().min(1).default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    search: z.string().trim().min(1).max(100).optional(),
+    categoryId: uuidSchema.optional(),
+    // Admin app gửi `category` thay cho `categoryId`.
+    category: uuidSchema.optional(),
+    isActive: z
+      .enum(["true", "false"])
+      .transform((value) => value === "true")
+      .optional(),
   })
   .strict();
+
+// Body không dùng .strict(): admin app gửi kèm id/slug/categoryName/salePrice,
+// các field thừa bị bỏ qua. `imageUrl` đơn lẻ được nhận như một phần tử của imageUrls.
+const productBodyBase = {
+  name: z.string().trim().min(1).max(200),
+  description: z.string().trim().max(5000).nullable().optional(),
+  price: moneySchema,
+  stock: z.number().int().min(0),
+  categoryId: uuidSchema,
+  imageUrls: imageUrlsSchema.optional(),
+  imageUrl: z.string().url("Ảnh phải là một URL hợp lệ.").nullable().optional(),
+};
+
+const resolveImageUrls = <T extends { imageUrls?: string[]; imageUrl?: string | null }>({
+  imageUrl,
+  ...rest
+}: T) => ({
+  ...rest,
+  imageUrls:
+    rest.imageUrls ??
+    (imageUrl === undefined ? undefined : imageUrl === null ? [] : [imageUrl]),
+});
+
+export const createProductSchema = z
+  .object({
+    ...productBodyBase,
+    // SKU tự sinh nếu thiếu; thuế suất mặc định 0%.
+    sku: z.string().trim().min(1).max(100).optional(),
+    taxRate: taxRateSchema.optional().default(0),
+    isActive: z.boolean().optional().default(true),
+  })
+  .transform(resolveImageUrls);
 
 export const updateProductSchema = z
   .object({
-    sku: z.string().trim().min(1).max(100),
-    name: z.string().trim().min(1).max(200),
-    description: z.string().trim().max(5000).nullable().optional(),
-    price: moneySchema,
-    stock: z.number().int().min(0),
-    taxRate: taxRateSchema,
-    categoryId: uuidSchema,
-    imageUrls: imageUrlsSchema.optional(),
-    isActive: z.boolean(),
+    ...productBodyBase,
+    // Thiếu sku/taxRate/isActive thì giữ nguyên giá trị hiện tại.
+    sku: z.string().trim().min(1).max(100).optional(),
+    taxRate: taxRateSchema.optional(),
+    isActive: z.boolean().optional(),
   })
-  .strict();
+  .transform(resolveImageUrls);
 
 export type ListProductsQuery = z.infer<typeof listProductsQuerySchema>;
+export type AdminListProductsQuery = z.infer<typeof adminListProductsQuerySchema>;
 export type CreateProductInput = z.infer<typeof createProductSchema>;
 export type UpdateProductInput = z.infer<typeof updateProductSchema>;
