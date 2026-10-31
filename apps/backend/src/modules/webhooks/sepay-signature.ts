@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from "express";
 import { AppError } from "../../common/errors/app-error";
 import { ErrorCodes } from "../../common/errors/error-codes";
 import { env } from "../../config/env";
+import { logger } from "../../lib/logger";
 
 type Clock = () => number;
 
@@ -28,13 +29,21 @@ export class SepaySignatureVerifier {
       );
     }
 
+    if (!signature || !timestampHeader) {
+      this.invalidSignature("MISSING_HEADERS", {
+        hasSignature: Boolean(signature),
+        hasTimestamp: Boolean(timestampHeader),
+      });
+    }
     if (
-      !signature ||
       !/^sha256=[a-f0-9]{64}$/i.test(signature) ||
-      !timestampHeader ||
       !/^\d+$/.test(timestampHeader)
     ) {
-      this.invalidSignature();
+      this.invalidSignature("MALFORMED_HEADERS", {
+        signatureLength: signature.length,
+        signatureHasPrefix: signature.startsWith(SIGNATURE_PREFIX),
+        timestampIsDigits: /^\d+$/.test(timestampHeader),
+      });
     }
 
     const timestamp = Number(timestampHeader);
@@ -43,7 +52,9 @@ export class SepaySignatureVerifier {
       !Number.isSafeInteger(timestamp) ||
       Math.abs(nowSeconds - timestamp) > MAX_TIMESTAMP_DRIFT_SECONDS
     ) {
-      this.invalidSignature();
+      this.invalidSignature("TIMESTAMP_OUT_OF_RANGE", {
+        driftSeconds: nowSeconds - timestamp,
+      });
     }
 
     const hmac = createHmac("sha256", this.secret);
@@ -57,11 +68,21 @@ export class SepaySignatureVerifier {
       expectedBuffer.length !== providedBuffer.length ||
       !timingSafeEqual(expectedBuffer, providedBuffer)
     ) {
-      this.invalidSignature();
+      // Không log secret hay chữ ký; chỉ log thông tin giúp phân biệt nguyên nhân
+      // (sai secret, secret có khoảng trắng/ngoặc kép, body rỗng do sai content type).
+      this.invalidSignature("SIGNATURE_MISMATCH", {
+        bodyBytes: rawBody.length,
+        secretLength: this.secret.length,
+        secretHasOuterWhitespaceOrQuotes: /^[\s"']|[\s"']$/.test(this.secret),
+      });
     }
   }
 
-  private invalidSignature(): never {
+  private invalidSignature(
+    reason: string,
+    details: Record<string, unknown> = {}
+  ): never {
+    logger.warn("SePay webhook signature rejected", { reason, ...details });
     throw new AppError(
       401,
       ErrorCodes.SEPAY_SIGNATURE_INVALID,
@@ -100,12 +121,19 @@ export const verifySepaySignature = (
 ): void => {
   try {
     sepaySignatureVerifier.verify(
+      // rawBody chỉ có khi body là JSON; SePay phải gửi Content-Type application/json.
       req.rawBody ?? Buffer.alloc(0),
       req.get("X-SePay-Signature"),
       req.get("X-SePay-Timestamp")
     );
     next();
   } catch (error) {
+    if (error instanceof AppError && error.statusCode === 401) {
+      logger.warn("SePay webhook request info", {
+        contentType: req.get("Content-Type") ?? null,
+        hasRawBody: Boolean(req.rawBody),
+      });
+    }
     next(error);
   }
 };
