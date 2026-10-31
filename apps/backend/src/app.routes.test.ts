@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { AddressInfo } from "node:net";
 import { after, before, describe, it } from "node:test";
 import type { Server } from "node:http";
+import { Prisma } from "@prisma/client";
 import { createApp } from "./app";
+import { buildSepayQrUrl } from "./modules/checkout/checkout.service";
 import { adminUpdateOrderStatusSchema } from "./modules/orders/order.schema";
 import {
   createProductSchema,
@@ -104,5 +106,45 @@ describe("Admin app payload compatibility", () => {
   it("chỉ nhận trạng thái đơn theo spec", () => {
     assert.equal(adminUpdateOrderStatusSchema.safeParse({ status: "PREPARING" }).success, true);
     assert.equal(adminUpdateOrderStatusSchema.safeParse({ status: "DELIVERED" }).success, false);
+  });
+});
+
+describe("SePay QR", () => {
+  const config = {
+    SEPAY_BANK_ACCOUNT: "0123456789",
+    SEPAY_BANK_CODE: "MBBank",
+    SEPAY_QR_BASE_URL: "https://qr.sepay.vn/img",
+  };
+
+  it("tạo link VietQR với nội dung CK là paymentCode", () => {
+    const url = new URL(
+      buildSepayQrUrl("PAY20261031ABCDEF123456", new Prisma.Decimal(350000), config)!
+    );
+    assert.equal(url.origin + url.pathname, "https://qr.sepay.vn/img");
+    assert.equal(url.searchParams.get("acc"), "0123456789");
+    assert.equal(url.searchParams.get("bank"), "MBBank");
+    assert.equal(url.searchParams.get("amount"), "350000");
+    assert.equal(url.searchParams.get("des"), "PAY20261031ABCDEF123456");
+  });
+
+  it("trả null khi chưa cấu hình tài khoản nhận", () => {
+    assert.equal(
+      buildSepayQrUrl("PAY1", new Prisma.Decimal(1), { ...config, SEPAY_BANK_ACCOUNT: undefined }),
+      null
+    );
+  });
+});
+
+describe("Swagger", () => {
+  it("phục vụ trang /api/docs và tài liệu JSON", async () => {
+    const root = `${baseUrl.replace("/api/v1", "")}`;
+    const page = await fetch(`${root}/api/docs/`);
+    assert.equal(page.status, 200);
+    const doc = (await (await fetch(`${root}/api/docs.json`)).json()) as {
+      openapi: string;
+      paths: Record<string, unknown>;
+    };
+    assert.equal(doc.openapi, "3.0.3");
+    assert.ok(doc.paths["/admin/orders/{id}/status"]);
   });
 });

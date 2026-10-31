@@ -1,6 +1,8 @@
 import express, { Application, Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import cors from "cors";
+import swaggerUi from "swagger-ui-express";
+import { buildOpenApiDocument } from "./docs/openapi";
 import { env } from "./config/env";
 import { requestIdMiddleware } from "./middlewares/request-id.middleware";
 import { errorHandler } from "./middlewares/error-handler";
@@ -109,6 +111,21 @@ export const createApp = (): Application => {
       timestamp: new Date().toISOString(),
     });
   });
+
+  // 2b. Tài liệu API (Swagger UI) — trang gốc chuyển thẳng tới đây
+  const openApiDocument = buildOpenApiDocument();
+  app.get("/", (_req: Request, res: Response) => res.redirect("/api/docs"));
+  app.get("/api/docs.json", (_req: Request, res: Response) => {
+    res.json(openApiDocument);
+  });
+  app.use(
+    "/api/docs",
+    swaggerUi.serve,
+    swaggerUi.setup(openApiDocument, {
+      customSiteTitle: "Plant & Flower Shop API",
+      swaggerOptions: { persistAuthorization: true, docExpansion: "none" },
+    })
+  );
 
   // 3. API Routes v1
   app.use("/api/v1/auth", authRoutes);

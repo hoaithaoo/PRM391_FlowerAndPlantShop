@@ -14,6 +14,10 @@ const envSchema = z
     // Backward-compatible fallbacks while Supabase phases out legacy keys.
     SUPABASE_ANON_KEY: z.string().min(1).optional(),
     SEPAY_WEBHOOK_SECRET: z.string().optional(),
+    // Tài khoản nhận tiền để tạo ảnh VietQR qua SePay; thiếu thì qrUrl = null.
+    SEPAY_BANK_ACCOUNT: z.string().trim().min(1).optional(),
+    SEPAY_BANK_CODE: z.string().trim().min(1).optional(),
+    SEPAY_QR_BASE_URL: z.string().url().default("https://qr.sepay.vn/img"),
     CORS_ORIGIN: z.string().default("*"),
     GEMINI_API_KEY: z.string().min(1).optional(),
     GEMINI_MODEL: z.string().min(1).default("gemini-3.6-flash"),

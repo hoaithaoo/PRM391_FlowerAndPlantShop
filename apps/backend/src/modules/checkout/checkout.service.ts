@@ -10,6 +10,7 @@ import {
   calculateDistanceKm,
   calculateShippingFee,
 } from "../../common/utils/distance";
+import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import type { CheckoutInput } from "./checkout.schema";
 import type { CheckoutResponse } from "./checkout.type";
@@ -57,6 +58,25 @@ const createReference = (prefix: string): string => {
   const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
   const suffix = randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase();
   return `${prefix}-${date}-${suffix}`;
+};
+
+/** Link ảnh VietQR của SePay; nội dung CK là paymentCode để webhook đối soát. */
+export const buildSepayQrUrl = (
+  paymentCode: string,
+  amount: Prisma.Decimal,
+  config: Pick<
+    typeof env,
+    "SEPAY_BANK_ACCOUNT" | "SEPAY_BANK_CODE" | "SEPAY_QR_BASE_URL"
+  > = env
+): string | null => {
+  if (!config.SEPAY_BANK_ACCOUNT || !config.SEPAY_BANK_CODE) return null;
+  const url = new URL(config.SEPAY_QR_BASE_URL);
+  url.searchParams.set("acc", config.SEPAY_BANK_ACCOUNT);
+  url.searchParams.set("bank", config.SEPAY_BANK_CODE);
+  url.searchParams.set("amount", amount.toFixed(0));
+  url.searchParams.set("des", paymentCode);
+  url.searchParams.set("template", "compact");
+  return url.toString();
 };
 
 export class CheckoutService {
@@ -297,20 +317,19 @@ export class CheckoutService {
       },
     });
 
+    const paymentCode = createReference("PAY").replaceAll("-", "");
     const payment =
       input.paymentMethod === PaymentMethod.SEPAY
         ? await tx.payment.create({
             data: {
               invoiceId: invoice.id,
-              paymentCode: createReference("PAY").replaceAll("-", ""),
+              paymentCode,
               provider: PaymentMethod.SEPAY,
               amount: grandTotal,
               expiresAt: new Date(
                 Date.now() + PAYMENT_EXPIRY_MINUTES * 60 * 1000
               ),
-              // A QR URL requires deployment-specific bank account settings.
-              // The payment code is sufficient for the SePay webhook matcher.
-              qrUrl: null,
+              qrUrl: buildSepayQrUrl(paymentCode, grandTotal),
             },
             select: {
               id: true,
