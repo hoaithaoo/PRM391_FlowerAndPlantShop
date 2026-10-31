@@ -148,3 +148,14 @@ describe("Swagger", () => {
     assert.ok(doc.paths["/admin/orders/{id}/status"]);
   });
 });
+
+describe("SePay webhook auth", () => {
+  it("không có header xác thực nào thì vẫn bị từ chối", async () => {
+    const response = await fetch(`${baseUrl}/webhooks/sepay`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: 1 }),
+    });
+    assert.ok([401, 503].includes(response.status));
+  });
+});
