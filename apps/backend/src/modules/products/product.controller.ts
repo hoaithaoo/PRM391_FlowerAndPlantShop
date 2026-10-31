@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { sendSuccess } from "../../common/utils/response";
-import { ListProductsQuery } from "./product.schema";
+import { AdminListProductsQuery, ListProductsQuery } from "./product.schema";
 import { productService } from "./product.service";
 
 export class ProductController {
@@ -22,6 +22,30 @@ export class ProductController {
   async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const product = await productService.getActiveById(req.params.id as string);
+      sendSuccess(req, res, product);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async adminList(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await productService.adminList(
+        req.query as unknown as AdminListProductsQuery
+      );
+      sendSuccess(req, res, { items: result.items }, 200, {
+        page: result.page,
+        total: result.total,
+        totalPages: result.totalPages,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async adminGet(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const product = await productService.adminGet(req.params.id as string);
       sendSuccess(req, res, product);
     } catch (error) {
       next(error);

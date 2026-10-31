@@ -7,6 +7,7 @@ import { requireRole } from "../../middlewares/role.middleware";
 import { validateRequest } from "../../middlewares/validate.middleware";
 import { productController } from "./product.controller";
 import {
+  adminListProductsQuerySchema,
   createProductSchema,
   listProductsQuerySchema,
   productIdParamsSchema,
@@ -32,6 +33,16 @@ adminProductRoutes.use(
   profileMiddleware,
   accountStatusMiddleware,
   requireRole(Role.ADMIN)
+);
+adminProductRoutes.get(
+  "/",
+  validateRequest({ query: adminListProductsQuerySchema }),
+  (req, res, next) => productController.adminList(req, res, next)
+);
+adminProductRoutes.get(
+  "/:id",
+  validateRequest({ params: productIdParamsSchema }),
+  (req, res, next) => productController.adminGet(req, res, next)
 );
 adminProductRoutes.post(
   "/",

@@ -1,8 +1,10 @@
 import { Prisma } from "@prisma/client";
 import { AppError } from "../../common/errors/app-error";
 import { ErrorCodes } from "../../common/errors/error-codes";
+import { randomUUID } from "node:crypto";
 import { prisma } from "../../lib/prisma";
 import {
+  AdminListProductsQuery,
   CreateProductInput,
   ListProductsQuery,
   UpdateProductInput,
@@ -66,32 +68,51 @@ const mapDetail = (product: {
   isActive: product.isActive,
 });
 
-const mapCreatedProduct = (product: {
-  id: string;
-  sku: string;
-  name: string;
-  price: Prisma.Decimal;
-  stock: number;
-  taxRate: Prisma.Decimal;
-  categoryId: string;
-  isActive: boolean;
-}) => ({
-  ...product,
+const adminProductSelect = {
+  id: true,
+  sku: true,
+  name: true,
+  slug: true,
+  description: true,
+  price: true,
+  stock: true,
+  taxRate: true,
+  imageUrl: true,
+  images: true,
+  isActive: true,
+  categoryId: true,
+  createdAt: true,
+  updatedAt: true,
+  category: { select: productCategorySelect },
+} satisfies Prisma.ProductSelect;
+
+type AdminProductRow = Prisma.ProductGetPayload<{
+  select: typeof adminProductSelect;
+}>;
+
+// Dạng đầy đủ cho admin: gồm field theo spec và alias admin app đang đọc
+// (slug, categoryName, imageUrl), nên create/update/list trả cùng một shape.
+const mapAdminProduct = (product: AdminProductRow) => ({
+  id: product.id,
+  sku: product.sku,
+  name: product.name,
+  slug: product.slug,
+  description: product.description,
   price: toNumber(product.price),
+  stock: product.stock,
   taxRate: toNumber(product.taxRate),
+  categoryId: product.categoryId,
+  category: product.category,
+  categoryName: product.category.name,
+  imageUrl: product.imageUrl,
+  imageUrls: product.images,
+  isActive: product.isActive,
+  createdAt: product.createdAt,
+  updatedAt: product.updatedAt,
 });
 
-const mapUpdatedProduct = (product: {
-  id: string;
-  sku: string;
-  name: string;
-  price: Prisma.Decimal;
-  stock: number;
-  updatedAt: Date;
-}) => ({
-  ...product,
-  price: toNumber(product.price),
-});
+const generateSku = (slug: string): string =>
+  `${slug.toUpperCase().slice(0, 40)}-${randomUUID().slice(0, 6).toUpperCase()}`;
 
 export class ProductService {
   async list(query: ListProductsQuery) {
@@ -177,16 +198,64 @@ export class ProductService {
     return mapDetail(product);
   }
 
+  async adminList(query: AdminListProductsQuery) {
+    const categoryId = query.categoryId ?? query.category;
+    const where: Prisma.ProductWhereInput = {
+      ...(query.isActive !== undefined && { isActive: query.isActive }),
+      ...(categoryId && { categoryId }),
+      ...(query.search && {
+        OR: [
+          { name: { contains: query.search, mode: "insensitive" as const } },
+          { sku: { contains: query.search, mode: "insensitive" as const } },
+        ],
+      }),
+    };
+
+    const [products, total] = await prisma.$transaction([
+      prisma.product.findMany({
+        where,
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+        select: adminProductSelect,
+      }),
+      prisma.product.count({ where }),
+    ]);
+
+    return {
+      items: products.map(mapAdminProduct),
+      page: query.page,
+      total,
+      totalPages: Math.ceil(total / query.limit),
+    };
+  }
+
+  async adminGet(id: string) {
+    const product = await prisma.product.findUnique({
+      where: { id },
+      select: adminProductSelect,
+    });
+    if (!product) {
+      throw new AppError(
+        404,
+        ErrorCodes.PRODUCT_NOT_FOUND,
+        "Không tìm thấy sản phẩm."
+      );
+    }
+    return mapAdminProduct(product);
+  }
+
   async create(input: CreateProductInput) {
     await this.assertCategoryExists(input.categoryId);
-    await this.assertSkuAvailable(input.sku);
     const slug = await this.createUniqueSlug(input.name);
+    const sku = input.sku ?? generateSku(slug);
+    await this.assertSkuAvailable(sku);
 
     try {
       const product = await prisma.product.create({
         data: {
           categoryId: input.categoryId,
-          sku: input.sku,
+          sku,
           name: input.name,
           slug,
           description: input.description,
@@ -197,19 +266,10 @@ export class ProductService {
           images: input.imageUrls ?? [],
           isActive: input.isActive,
         },
-        select: {
-          id: true,
-          sku: true,
-          name: true,
-          price: true,
-          stock: true,
-          taxRate: true,
-          categoryId: true,
-          isActive: true,
-        },
+        select: adminProductSelect,
       });
 
-      return mapCreatedProduct(product);
+      return mapAdminProduct(product);
     } catch (error) {
       this.handleWriteError(error);
       throw error;
@@ -219,7 +279,7 @@ export class ProductService {
   async update(id: string, input: UpdateProductInput) {
     const existing = await prisma.product.findUnique({
       where: { id },
-      select: { id: true, name: true, slug: true },
+      select: { id: true, name: true, slug: true, sku: true },
     });
     if (!existing) {
       throw new AppError(
@@ -230,7 +290,8 @@ export class ProductService {
     }
 
     await this.assertCategoryExists(input.categoryId);
-    await this.assertSkuAvailable(input.sku, id);
+    const sku = input.sku ?? existing.sku;
+    await this.assertSkuAvailable(sku, id);
     const slug =
       input.name === existing.name
         ? existing.slug
@@ -241,30 +302,25 @@ export class ProductService {
         where: { id },
         data: {
           categoryId: input.categoryId,
-          sku: input.sku,
+          sku,
           name: input.name,
           slug,
           description: input.description,
           price: new Prisma.Decimal(input.price.toString()),
           stock: input.stock,
-          taxRate: new Prisma.Decimal(input.taxRate.toString()),
+          ...(input.taxRate !== undefined && {
+            taxRate: new Prisma.Decimal(input.taxRate.toString()),
+          }),
           ...(input.imageUrls !== undefined && {
             imageUrl: input.imageUrls[0] ?? null,
             images: input.imageUrls,
           }),
-          isActive: input.isActive,
+          ...(input.isActive !== undefined && { isActive: input.isActive }),
         },
-        select: {
-          id: true,
-          sku: true,
-          name: true,
-          price: true,
-          stock: true,
-          updatedAt: true,
-        },
+        select: adminProductSelect,
       });
 
-      return mapUpdatedProduct(product);
+      return mapAdminProduct(product);
     } catch (error) {
       this.handleWriteError(error);
       throw error;
