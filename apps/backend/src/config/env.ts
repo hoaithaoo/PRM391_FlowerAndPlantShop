@@ -13,7 +13,12 @@ const envSchema = z
     SUPABASE_PUBLISHABLE_KEY: z.string().min(1).optional(),
     // Backward-compatible fallbacks while Supabase phases out legacy keys.
     SUPABASE_ANON_KEY: z.string().min(1).optional(),
-    SEPAY_WEBHOOK_SECRET: z.string().optional(),
+    // Cắt khoảng trắng/xuống dòng thừa khi dán secret vào dashboard deploy.
+    SEPAY_WEBHOOK_SECRET: z
+      .string()
+      .trim()
+      .optional()
+      .transform((value) => value || undefined),
     // Tài khoản nhận tiền để tạo ảnh VietQR qua SePay; thiếu thì qrUrl = null.
     SEPAY_BANK_ACCOUNT: z.string().trim().min(1).optional(),
     SEPAY_BANK_CODE: z.string().trim().min(1).optional(),
