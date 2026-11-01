@@ -28,6 +28,7 @@ class MainShell extends StatefulWidget {
     this.initialTab = MainTab.home,
     this.onSignOut,
     this.onCheckout,
+    this.accountBuilder,
   });
 
   final MainTab initialTab;
@@ -37,6 +38,9 @@ class MainShell extends StatefulWidget {
 
   /// Mở màn thanh toán từ giỏ hàng.
   final VoidCallback? onCheckout;
+
+  /// Nội dung tab Tài khoản. Không truyền thì hiện màn tạm có nút đăng xuất.
+  final WidgetBuilder? accountBuilder;
 
   /// Chuyển sang tab Sản phẩm, chọn sẵn [categoryId] (null là "Tất cả").
   ///
@@ -85,6 +89,8 @@ class _MainShellState extends State<MainShell> {
         onContinueShopping: () => _openCatalog(null),
         onCheckout: widget.onCheckout,
       ),
+      MainTab.account when widget.accountBuilder != null =>
+        widget.accountBuilder!(context),
       _ => _ComingSoon(
         tab: tab,
         onSignOut: tab == MainTab.account ? widget.onSignOut : null,
