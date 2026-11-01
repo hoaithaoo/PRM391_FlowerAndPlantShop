@@ -36,6 +36,10 @@ class MockProfileRepository implements ProfileRepository {
       const OrderPage(items: <OrderSummary>[], hasMore: false);
 
   @override
+  Future<Map<String, int>> orderCounts(List<String> statuses) async =>
+      <String, int>{for (final status in statuses) status: 0};
+
+  @override
   Future<OrderDetail> getOrder(String id) =>
       Future.error(StateError('Không có đơn hàng demo.'));
 

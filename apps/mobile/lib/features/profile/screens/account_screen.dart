@@ -34,6 +34,7 @@ class _AccountScreenState extends State<AccountScreen> {
   UserProfile? _profile;
   bool _loadFailed = false;
   bool _uploading = false;
+  Map<String, int> _orderCounts = const <String, int>{};
 
   @override
   void initState() {
@@ -48,7 +49,28 @@ class _AccountScreenState extends State<AccountScreen> {
       if (mounted) setState(() => _profile = profile);
     } catch (_) {
       if (mounted) setState(() => _loadFailed = true);
+      return;
     }
+    await _loadOrderCounts();
+  }
+
+  /// Số đơn chỉ để hiển thị, lỗi thì giữ số 0 thay vì chặn cả màn.
+  Future<void> _loadOrderCounts() async {
+    try {
+      final counts = await widget.repository.orderCounts(
+        _orderSteps.map((step) => step.status).toList(growable: false),
+      );
+      if (mounted) setState(() => _orderCounts = counts);
+    } catch (_) {}
+  }
+
+  Future<void> _openOrders() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => OrderListScreen(repository: widget.repository),
+      ),
+    );
+    if (mounted) await _loadOrderCounts();
   }
 
   void _showMessage(String message) {
@@ -130,70 +152,278 @@ class _AccountScreenState extends State<AccountScreen> {
       );
     }
     final auth = AuthScope.of(context);
-    return SafeArea(
-      bottom: false,
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          20,
-          24,
-          20,
-          AppBottomNav.reservedHeight + 16,
-        ),
-        children: [
-          Center(
-            child: _Avatar(
-              url: profile.avatarUrl,
+    return ColoredBox(
+      color: AppColors.background,
+      child: SafeArea(
+        bottom: false,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            AppBottomNav.reservedHeight + 16,
+          ),
+          children: [
+            _ProfileCard(
+              profile: profile,
               uploading: _uploading,
-              onTap: _changeAvatar,
+              onAvatarTap: _changeAvatar,
+              onEdit: () => _editProfile(profile),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Đơn hàng gần đây',
+                    style: AppTextStyles.headline2,
+                  ),
+                ),
+                TextButton(
+                  key: const Key('account-orders-all'),
+                  onPressed: _openOrders,
+                  child: const Text('Tất cả ›'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                for (final step in _orderSteps) ...[
+                  Expanded(
+                    child: _OrderStepTile(
+                      step: step,
+                      count: _orderCounts[step.status] ?? 0,
+                      onTap: _openOrders,
+                    ),
+                  ),
+                  if (step != _orderSteps.last) const SizedBox(width: 8),
+                ],
+              ],
+            ),
+            const _SectionTitle('TÀI KHOẢN & MUA HÀNG'),
+            _MenuGroup(
+              children: [
+                _MenuTile(
+                  key: const Key('account-edit'),
+                  icon: Icons.person_outline,
+                  label: 'Thông tin cá nhân',
+                  subtitle: 'Họ tên và số điện thoại',
+                  onTap: () => _editProfile(profile),
+                ),
+                _MenuTile(
+                  key: const Key('account-orders'),
+                  icon: Icons.receipt_long_outlined,
+                  label: 'Đơn hàng của tôi',
+                  subtitle: 'Lịch sử đặt hoa & tiến độ vận chuyển',
+                  onTap: _openOrders,
+                ),
+                _MenuTile(
+                  key: const Key('account-addresses'),
+                  icon: Icons.location_on_outlined,
+                  label: 'Sổ địa chỉ',
+                  subtitle: 'Địa chỉ nhận hoa đã lưu',
+                  onTap: _openAddresses,
+                ),
+                if (auth.canChangePassword)
+                  _MenuTile(
+                    key: const Key('account-password'),
+                    icon: Icons.lock_outline,
+                    label: 'Đổi mật khẩu',
+                    subtitle: 'Cập nhật mật khẩu đăng nhập',
+                    onTap: () => _push((_) => const ChangePasswordScreen()),
+                  ),
+              ],
+            ),
+            if (widget.onSignOut != null) ...[
+              const _SectionTitle('HỆ THỐNG'),
+              _MenuGroup(
+                children: [
+                  _MenuTile(
+                    key: const Key('account_sign_out'),
+                    icon: Icons.logout,
+                    label: 'Đăng xuất',
+                    subtitle: 'Rời tài khoản khỏi thiết bị',
+                    color: AppColors.accentSoft,
+                    onTap: widget.onSignOut!,
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderStep {
+  const _OrderStep(this.status, this.label, this.icon);
+
+  final String status;
+  final String label;
+  final IconData icon;
+}
+
+const _orderSteps = <_OrderStep>[
+  _OrderStep('PENDING', 'Chờ duyệt', Icons.assignment_turned_in_outlined),
+  _OrderStep('PREPARING', 'Đang cắm', Icons.content_cut),
+  _OrderStep('SHIPPING', 'Đang giao', Icons.local_shipping_outlined),
+  _OrderStep('COMPLETED', 'Đã giao', Icons.inventory_2_outlined),
+];
+
+class _ProfileCard extends StatelessWidget {
+  const _ProfileCard({
+    required this.profile,
+    required this.uploading,
+    required this.onAvatarTap,
+    required this.onEdit,
+  });
+
+  final UserProfile profile;
+  final bool uploading;
+  final VoidCallback onAvatarTap;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final muted = AppTextStyles.body.copyWith(color: AppColors.textMuted);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: AppColors.softShadow,
+      ),
+      child: Row(
+        children: [
+          _Avatar(
+            url: profile.avatarUrl,
+            uploading: uploading,
+            onTap: onAvatarTap,
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  profile.fullName ?? 'Khách hàng',
+                  key: const Key('account-name'),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.headline2,
+                ),
+                if (profile.email != null)
+                  Text(
+                    profile.email!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: muted,
+                  ),
+                if (profile.phone != null) Text(profile.phone!, style: muted),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            profile.fullName ?? 'Khách hàng',
-            key: const Key('account-name'),
-            textAlign: TextAlign.center,
-            style: AppTextStyles.headline2,
+          TextButton.icon(
+            key: const Key('account-edit-chip'),
+            onPressed: onEdit,
+            icon: const Icon(Icons.edit_outlined, size: 14),
+            label: const Text('Sửa'),
           ),
-          if (profile.email != null)
-            Text(
-              profile.email!,
-              textAlign: TextAlign.center,
-              style: AppTextStyles.body.copyWith(color: AppColors.textMuted),
-            ),
-          const SizedBox(height: 24),
-          _MenuTile(
-            key: const Key('account-edit'),
-            icon: Icons.person_outline,
-            label: 'Thông tin cá nhân',
-            onTap: () => _editProfile(profile),
+        ],
+      ),
+    );
+  }
+}
+
+class _OrderStepTile extends StatelessWidget {
+  const _OrderStepTile({
+    required this.step,
+    required this.count,
+    required this.onTap,
+  });
+
+  final _OrderStep step;
+  final int count;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        key: Key('account-step-${step.status}'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          child: Column(
+            children: [
+              CircleAvatar(
+                radius: 20,
+                backgroundColor: AppColors.surfacePastel,
+                child: Icon(step.icon, size: 20, color: AppColors.textHeading),
+              ),
+              const SizedBox(height: 8),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(step.label, style: AppTextStyles.caption),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$count đơn',
+                style: AppTextStyles.caption.copyWith(
+                  color: AppColors.textMuted,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
           ),
-          _MenuTile(
-            key: const Key('account-orders'),
-            icon: Icons.receipt_long_outlined,
-            label: 'Đơn hàng của tôi',
-            onTap: () =>
-                _push((_) => OrderListScreen(repository: widget.repository)),
-          ),
-          _MenuTile(
-            key: const Key('account-addresses'),
-            icon: Icons.location_on_outlined,
-            label: 'Sổ địa chỉ',
-            onTap: _openAddresses,
-          ),
-          if (auth.canChangePassword)
-            _MenuTile(
-              key: const Key('account-password'),
-              icon: Icons.lock_outline,
-              label: 'Đổi mật khẩu',
-              onTap: () => _push((_) => const ChangePasswordScreen()),
-            ),
-          const SizedBox(height: 16),
-          if (widget.onSignOut != null)
-            OutlinedButton(
-              key: const Key('account_sign_out'),
-              onPressed: widget.onSignOut,
-              child: const Text('Đăng xuất'),
-            ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 24, 4, 10),
+      child: Text(
+        title,
+        style: AppTextStyles.caption.copyWith(
+          color: AppColors.textMuted,
+          letterSpacing: 0.8,
+        ),
+      ),
+    );
+  }
+}
+
+class _MenuGroup extends StatelessWidget {
+  const _MenuGroup({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: AppColors.surface,
+      borderRadius: BorderRadius.circular(16),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const Divider(height: 1),
+            children[i],
+          ],
         ],
       ),
     );
@@ -262,29 +492,42 @@ class _MenuTile extends StatelessWidget {
     super.key,
     required this.icon,
     required this.label,
+    required this.subtitle,
     required this.onTap,
+    this.color,
   });
 
   final IconData icon;
   final String label;
+  final String subtitle;
   final VoidCallback onTap;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      elevation: 0,
-      color: AppColors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: const BorderSide(color: AppColors.border),
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      leading: CircleAvatar(
+        radius: 18,
+        backgroundColor: AppColors.surfacePastel,
+        child: Icon(icon, size: 18, color: color ?? AppColors.textHeading),
       ),
-      child: ListTile(
-        leading: Icon(icon, color: AppColors.primary),
-        title: Text(label, style: AppTextStyles.body),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: onTap,
+      title: Text(
+        label,
+        style: AppTextStyles.body.copyWith(
+          color: color ?? AppColors.textHeading,
+          fontWeight: FontWeight.w600,
+        ),
       ),
+      subtitle: Text(
+        subtitle,
+        style: AppTextStyles.caption.copyWith(
+          color: AppColors.textMuted,
+          fontWeight: FontWeight.w400,
+        ),
+      ),
+      trailing: Icon(Icons.chevron_right, color: color),
+      onTap: onTap,
     );
   }
 }

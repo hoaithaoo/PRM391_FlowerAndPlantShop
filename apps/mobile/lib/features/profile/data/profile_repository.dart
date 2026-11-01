@@ -22,6 +22,9 @@ abstract interface class ProfileRepository {
 
   Future<OrderPage> listOrders({int page = 1});
 
+  /// Số đơn theo từng trạng thái trong [statuses].
+  Future<Map<String, int>> orderCounts(List<String> statuses);
+
   Future<OrderDetail> getOrder(String id);
 
   Future<void> cancelOrder(String id);
@@ -86,6 +89,22 @@ class ApiProfileRepository implements ProfileRepository {
           .toList(growable: false),
       hasMore: page < totalPages,
     );
+  }
+
+  @override
+  Future<Map<String, int>> orderCounts(List<String> statuses) async {
+    final headers = await _headers();
+    final totals = await Future.wait(
+      statuses.map((status) async {
+        final response = await _client.get(
+          _ordersPath,
+          headers: headers,
+          query: <String, String>{'status': status, 'limit': '1'},
+        );
+        return response.meta['total'] as int? ?? 0;
+      }),
+    );
+    return Map<String, int>.fromIterables(statuses, totals);
   }
 
   @override
