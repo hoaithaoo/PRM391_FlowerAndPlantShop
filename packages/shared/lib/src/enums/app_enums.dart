@@ -37,10 +37,12 @@ enum OrderStatus {
     switch (value?.toUpperCase()) {
       case 'CONFIRMED':
         return OrderStatus.confirmed;
+      case 'PREPARING':
       case 'PROCESSING':
         return OrderStatus.processing;
       case 'SHIPPING':
         return OrderStatus.shipping;
+      case 'COMPLETED':
       case 'DELIVERED':
         return OrderStatus.delivered;
       case 'CANCELLED':
@@ -51,7 +53,12 @@ enum OrderStatus {
     }
   }
 
-  String toApiString() => name.toUpperCase();
+  /// Giá trị backend chấp nhận (spec mục 11): PREPARING/COMPLETED thay cho processing/delivered.
+  String toApiString() => switch (this) {
+    OrderStatus.processing => 'PREPARING',
+    OrderStatus.delivered => 'COMPLETED',
+    _ => name.toUpperCase(),
+  };
 }
 
 enum PaymentStatus {

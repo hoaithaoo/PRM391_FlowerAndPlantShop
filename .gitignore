@@ -167,6 +167,8 @@ pubspec_overrides.yaml
 .idea/
 .vscode/
 .DS_Store
+# Widget Preview related
+.widget_preview/
 
 # AI agent working files (plans/specs, session state, generated graphs)
 .superpowers/

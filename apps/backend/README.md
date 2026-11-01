@@ -48,7 +48,10 @@ apps/backend/
 │   │   ├── notifications/        # Thông báo người dùng
 │   │   ├── stores/               # Địa điểm cửa hàng & OpenStreetMap
 │   │   ├── chatbot/              # Trợ lý AI chăm sóc cây
-│   │   ├── admin/                # Quản trị viên
+│   │   ├── auth/                 # Đăng nhập email/mật khẩu qua Supabase (admin app)
+│   │   ├── dashboard/            # Thống kê cho admin
+│   │   ├── users/                # Admin quản lý người dùng
+│   │   ├── addresses/            # Sổ địa chỉ của user
 │   │   └── webhooks/             # Webhook xác thực SePay HMAC
 │   ├── types/
 │   │   └── express.d.ts          # Mở rộng Express Request (requestId, auth, profile)

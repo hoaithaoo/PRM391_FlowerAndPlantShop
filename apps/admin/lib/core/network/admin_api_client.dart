@@ -32,6 +32,10 @@ class AdminApiClient {
     if (_authToken != null) 'Authorization': 'Bearer $_authToken',
   };
 
+  /// Danh sách theo spec nằm ở `data.items`; vẫn nhận `data` là mảng cho tương thích.
+  static List<dynamic> _listFrom(dynamic data) =>
+      data is List ? data : (data as Map<String, dynamic>)['items'] as List<dynamic>;
+
   void handleResponseStatus(http.Response res) {
     if (res.statusCode >= 400) {
       final err = parseApiResponseError(res.statusCode, res.body);
@@ -56,9 +60,19 @@ class AdminApiClient {
       );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body)['data'];
+        final profile = UserProfile.fromJson(
+          data['profile'] as Map<String, dynamic>,
+        );
+        if (profile.role != UserRole.admin) {
+          throw const ForbiddenException();
+        }
         _authToken = data['token'] as String?;
-        return UserProfile.fromJson(data['profile'] as Map<String, dynamic>);
+        return profile;
       }
+      // Backend phản hồi lỗi thật (sai mật khẩu, bị khóa...): không dùng mock.
+      throw parseApiResponseError(res.statusCode, res.body);
+    } on ApiException {
+      rethrow;
     } catch (e) {
       debugPrint('AdminApiClient.login fallback to mock due to: $e');
     }
@@ -98,7 +112,7 @@ class AdminApiClient {
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body)['data'];
         return DashboardStatsModel.fromJson(
-          data['stats'] as Map<String, dynamic>,
+          (data['stats'] ?? data) as Map<String, dynamic>,
         );
       }
     } catch (e) {
@@ -233,6 +247,7 @@ class AdminApiClient {
     try {
       final uri = Uri.parse('$baseUrl/admin/products').replace(
         queryParameters: {
+          'limit': '100',
           if (search != null && search.isNotEmpty) 'search': search,
           if (categoryId != null && categoryId.isNotEmpty)
             'category': categoryId,
@@ -323,7 +338,10 @@ class AdminApiClient {
   Future<List<OrderModel>> getOrders({OrderStatus? status}) async {
     try {
       final uri = Uri.parse('$baseUrl/admin/orders').replace(
-        queryParameters: {if (status != null) 'status': status.toApiString()},
+        queryParameters: {
+          'limit': '100',
+          if (status != null) 'status': status.toApiString(),
+        },
       );
       final res = await _httpClient.get(uri, headers: _headers);
       if (res.statusCode == 200) {
@@ -628,7 +646,7 @@ class AdminApiClient {
       final uri = Uri.parse('$baseUrl/admin/invoices').replace(queryParameters: queryParams);
       final res = await _httpClient.get(uri, headers: _headers);
       if (res.statusCode == 200) {
-        final data = jsonDecode(res.body)['data'] as List<dynamic>;
+        final data = _listFrom(jsonDecode(res.body)['data']);
         return data.map((e) => InvoiceModel.fromJson(e as Map<String, dynamic>)).toList();
       }
     } catch (e) {
@@ -684,7 +702,7 @@ class AdminApiClient {
       final uri = Uri.parse('$baseUrl/admin/sepay-transactions').replace(queryParameters: queryParams);
       final res = await _httpClient.get(uri, headers: _headers);
       if (res.statusCode == 200) {
-        final data = jsonDecode(res.body)['data'] as List<dynamic>;
+        final data = _listFrom(jsonDecode(res.body)['data']);
         return data.map((e) => SepayTransactionModel.fromJson(e as Map<String, dynamic>)).toList();
       }
     } catch (e) {
