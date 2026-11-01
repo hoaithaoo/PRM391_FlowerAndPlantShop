@@ -10,7 +10,6 @@ import '../features/products/screens/product_catalog_screen.dart';
 enum MainTab {
   home('Trang chủ', Icons.home_outlined, Icons.home),
   products('Sản phẩm', Icons.storefront_outlined, Icons.storefront),
-  chatbot('Chatbot', Icons.auto_awesome_outlined, Icons.auto_awesome),
   cart('Giỏ hàng', Icons.shopping_bag_outlined, Icons.shopping_bag),
   account('Tài khoản', Icons.person_outline, Icons.person);
 
