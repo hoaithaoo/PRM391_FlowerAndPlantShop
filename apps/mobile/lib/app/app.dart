@@ -19,6 +19,8 @@ import '../features/products/data/buy_now_scope.dart';
 import '../features/products/data/product_repository.dart';
 import '../features/products/data/product_scope.dart';
 import '../features/products/product_routes.dart';
+import '../features/profile/data/profile_repository.dart';
+import '../features/profile/screens/account_screen.dart';
 import 'main_shell.dart';
 
 const _chatbotCartItemMissing = 'Không tìm thấy sản phẩm này trong giỏ hàng.';
@@ -31,6 +33,7 @@ class PlantFlowerApp extends StatefulWidget {
     required this.cartRepository,
     required this.chatbotRepository,
     required this.checkoutRepository,
+    this.profileRepository,
   });
 
   final AuthRepository authRepository;
@@ -38,6 +41,7 @@ class PlantFlowerApp extends StatefulWidget {
   final CartRepository cartRepository;
   final ChatbotRepository chatbotRepository;
   final CheckoutRepository checkoutRepository;
+  final ProfileRepository? profileRepository;
 
   @override
   State<PlantFlowerApp> createState() => _PlantFlowerAppState();
@@ -164,6 +168,7 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
   @override
   Widget build(BuildContext context) {
     final auth = widget.authRepository;
+    final profile = widget.profileRepository;
     return AuthScope(
       repository: auth,
       child: CartScope(
@@ -181,6 +186,13 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
                 signedInBuilder: (_) => MainShell(
                   onSignOut: auth.signOut,
                   onCheckout: _openCheckout,
+                  accountBuilder: profile == null
+                      ? null
+                      : (_) => AccountScreen(
+                          repository: profile,
+                          checkoutRepository: widget.checkoutRepository,
+                          onSignOut: auth.signOut,
+                        ),
                 ),
               ),
               onGenerateRoute: _onGenerateRoute,

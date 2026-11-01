@@ -111,6 +111,15 @@ class MockAuthRepository implements AuthRepository {
   }
 
   @override
+  bool get canChangePassword => true;
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) => Future<void>.delayed(delay);
+
+  @override
   Future<void> updatePassword({required String newPassword}) async {
     await Future<void>.delayed(delay);
     _isInPasswordRecovery = false;
