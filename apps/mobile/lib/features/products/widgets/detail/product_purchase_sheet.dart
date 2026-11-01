@@ -62,6 +62,19 @@ class _PurchaseSheetState extends State<_PurchaseSheet> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
+                          product.name,
+                          key: const Key('detail-sheet-name'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppFonts.sans(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            height: 1.3,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
                           formatVnd(product.price * _quantity),
                           key: const Key('detail-total'),
                           style: AppFonts.sans(

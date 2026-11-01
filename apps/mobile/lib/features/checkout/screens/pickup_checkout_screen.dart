@@ -5,11 +5,13 @@ import '../models/checkout_flow_models.dart';
 import '../models/checkout_request.dart';
 import '../models/checkout_summary.dart';
 import '../models/payment_method.dart';
+import '../models/voucher.dart';
 import '../state/checkout_flow_controller.dart';
 import '../utils/checkout_theme.dart';
 import '../utils/checkout_validators.dart';
 import '../widgets/checkout_common.dart';
 import 'pickup_branch_screen.dart';
+import 'voucher_list_screen.dart';
 
 class PickupCheckoutScreen extends StatefulWidget {
   const PickupCheckoutScreen({
@@ -18,14 +20,18 @@ class PickupCheckoutScreen extends StatefulWidget {
     required this.summary,
     required this.repository,
     required this.onPlaceOrder,
-    this.voucherCode,
+    required this.onVoucherChanged,
+    this.voucher,
     this.buyNow,
   });
 
   final CheckoutFlowController controller;
   final CheckoutSummary summary;
   final CheckoutRepository repository;
-  final String? voucherCode;
+  final Voucher? voucher;
+
+  /// Giữ voucher đồng bộ với màn giao hàng nằm bên dưới.
+  final ValueChanged<Voucher?> onVoucherChanged;
   final CheckoutBuyNow? buyNow;
 
   /// Màn checkout gửi đơn và điều hướng. [branch] là cửa hàng dưới dạng địa chỉ
@@ -54,6 +60,22 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
   String? _dateError;
   String? _timeError;
   String? _branchError;
+  late Voucher? _voucher = widget.voucher;
+
+  /// Nhận tại quán không có phí ship nên không dùng voucher phí ship.
+  CheckoutSummary get _summary {
+    final summary = widget.summary;
+    final discount = _voucher?.discountAmount ?? 0;
+    final grandTotal = summary.subtotal - discount + summary.tax;
+    return CheckoutSummary(
+      items: summary.items,
+      subtotal: summary.subtotal,
+      discount: discount,
+      tax: summary.tax,
+      shippingFee: 0,
+      grandTotal: grandTotal < 0 ? 0 : grandTotal,
+    );
+  }
 
   @override
   void initState() {
@@ -97,6 +119,24 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
         _branchLoadFailed = true;
       });
     }
+  }
+
+  void _setVoucher(Voucher? voucher) {
+    setState(() => _voucher = voucher);
+    widget.onVoucherChanged(voucher);
+  }
+
+  Future<void> _openVoucherList() async {
+    final selected = await Navigator.of(context).push<Voucher>(
+      MaterialPageRoute<Voucher>(
+        builder: (_) => VoucherListScreen(
+          repository: widget.repository,
+          currentVoucher: _voucher,
+          subtotal: widget.summary.subtotal,
+        ),
+      ),
+    );
+    if (mounted && selected != null) _setVoucher(selected);
   }
 
   Future<void> _selectBranch() async {
@@ -242,7 +282,7 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
             ? PaymentMethod.sepay
             : PaymentMethod.cod,
         note: widget.controller.pickupNote,
-        voucherCode: widget.voucherCode,
+        voucherCode: _voucher?.code,
         buyNow: widget.buyNow,
         pickupStoreId: branch.id,
         pickupAt: _pickupAt,
@@ -265,7 +305,9 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
       return CheckoutSurfaceCard(
         key: const Key('pickup-branch-retry'),
         onTap: _loadBranches,
-        child: const Text('Không tải được danh sách cửa hàng. Chạm để thử lại.'),
+        child: const Text(
+          'Không tải được danh sách cửa hàng. Chạm để thử lại.',
+        ),
       );
     }
     return CheckoutSurfaceCard(
@@ -323,10 +365,7 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final date = widget.controller.pickupDate;
-    final pickupTotal =
-        widget.summary.grandTotal -
-        widget.summary.shippingFee +
-        widget.summary.shippingDiscount;
+    final summary = _summary;
     return CheckoutTheme(
       child: Scaffold(
         appBar: const FleureAppBar(title: 'Thanh toán · Lấy tại quán'),
@@ -456,6 +495,19 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
               ),
               const SizedBox(height: 26),
               const CheckoutSectionHeader(
+                title: 'Ưu đãi',
+                subtitle: 'Áp dụng mã giảm giá cho đơn hoa.',
+              ),
+              const SizedBox(height: 12),
+              CheckoutVoucherCard(
+                voucher: _voucher,
+                discount: summary.discount,
+                keyPrefix: 'pickup',
+                onTap: _openVoucherList,
+                onRemove: () => _setVoucher(null),
+              ),
+              const SizedBox(height: 26),
+              const CheckoutSectionHeader(
                 title: 'Lời nhắn cho nghệ nhân',
                 subtitle: 'Tùy chọn, tối đa 240 ký tự.',
               ),
@@ -511,12 +563,12 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
                 ),
               ],
               const SizedBox(height: 26),
-              PriceSummaryCard(summary: widget.summary, pickup: true),
+              PriceSummaryCard(summary: summary, pickup: true),
             ],
           ),
         ),
         bottomNavigationBar: CheckoutStickyBar(
-          total: pickupTotal,
+          total: summary.grandTotal,
           key: const Key('pickup-place-order'),
           label: 'Đặt đơn và lấy tại quán',
           onPressed: _loadingBranches ? null : _submit,

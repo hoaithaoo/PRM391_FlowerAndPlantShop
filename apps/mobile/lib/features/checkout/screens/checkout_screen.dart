@@ -11,7 +11,6 @@ import '../state/checkout_controller.dart';
 import '../state/checkout_flow_controller.dart';
 import '../utils/checkout_theme.dart';
 import '../utils/checkout_validators.dart';
-import '../utils/currency_formatter.dart';
 import '../widgets/checkout_common.dart';
 import 'address_list_screen.dart';
 import 'order_success_screen.dart';
@@ -242,7 +241,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           controller: _flowController,
           summary: _summary,
           repository: widget.repository,
-          voucherCode: _voucher?.code,
+          voucher: _voucher,
+          onVoucherChanged: (voucher) => setState(() => _voucher = voucher),
           buyNow: widget.buyNow,
           onPlaceOrder: (request, branch, pickupTime) =>
               _submitOrder(request, address: branch, pickupTime: pickupTime),
@@ -392,143 +392,20 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   Widget _buildVoucherSection({required bool shipping}) {
     final voucher = shipping ? _shippingVoucher : _voucher;
-    final keyPrefix = shipping ? 'checkout-shipping' : 'checkout';
-    void open() => _openVoucherList(shipping: shipping);
-    if (voucher == null) {
-      return CheckoutSurfaceCard(
-        key: Key(
-          shipping
-              ? 'checkout-select-shipping-voucher'
-              : 'checkout-select-voucher',
-        ),
-        onTap: open,
-        child: Row(
-          children: <Widget>[
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: CheckoutPalette.forest100,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                shipping
-                    ? Icons.local_shipping_outlined
-                    : Icons.local_offer_outlined,
-                color: CheckoutPalette.forest800,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    shipping ? 'Chọn voucher phí ship' : 'Chọn voucher',
-                    style: const TextStyle(
-                      color: CheckoutPalette.charcoal900,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    shipping
-                        ? 'Giảm phí giao hoa cho đơn này'
-                        : 'Áp dụng mã giảm giá cho đơn hoa',
-                    style: const TextStyle(
-                      color: CheckoutPalette.charcoal500,
-                      fontSize: 11,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: CheckoutPalette.charcoal400,
-            ),
-          ],
-        ),
-      );
-    }
-
-    return CheckoutSurfaceCard(
-      key: Key('$keyPrefix-selected-voucher'),
-      onTap: open,
-      borderColor: CheckoutPalette.petal300,
-      color: CheckoutPalette.petal50,
-      child: Row(
-        children: <Widget>[
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: CheckoutPalette.petal100,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(
-              Icons.local_offer_rounded,
-              color: CheckoutPalette.petal500,
-              size: 20,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  children: <Widget>[
-                    Text(
-                      voucher.code,
-                      style: const TextStyle(
-                        color: CheckoutPalette.charcoal900,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      '-${formatVnd(shipping ? voucher.discountOn(_shippingFee) : voucher.discountAmount)}',
-                      style: const TextStyle(
-                        color: CheckoutPalette.petal500,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'Đã áp dụng mã giảm giá',
-                  style: TextStyle(
-                    color: CheckoutPalette.charcoal500,
-                    fontSize: 11,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            key: Key('$keyPrefix-remove-voucher'),
-            icon: const Icon(
-              Icons.close_rounded,
-              color: CheckoutPalette.charcoal500,
-              size: 20,
-            ),
-            onPressed: () => setState(() {
-              if (shipping) {
-                _shippingVoucher = null;
-              } else {
-                _voucher = null;
-              }
-            }),
-            tooltip: 'Bỏ chọn',
-          ),
-        ],
-      ),
+    return CheckoutVoucherCard(
+      voucher: voucher,
+      discount: shipping
+          ? voucher?.discountOn(_shippingFee) ?? 0
+          : voucher?.discountAmount ?? 0,
+      shipping: shipping,
+      onTap: () => _openVoucherList(shipping: shipping),
+      onRemove: () => setState(() {
+        if (shipping) {
+          _shippingVoucher = null;
+        } else {
+          _voucher = null;
+        }
+      }),
     );
   }
 

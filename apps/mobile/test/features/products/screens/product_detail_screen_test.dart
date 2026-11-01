@@ -263,6 +263,14 @@ void main() {
       await _openSheet(tester);
       expect(_text(tester, 'detail-total'), '1.234.567 ₫');
     });
+
+    testWidgets('bảng mua hiện tên sản phẩm', (tester) async {
+      await _openDetail(tester, _repo([_product('p1')]), 'p1');
+
+      await _openSheet(tester);
+
+      expect(_text(tester, 'detail-sheet-name'), isNotEmpty);
+    });
   });
 
   group('bộ chọn số lượng', () {
