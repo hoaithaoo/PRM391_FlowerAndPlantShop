@@ -67,6 +67,82 @@ describe("GeminiChatbotProvider", () => {
     assert.equal(result.actionDraft, null);
   });
 
+  describe("cartActions", () => {
+    const CART_PRODUCT_ID = "33333333-3333-4333-8333-333333333333";
+    const cartInput = {
+      ...input,
+      cartItems: [{ productId: CART_PRODUCT_ID, name: "Bó hồng", price: "250000", quantity: 1 }],
+    };
+    const generate = (cartActions: unknown[], overrides: Record<string, unknown> = {}, source = cartInput) =>
+      providerWith(async () =>
+        geminiResponse({
+          responseType: "CART",
+          reply: "Đã thực hiện.",
+          suggestedProductIds: [],
+          actionDraft: null,
+          cartActions,
+          ...overrides,
+        })
+      ).generate(source);
+
+    test("accepts each action on verified products", async () => {
+      const add = { type: "ADD", productId: PRODUCT_ID, quantity: 2 };
+      const update = { type: "UPDATE", productId: CART_PRODUCT_ID, quantity: 3 };
+      assert.deepEqual((await generate([add])).cartActions, [add]);
+      assert.deepEqual((await generate([update])).cartActions, [update]);
+      assert.deepEqual((await generate([{ type: "REMOVE", productId: CART_PRODUCT_ID }])).cartActions, [
+        { type: "REMOVE", productId: CART_PRODUCT_ID, quantity: null },
+      ]);
+      assert.deepEqual((await generate([{ type: "CLEAR" }])).cartActions, [
+        { type: "CLEAR", productId: null, quantity: null },
+      ]);
+      assert.equal((await generate([{ type: "ADD", productId: PRODUCT_ID }])).cartActions?.[0]?.quantity, 1);
+    });
+
+    test("keeps several actions in order", async () => {
+      const result = await generate([
+        { type: "REMOVE", productId: CART_PRODUCT_ID },
+        { type: "ADD", productId: PRODUCT_ID, quantity: 1 },
+      ]);
+
+      assert.deepEqual(result.cartActions?.map((action) => action.type), ["REMOVE", "ADD"]);
+      assert.equal(result.reply, "Đã thực hiện.");
+    });
+
+    test("drops the whole batch when one action is invalid", async () => {
+      const result = await generate([
+        { type: "REMOVE", productId: CART_PRODUCT_ID },
+        { type: "ADD", productId: UNKNOWN_PRODUCT_ID, quantity: 1 },
+      ]);
+
+      assert.deepEqual(result.cartActions, []);
+      assert.notEqual(result.reply, "Đã thực hiện.");
+    });
+
+    test("rejects products outside the catalog or cart and drops the success claim", async () => {
+      for (const action of [
+        { type: "ADD", productId: UNKNOWN_PRODUCT_ID, quantity: 1 },
+        { type: "ADD", productId: CART_PRODUCT_ID, quantity: 1 },
+        { type: "UPDATE", productId: PRODUCT_ID, quantity: 2 },
+        { type: "UPDATE", productId: CART_PRODUCT_ID },
+        { type: "REMOVE", productId: PRODUCT_ID },
+      ]) {
+        const result = await generate([action]);
+        assert.deepEqual(result.cartActions, []);
+        assert.notEqual(result.reply, "Đã thực hiện.");
+      }
+      assert.deepEqual(
+        (await generate([{ type: "CLEAR" }], {}, { ...cartInput, cartItems: [] })).cartActions,
+        []
+      );
+    });
+
+    test("ignores cartActions outside CART responses", async () => {
+      const result = await generate([{ type: "CLEAR" }], { responseType: "ANSWER" });
+      assert.deepEqual(result.cartActions, []);
+    });
+  });
+
   test("returns an editable incident draft from valid structured output", async () => {
     const provider = providerWith(async () =>
       geminiResponse({
@@ -236,7 +312,7 @@ describe("GeminiChatbotProvider", () => {
 
     const result = await provider.generate({ ...input, message: "Write a Python sort function" });
 
-    assert.equal(result.reply, "Sorry, I can only help with plants, flowers, products, and services from the store.");
+    assert.equal(result.reply, "Sorry, this store only sells flowers, so I can only help with flowers and store services.");
   });
 
   test("blocks transliterated provider names in non-Latin identity replies", async () => {

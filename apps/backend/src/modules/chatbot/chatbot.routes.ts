@@ -9,7 +9,11 @@ import {
   SendChatbotMessageInput,
   sendChatbotMessageSchema,
 } from "./chatbot.schema";
-import { ChatbotHistoryResult, SendChatbotMessageResult } from "./chatbot.types";
+import {
+  ChatbotConversationListResult,
+  ChatbotHistoryResult,
+  SendChatbotMessageResult,
+} from "./chatbot.types";
 import { ChatbotController } from "./chatbot.controller";
 
 /**
@@ -18,6 +22,7 @@ import { ChatbotController } from "./chatbot.controller";
  */
 export interface ChatbotServiceContract {
   sendMessage(userId: string, input: SendChatbotMessageInput): Promise<SendChatbotMessageResult>;
+  listConversations(userId: string, page: number): Promise<ChatbotConversationListResult>;
   getHistory(userId: string, conversationId: string, page: number): Promise<ChatbotHistoryResult>;
   deleteConversation(userId: string, conversationId: string): Promise<void>;
 }
@@ -38,6 +43,11 @@ export function createChatbotRoutes(
     "/messages",
     validateRequest({ body: sendChatbotMessageSchema }),
     (req, res, next) => void controller.sendMessage(req, res, next)
+  );
+  router.get(
+    "/conversations",
+    validateRequest({ query: historyQuerySchema }),
+    (req, res, next) => void controller.listConversations(req, res, next)
   );
   router.get(
     "/conversations/:id/messages",

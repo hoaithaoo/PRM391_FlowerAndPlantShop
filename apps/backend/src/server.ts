@@ -2,6 +2,9 @@ import { createApp } from "./app";
 import { env } from "./config/env";
 import { logger } from "./lib/logger";
 import { prisma } from "./lib/prisma";
+import { expireOverduePayments } from "./modules/payments/payment-expiry.service";
+
+const PAYMENT_EXPIRY_INTERVAL_MS = 60_000;
 
 const app = createApp();
 
@@ -13,9 +16,17 @@ const server = app.listen(env.PORT, () => {
   });
 });
 
+const paymentExpiryTimer = setInterval(() => {
+  expireOverduePayments().catch((error) => {
+    logger.error("Payment expiry sweep failed", { error });
+  });
+}, PAYMENT_EXPIRY_INTERVAL_MS);
+paymentExpiryTimer.unref();
+
 // Graceful shutdown handling
 const gracefulShutdown = async (signal: string) => {
   logger.info(`Received ${signal}. Shutting down gracefully...`);
+  clearInterval(paymentExpiryTimer);
   server.close(async () => {
     logger.info("HTTP server closed.");
     try {

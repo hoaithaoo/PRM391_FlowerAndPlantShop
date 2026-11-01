@@ -3,13 +3,6 @@ import '../models/checkout_summary.dart';
 import '../utils/checkout_assets.dart';
 
 abstract final class CheckoutMockData {
-  static const pickupTimeSlots = <String>[
-    '10:00 – 11:00',
-    '13:00 – 14:00',
-    '15:00 – 16:00',
-    '18:00 – 19:00',
-  ];
-
   static const addresses = <CheckoutAddress>[
     CheckoutAddress(
       id: 'home',

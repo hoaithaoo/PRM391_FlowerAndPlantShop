@@ -24,8 +24,13 @@ class FakeChatbotService implements ChatbotServiceContract {
       reply: "Xin chào",
       suggestedProducts: [],
       action: null,
+      cartActions: [],
       createdAt: "2026-10-15T10:00:00.000Z",
     };
+  }
+
+  async listConversations(_userId: string, page: number) {
+    return { items: [], page, pageSize: 20, total: 0, totalPages: 0 };
   }
 
   async getHistory(userId: string, conversationId: string, page: number) {
