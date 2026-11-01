@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plant_flower_mobile/features/checkout/screens/checkout_screen.dart';
 import 'package:plant_flower_mobile/features/products/data/mock_product_repository.dart';
 import 'package:plant_flower_mobile/features/products/data/product_repository.dart';
 import 'package:plant_flower_mobile/features/products/product_routes.dart';
@@ -313,8 +314,8 @@ void main() {
         _repo([_product('p1', price: 350000)]),
         'p1',
       );
-      expect(find.text('Tổng tạm tính'), findsOneWidget);
       expect(_text(tester, 'detail-total'), '350.000 ₫');
+      expect(find.byKey(const Key('detail-buy-now')), findsOneWidget);
     });
 
     test('detailMaxQuantity: min(10, stock), không âm', () {
@@ -405,6 +406,67 @@ void main() {
       await _tapKey(tester, 'detail-add-to-cart');
 
       expect(find.text('Đã thêm 1 × Bó Tulip vào giỏ hàng'), findsOneWidget);
+    });
+
+    testWidgets('nút mua ngay mở pop-up chọn số lượng và bấm thanh toán', (tester) async {
+      await _openDetail(
+        tester,
+        _repo([_product('p1', name: 'Bó Tulip', price: 200000, stock: 5)]),
+        'p1',
+      );
+
+      final buyNowFinder = find.byKey(const Key('detail-buy-now'));
+      expect(buyNowFinder, findsOneWidget);
+      expect(_enabled(tester, 'detail-buy-now'), isTrue);
+
+      await tester.tap(buyNowFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('buy-now-checkout-button')), findsOneWidget);
+      expect(_text(tester, 'buy-now-qty-value'), '1');
+      expect(_text(tester, 'buy-now-total'), '200.000 ₫');
+
+      await _tapKey(tester, 'buy-now-qty-increase');
+      expect(_text(tester, 'buy-now-qty-value'), '2');
+      expect(_text(tester, 'buy-now-total'), '400.000 ₫');
+
+      await tester.tap(find.byKey(const Key('buy-now-checkout-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+      expect(find.text('THANH TOÁN'), findsOneWidget);
+      expect(find.text('Thông tin giao hoa'), findsOneWidget);
+    });
+
+    testWidgets('mua ngay kế thừa số lượng đã chọn ở màn hình chi tiết', (tester) async {
+      await _openDetail(
+        tester,
+        _repo([_product('p1', name: 'Bó Tulip', price: 200000, stock: 5)]),
+        'p1',
+      );
+
+      await _tapKey(tester, 'detail-qty-increase');
+      await _tapKey(tester, 'detail-qty-increase');
+      expect(_text(tester, 'detail-total'), '600.000 ₫');
+
+      await tester.tap(find.byKey(const Key('detail-buy-now')));
+      await tester.pumpAndSettle();
+
+      expect(_text(tester, 'buy-now-qty-value'), '3');
+      expect(_text(tester, 'buy-now-total'), '600.000 ₫');
+
+      await tester.tap(find.byKey(const Key('buy-now-checkout-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+      expect(find.text('THANH TOÁN'), findsOneWidget);
+      expect(find.text('Thông tin giao hoa'), findsOneWidget);
+    });
+
+    testWidgets('nút mua ngay bị vô hiệu khi hết hàng', (tester) async {
+      await _openDetail(tester, _repo([_product('p1', stock: 0)]), 'p1');
+
+      expect(_enabled(tester, 'detail-buy-now'), isFalse);
     });
 
     testWidgets('thêm lần hai thay SnackBar cũ bằng số lượng mới', (tester) async {
@@ -1003,7 +1065,7 @@ void main() {
         expect(style.fontWeight, FontWeight.w700);
       }
       expect(price.fontSize, 20);
-      expect(total.fontSize, 18);
+      expect(total.fontSize, 12);
     });
   });
 
