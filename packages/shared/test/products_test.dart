@@ -27,6 +27,20 @@ void main() {
     test('slug thiếu thì null', () {
       final category = Category.fromJson({'id': 'c1', 'name': 'Hoa'});
       expect(category.slug, isNull);
+      expect(category.imageUrl, isNull);
+      expect(category.isActive, isTrue);
+    });
+
+    test('đọc imageUrl và isActive từ backend swagger', () {
+      final category = Category.fromJson({
+        'id': 'c1',
+        'name': 'Cây cảnh',
+        'slug': 'cay-canh',
+        'imageUrl': 'https://example.com/plant.png',
+        'isActive': false,
+      });
+      expect(category.imageUrl, 'https://example.com/plant.png');
+      expect(category.isActive, isFalse);
     });
 
     test('so sánh bằng theo id và name', () {
@@ -114,6 +128,24 @@ void main() {
       expect(ProductDetail.fromJson(missing).imageUrls, isEmpty);
       final nullUrls = json()..['imageUrls'] = null;
       expect(ProductDetail.fromJson(nullUrls).imageUrls, isEmpty);
+    });
+
+    test('fallback khi backend chỉ trả imageUrl đơn hoặc images', () {
+      final singleUrl = json()
+        ..remove('imageUrls')
+        ..['imageUrl'] = 'https://example.com/single.png';
+      expect(
+        ProductDetail.fromJson(singleUrl).imageUrls,
+        ['https://example.com/single.png'],
+      );
+
+      final imagesArray = json()
+        ..remove('imageUrls')
+        ..['images'] = ['https://example.com/img1.png'];
+      expect(
+        ProductDetail.fromJson(imagesArray).imageUrls,
+        ['https://example.com/img1.png'],
+      );
     });
 
     test('mặc định taxRate = 0, isActive = true, description null', () {

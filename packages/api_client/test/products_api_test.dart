@@ -70,6 +70,28 @@ void main() {
       );
       expect(await api.listCategories(), isEmpty);
     });
+
+    test('gửi query search khi không rỗng, bỏ qua khi rỗng để tránh VALIDATION_ERROR', () async {
+      late http.Request captured;
+      final api = apiFor((request) async {
+        captured = request;
+        return jsonResponse({
+          'success': true,
+          'data': {
+            'items': [_category],
+          },
+        });
+      });
+
+      await api.listCategories(search: '  hoa  ');
+      expect(captured.url.queryParameters['search'], 'hoa');
+
+      await api.listCategories(search: '   ');
+      expect(captured.url.queryParameters.containsKey('search'), isFalse);
+
+      await api.listCategories(search: null);
+      expect(captured.url.queryParameters.containsKey('search'), isFalse);
+    });
   });
 
   group('listProducts', () {
