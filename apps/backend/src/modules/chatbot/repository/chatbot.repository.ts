@@ -87,6 +87,14 @@ export interface ChatbotHistoryPage {
 }
 
 /**
+ * Một trang danh sách phiên chat của user, mới cập nhật nhất trước.
+ */
+export interface ChatbotConversationPage {
+  items: Array<{ id: string; title: string | null; updatedAt: Date }>;
+  total: number;
+}
+
+/**
  * Kết quả tìm kiếm RAG: chunk mô tả kèm dữ liệu sản phẩm và điểm xếp hạng.
  */
 export interface ChatbotKnowledgeChunk {
@@ -128,5 +136,6 @@ export interface ChatbotRepository {
   tryAcquireSendSlot(userId: string, cooldownMs: number, leaseMs: number): Promise<boolean>;
   releaseSendSlot(userId: string): Promise<void>;
   getMessages(conversationId: string, page: number, pageSize: number): Promise<ChatbotHistoryPage>;
+  listOwnedConversations(userId: string, page: number, pageSize: number): Promise<ChatbotConversationPage>;
   deleteOwnedConversation(conversationId: string, userId: string): Promise<boolean>;
 }

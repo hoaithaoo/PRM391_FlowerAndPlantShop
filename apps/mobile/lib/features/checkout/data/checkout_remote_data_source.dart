@@ -4,7 +4,25 @@ import 'checkout_failure.dart';
 typedef CheckoutAccessTokenProvider = Future<String?> Function();
 
 abstract interface class CheckoutApiTransport {
+  Future<CheckoutApiResponse> get({
+    required String path,
+    required Map<String, String> headers,
+    Map<String, String>? query,
+  });
+
   Future<CheckoutApiResponse> post({
+    required String path,
+    required Map<String, String> headers,
+    required Map<String, dynamic> body,
+  });
+
+  Future<CheckoutApiResponse> put({
+    required String path,
+    required Map<String, String> headers,
+    required Map<String, dynamic> body,
+  });
+
+  Future<CheckoutApiResponse> patch({
     required String path,
     required Map<String, String> headers,
     required Map<String, dynamic> body,
@@ -26,6 +44,10 @@ class CheckoutRemoteDataSource {
        _accessTokenProvider = accessTokenProvider;
 
   static const endpoint = '/api/v1/checkout';
+  static const addressesEndpoint = '/api/v1/addresses';
+  static const shippingEstimateEndpoint = '/api/v1/stores/shipping-estimate';
+  static const storesEndpoint = '/api/v1/stores';
+  static const vouchersEndpoint = '/api/v1/vouchers';
 
   final CheckoutApiTransport _transport;
   final CheckoutAccessTokenProvider _accessTokenProvider;
@@ -33,23 +55,135 @@ class CheckoutRemoteDataSource {
   Future<Map<String, dynamic>> checkout(
     CheckoutRequest request, {
     required String idempotencyKey,
-  }) async {
-    // TODO: Lấy Supabase access token từ auth module sau khi foundation được merge
+  }) {
+    return _send(
+      (headers) => _transport.post(
+        path: endpoint,
+        headers: <String, String>{
+          ...headers,
+          'Idempotency-Key': idempotencyKey,
+        },
+        body: request.toJson(),
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> listAddresses() {
+    return _send(
+      (headers) => _transport.get(path: addressesEndpoint, headers: headers),
+    );
+  }
+
+  Future<Map<String, dynamic>> createAddress(Map<String, dynamic> body) {
+    return _send(
+      (headers) => _transport.post(
+        path: addressesEndpoint,
+        headers: headers,
+        body: body,
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> updateAddress(
+    String id,
+    Map<String, dynamic> body,
+  ) {
+    return _send(
+      (headers) => _transport.put(
+        path: '$addressesEndpoint/${Uri.encodeComponent(id)}',
+        headers: headers,
+        body: body,
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> estimateShipping({
+    required double latitude,
+    required double longitude,
+  }) {
+    return _send(
+      (headers) => _transport.get(
+        path: shippingEstimateEndpoint,
+        headers: headers,
+        query: <String, String>{
+          'latitude': '$latitude',
+          'longitude': '$longitude',
+        },
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> listStores({
+    double? latitude,
+    double? longitude,
+  }) {
+    return _send(
+      (headers) => _transport.get(
+        path: storesEndpoint,
+        headers: headers,
+        query: latitude == null || longitude == null
+            ? null
+            : <String, String>{
+                'latitude': '$latitude',
+                'longitude': '$longitude',
+              },
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> getPaymentStatus(String paymentId) {
+    return _send(
+      (headers) => _transport.get(
+        path: '/api/v1/payments/${Uri.encodeComponent(paymentId)}/status',
+        headers: headers,
+      ),
+    );
+  }
+
+  Future<void> cancelOrder(String orderId, {String? reason}) async {
+    await _send(
+      (headers) => _transport.patch(
+        path: '/api/v1/orders/${Uri.encodeComponent(orderId)}/cancel',
+        headers: headers,
+        body: <String, dynamic>{'reason': ?reason},
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> availableVouchers() {
+    return _send(
+      (headers) => _transport.get(
+        path: '$vouchersEndpoint/available',
+        headers: headers,
+      ),
+    );
+  }
+
+  Future<Map<String, dynamic>> validateVoucher(String code) {
+    return _send(
+      (headers) => _transport.post(
+        path: '$vouchersEndpoint/validate',
+        headers: headers,
+        body: <String, dynamic>{'code': code},
+      ),
+    );
+  }
+
+  /// Gắn token, đổi lỗi thành [CheckoutFailure] và trả phần `data`.
+  /// Thiếu `data` thì trả map rỗng, nơi cần dữ liệu tự báo malformed.
+  Future<Map<String, dynamic>> _send(
+    Future<CheckoutApiResponse> Function(Map<String, String> headers) request,
+  ) async {
     final accessToken = await _accessTokenProvider();
     if (accessToken == null || accessToken.trim().isEmpty) {
       throw const CheckoutFailure(code: CheckoutErrorCode.authTokenInvalid);
     }
 
     try {
-      final response = await _transport.post(
-        path: endpoint,
-        headers: <String, String>{
-          'Authorization': 'Bearer $accessToken',
-          'Content-Type': 'application/json',
-          'Idempotency-Key': idempotencyKey,
-        },
-        body: request.toJson(),
-      );
+      final response = await request(<String, String>{
+        'Authorization': 'Bearer $accessToken',
+        'Content-Type': 'application/json',
+      });
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw CheckoutFailure(
@@ -59,15 +193,9 @@ class CheckoutRemoteDataSource {
       }
 
       final data = response.body['data'];
-      if (data is Map) {
-        return Map<String, dynamic>.from(data);
-      }
-
-      if (response.body['order'] is Map && response.body['invoice'] is Map) {
-        return response.body;
-      }
-
-      throw const CheckoutFailure(code: CheckoutErrorCode.malformedResponse);
+      return data is Map
+          ? Map<String, dynamic>.from(data)
+          : const <String, dynamic>{};
     } on CheckoutFailure {
       rethrow;
     } catch (_) {

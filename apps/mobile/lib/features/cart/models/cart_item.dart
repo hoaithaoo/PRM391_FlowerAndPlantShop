@@ -40,9 +40,11 @@ class CartItem {
       id: json['id'] as String,
       productId: json['productId'] as String,
       name: json['name'] as String,
-      variant: json['variant'] as String,
-      unitPrice: _parseInteger(json['unitPrice'], 'unitPrice'),
-      stock: json['stock'] as int,
+      // GET /cart hiện chỉ trả id, productId, name, price, quantity, subtotal.
+      variant: json['variant'] as String? ?? '',
+      unitPrice: _parseInteger(json['unitPrice'] ?? json['price'], 'price'),
+      // ponytail: API chưa trả tồn kho, server chặn bằng 409 PRODUCT_OUT_OF_STOCK.
+      stock: json['stock'] as int? ?? _unknownStock,
       quantity: json['quantity'] as int,
       imageUrl: json['imageUrl'] as String?,
     );
@@ -77,8 +79,10 @@ class CartSnapshot {
   }
 }
 
+const _unknownStock = 10;
+
 int _parseInteger(Object? value, String field) {
-  if (value is int) return value;
+  if (value is num) return value.round();
   if (value is String) {
     final parsed = int.tryParse(value);
     if (parsed != null) return parsed;
