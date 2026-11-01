@@ -8,8 +8,12 @@ class ProductsApi {
 
   final ApiClient _client;
 
-  Future<List<Category>> listCategories() async {
-    final response = await _client.get('api/v1/categories');
+  Future<List<Category>> listCategories({String? search}) async {
+    final trimmed = search?.trim();
+    final response = await _client.get(
+      'api/v1/categories',
+      query: (trimmed != null && trimmed.isNotEmpty) ? {'search': trimmed} : null,
+    );
     return [
       for (final item in _items(response.data))
         Category.fromJson(item as Map<String, dynamic>),

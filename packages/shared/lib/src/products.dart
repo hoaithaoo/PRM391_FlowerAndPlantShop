@@ -3,17 +3,27 @@ library;
 
 /// Danh mục sản phẩm (GET /api/v1/categories).
 class Category {
-  const Category({required this.id, required this.name, this.slug});
+  const Category({
+    required this.id,
+    required this.name,
+    this.slug,
+    this.imageUrl,
+    this.isActive = true,
+  });
 
   final String id;
   final String name;
   final String? slug;
+  final String? imageUrl;
+  final bool isActive;
 
   factory Category.fromJson(Map<String, dynamic> json) {
     return Category(
       id: json['id'] as String,
       name: json['name'] as String,
       slug: json['slug'] as String?,
+      imageUrl: json['imageUrl'] as String?,
+      isActive: json['isActive'] as bool? ?? true,
     );
   }
 
@@ -107,6 +117,10 @@ class ProductDetail {
   bool get inStock => stock > 0;
 
   factory ProductDetail.fromJson(Map<String, dynamic> json) {
+    final rawImageUrls = json['imageUrls'] as List<dynamic>? ??
+        json['images'] as List<dynamic>? ??
+        (json['imageUrl'] != null ? [json['imageUrl']] : const []);
+    final rawCategory = json['category'];
     return ProductDetail(
       id: json['id'] as String,
       sku: json['sku'] as String,
@@ -116,10 +130,12 @@ class ProductDetail {
       stock: (json['stock'] as num).toInt(),
       taxRate: (json['taxRate'] as num?)?.toDouble() ?? 0,
       imageUrls: [
-        for (final url in (json['imageUrls'] as List<dynamic>? ?? const []))
-          url as String,
+        for (final url in rawImageUrls)
+          if (url != null) url.toString(),
       ],
-      category: Category.fromJson(json['category'] as Map<String, dynamic>),
+      category: rawCategory is Map<String, dynamic>
+          ? Category.fromJson(rawCategory)
+          : Category(id: json['categoryId']?.toString() ?? '', name: ''),
       isActive: json['isActive'] as bool? ?? true,
     );
   }
