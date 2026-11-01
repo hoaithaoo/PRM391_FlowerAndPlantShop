@@ -3,6 +3,7 @@ import {
   PaymentMethod,
   Prisma,
   PrismaClient,
+  type Voucher,
 } from "@prisma/client";
 import { AppError } from "../../common/errors/app-error";
 import { ErrorCodes } from "../../common/errors/error-codes";
@@ -11,6 +12,8 @@ import {
   calculateShippingFee,
 } from "../../common/utils/distance";
 import { prisma } from "../../lib/prisma";
+import { allocateDiscount } from "../vouchers/voucher-pricing";
+import { voucherService } from "../vouchers/voucher.service";
 import type { CheckoutInput } from "./checkout.schema";
 import type { CheckoutResponse } from "./checkout.type";
 
@@ -18,6 +21,8 @@ type CheckoutDatabase = Pick<PrismaClient, "$transaction">;
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
 const PAYMENT_EXPIRY_MINUTES = 15;
+// App cho chọn ngày trong 30 ngày tới, cộng thêm khung giờ của ngày cuối.
+const MAX_PICKUP_DAYS = 31;
 
 const checkoutOrderInclude = {
   invoice: {
@@ -27,6 +32,9 @@ const checkoutOrderInclude = {
         take: 1,
       },
     },
+  },
+  voucherRedemption: {
+    select: { code: true },
   },
 } satisfies Prisma.OrderInclude;
 
@@ -42,12 +50,15 @@ interface CheckoutLine {
   quantity: number;
   unitPrice: Prisma.Decimal;
   subtotal: Prisma.Decimal;
+  discountAmount: Prisma.Decimal;
+  taxableAmount: Prisma.Decimal;
   taxRate: Prisma.Decimal;
   taxAmount: Prisma.Decimal;
   lineTotal: Prisma.Decimal;
 }
 
-const toNumber = (value: Prisma.Decimal): number => Number(value.toString());
+const toNumber = (value: Prisma.Decimal | null | undefined): number =>
+  value ? Number(value.toString()) : 0;
 
 const isRetryableTransactionError = (error: unknown): boolean =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -145,7 +156,8 @@ export class CheckoutService {
       );
     }
 
-    const lines: CheckoutLine[] = cart.items.map((item) => {
+    // 1. Đọc giỏ và kiểm tra tồn kho
+    const rawLines = cart.items.map((item) => {
       if (!item.product.isActive || item.product.stock < item.quantity) {
         throw new AppError(
           409,
@@ -156,11 +168,6 @@ export class CheckoutService {
       }
 
       const subtotal = item.product.price.mul(item.quantity);
-      const taxAmount = subtotal
-        .mul(item.product.taxRate)
-        .div(100)
-        .toDecimalPlaces(0);
-
       return {
         cartItemId: item.id,
         productId: item.product.id,
@@ -170,48 +177,107 @@ export class CheckoutService {
         unitPrice: item.product.price,
         subtotal,
         taxRate: item.product.taxRate,
-        taxAmount,
-        lineTotal: subtotal.add(taxAmount),
       };
     });
 
-    const stores = await tx.store.findMany({
-      where: { isActive: true },
-      select: { latitude: true, longitude: true },
-    });
-    if (stores.length === 0) {
-      throw new AppError(
-        404,
-        ErrorCodes.STORE_NOT_FOUND,
-        "Hiện tại không có cửa hàng nào có thể xử lý đơn hàng."
-      );
-    }
-
-    const nearestDistance = stores.reduce((nearest, store) => {
-      const distance = calculateDistanceKm(
-        input.latitude,
-        input.longitude,
-        Number(store.latitude.toString()),
-        Number(store.longitude.toString())
-      );
-      return Math.min(nearest, distance);
-    }, Number.POSITIVE_INFINITY);
-    const shippingFee = new Prisma.Decimal(
-      calculateShippingFee(nearestDistance)
-    );
-    const subtotalAmount = lines.reduce(
+    const subtotalAmount = rawLines.reduce(
       (total, line) => total.add(line.subtotal),
       new Prisma.Decimal(0)
     );
+
+    // 2. Nếu có voucherCode: tìm voucher và kiểm tra bằng hàm dùng chung
+    let voucher: Voucher | null = null;
+    let discountAmount = new Prisma.Decimal(0);
+
+    if (input.voucherCode) {
+      voucher = await tx.voucher.findUnique({
+        where: { code: input.voucherCode },
+      });
+
+      if (!voucher) {
+        throw new AppError(
+          404,
+          ErrorCodes.VOUCHER_NOT_FOUND,
+          "Mã voucher không tồn tại."
+        );
+      }
+
+      const evaluation = await voucherService.evaluateVoucher(
+        voucher,
+        userId,
+        subtotalAmount,
+        new Date(),
+        tx
+      );
+
+      if (!evaluation.eligible) {
+        const statusCode =
+          evaluation.reasonCode === ErrorCodes.VOUCHER_MIN_ORDER_NOT_MET
+            ? 422
+            : evaluation.reasonCode === ErrorCodes.VOUCHER_NOT_FOUND
+            ? 404
+            : 409;
+
+        throw new AppError(
+          statusCode,
+          evaluation.reasonCode ?? ErrorCodes.VOUCHER_NOT_FOUND,
+          evaluation.ineligibleReason ?? "Voucher không hợp lệ.",
+          evaluation.missingAmount > 0
+            ? { missingAmount: evaluation.missingAmount }
+            : undefined
+        );
+      }
+
+      discountAmount = evaluation.discountAmount;
+    }
+
+    // 3. Tính giảm và chia cho từng dòng
+    const lineSubtotals = rawLines.map((l) => l.subtotal);
+    const lineDiscounts = allocateDiscount(discountAmount, lineSubtotals);
+
+    const lines: CheckoutLine[] = rawLines.map((line, idx) => {
+      const lineDiscount = lineDiscounts[idx] ?? new Prisma.Decimal(0);
+      const taxableAmount = line.subtotal.minus(lineDiscount);
+      const taxAmount = taxableAmount
+        .mul(line.taxRate)
+        .div(100)
+        .toDecimalPlaces(0);
+      const lineTotal = taxableAmount.add(taxAmount);
+
+      return {
+        ...line,
+        discountAmount: lineDiscount,
+        taxableAmount,
+        taxAmount,
+        lineTotal,
+      };
+    });
+
+    // 4. Xác định nơi nhận và phí ship
+    const { address, latitude, longitude, shippingFee } = input.pickupStoreId
+      ? await this.resolvePickup(tx, input.pickupStoreId, input.pickupAt)
+      : await this.resolveDelivery(tx, input);
     const taxAmount = lines.reduce(
       (total, line) => total.add(line.taxAmount),
       new Prisma.Decimal(0)
     );
-    const grandTotal = subtotalAmount.add(taxAmount).add(shippingFee);
 
-    // Cart items are sorted by product ID, giving concurrent checkouts a stable
-    // lock order. Do all read-only pricing work before these updates so row locks
-    // are held for as little time as possible.
+    // 5. grandTotal = subtotalAmount - discount + taxAmount + shippingFee
+    const grandTotal = subtotalAmount
+      .minus(discountAmount)
+      .add(taxAmount)
+      .add(shippingFee);
+
+    // 6. Nếu paymentMethod = SEPAY và grandTotal = 0: ném VOUCHER_NOT_APPLICABLE
+    if (input.paymentMethod === PaymentMethod.SEPAY && grandTotal.isZero()) {
+      throw new AppError(
+        422,
+        ErrorCodes.VOUCHER_NOT_APPLICABLE,
+        "Không thể thanh toán SePay cho đơn 0đ. Vui lòng chọn COD."
+      );
+    }
+
+    // 7. Trừ kho
     for (const line of lines) {
       const stockUpdate = await tx.product.updateMany({
         where: {
@@ -231,6 +297,29 @@ export class CheckoutService {
       }
     }
 
+    // 8. Sau khi trừ kho mới giữ lượt voucher
+    if (voucher) {
+      const claimed = await tx.voucher.updateMany({
+        where: {
+          id: voucher.id,
+          isActive: true,
+          OR: [
+            { usageLimit: null },
+            { usedCount: { lt: voucher.usageLimit ?? 0 } },
+          ],
+        },
+        data: { usedCount: { increment: 1 } },
+      });
+      if (claimed.count !== 1) {
+        throw new AppError(
+          409,
+          ErrorCodes.VOUCHER_USAGE_EXCEEDED,
+          "Voucher đã hết lượt sử dụng."
+        );
+      }
+    }
+
+    // 9. Tạo order
     const order = await tx.order.create({
       data: {
         userId,
@@ -238,12 +327,14 @@ export class CheckoutService {
         idempotencyKey,
         paymentMethod: input.paymentMethod,
         totalAmount: grandTotal,
-        shippingAddress: input.address,
-        shippingLatitude: new Prisma.Decimal(input.latitude.toString()),
-        shippingLongitude: new Prisma.Decimal(input.longitude.toString()),
+        shippingAddress: address,
+        shippingLatitude: latitude,
+        shippingLongitude: longitude,
         recipientName: input.receiverName,
         recipientPhone: input.phone,
         note: input.note ?? null,
+        pickupStoreId: input.pickupStoreId ?? null,
+        pickupAt: input.pickupStoreId ? new Date(input.pickupAt!) : null,
         items: {
           create: lines.map((line) => ({
             productId: line.productId,
@@ -258,6 +349,20 @@ export class CheckoutService {
       select: { id: true, orderNumber: true, status: true },
     });
 
+    // Tạo VoucherRedemption nếu dùng voucher
+    if (voucher) {
+      await tx.voucherRedemption.create({
+        data: {
+          voucherId: voucher.id,
+          userId,
+          orderId: order.id,
+          code: voucher.code,
+          amount: discountAmount,
+        },
+      });
+    }
+
+    // 10. Tạo invoice
     const invoice = await tx.invoice.create({
       data: {
         orderId: order.id,
@@ -265,9 +370,9 @@ export class CheckoutService {
         invoiceNo: createReference("INV"),
         customerName: input.receiverName,
         customerPhone: input.phone,
-        customerAddress: input.address,
+        customerAddress: address,
         subtotalAmount,
-        discountAmount: new Prisma.Decimal(0),
+        discountAmount,
         taxAmount,
         shippingFee,
         grandTotal,
@@ -278,8 +383,8 @@ export class CheckoutService {
             sku: line.sku,
             unitPrice: line.unitPrice,
             quantity: line.quantity,
-            discountAmount: new Prisma.Decimal(0),
-            taxableAmount: line.subtotal,
+            discountAmount: line.discountAmount,
+            taxableAmount: line.taxableAmount,
             taxRate: line.taxRate,
             taxAmount: line.taxAmount,
             lineTotal: line.lineTotal,
@@ -291,6 +396,7 @@ export class CheckoutService {
         invoiceNo: true,
         status: true,
         subtotalAmount: true,
+        discountAmount: true,
         taxAmount: true,
         shippingFee: true,
         grandTotal: true,
@@ -308,8 +414,6 @@ export class CheckoutService {
               expiresAt: new Date(
                 Date.now() + PAYMENT_EXPIRY_MINUTES * 60 * 1000
               ),
-              // A QR URL requires deployment-specific bank account settings.
-              // The payment code is sufficient for the SePay webhook matcher.
               qrUrl: null,
             },
             select: {
@@ -349,8 +453,7 @@ export class CheckoutService {
           },
     });
 
-    // Delete only the snapshot items. Items concurrently added after the cart
-    // read are not accidentally removed.
+    // Delete only the snapshot items
     await tx.cartItem.deleteMany({
       where: {
         id: { in: lines.map((line) => line.cartItemId) },
@@ -369,6 +472,7 @@ export class CheckoutService {
         invoiceNumber: invoice.invoiceNo,
         status: invoice.status,
         subtotalAmount: toNumber(invoice.subtotalAmount),
+        discountAmount: toNumber(invoice.discountAmount),
         taxAmount: toNumber(invoice.taxAmount),
         shippingFee: toNumber(invoice.shippingFee),
         grandTotal: toNumber(invoice.grandTotal),
@@ -377,20 +481,107 @@ export class CheckoutService {
     };
   }
 
+  private async resolveDelivery(
+    tx: Prisma.TransactionClient,
+    input: CheckoutInput
+  ) {
+    // checkoutSchema bắt buộc 3 field này khi không nhận tại quán.
+    const address = input.address!;
+    const latitude = input.latitude!;
+    const longitude = input.longitude!;
+
+    const stores = await tx.store.findMany({
+      where: { isActive: true },
+      select: { latitude: true, longitude: true },
+    });
+    if (stores.length === 0) {
+      throw new AppError(
+        404,
+        ErrorCodes.STORE_NOT_FOUND,
+        "Hiện tại không có cửa hàng nào có thể xử lý đơn hàng."
+      );
+    }
+
+    const nearestDistance = stores.reduce((nearest, store) => {
+      const distance = calculateDistanceKm(
+        latitude,
+        longitude,
+        Number(store.latitude.toString()),
+        Number(store.longitude.toString())
+      );
+      return Math.min(nearest, distance);
+    }, Number.POSITIVE_INFINITY);
+
+    return {
+      address,
+      latitude: new Prisma.Decimal(latitude.toString()),
+      longitude: new Prisma.Decimal(longitude.toString()),
+      shippingFee: new Prisma.Decimal(calculateShippingFee(nearestDistance)),
+    };
+  }
+
+  private async resolvePickup(
+    tx: Prisma.TransactionClient,
+    storeId: string,
+    pickupAt: string | undefined
+  ) {
+    const store = await tx.store.findFirst({
+      where: { id: storeId, isActive: true },
+      select: { address: true, latitude: true, longitude: true },
+    });
+    if (!store) {
+      throw new AppError(
+        404,
+        ErrorCodes.STORE_NOT_FOUND,
+        "Cửa hàng được chọn không tồn tại hoặc đã tạm dừng hoạt động."
+      );
+    }
+
+    const pickupTime = new Date(pickupAt!).getTime();
+    const now = Date.now();
+    if (
+      pickupTime <= now ||
+      pickupTime > now + MAX_PICKUP_DAYS * 24 * 60 * 60 * 1000
+    ) {
+      throw new AppError(
+        422,
+        ErrorCodes.PICKUP_TIME_INVALID,
+        "Thời gian nhận hoa không hợp lệ, vui lòng chọn lại."
+      );
+    }
+
+    return {
+      address: store.address,
+      latitude: store.latitude,
+      longitude: store.longitude,
+      shippingFee: new Prisma.Decimal(0),
+    };
+  }
+
   private assertIdempotentReplay(
     order: CheckoutOrder,
     userId: string,
     input: CheckoutInput
   ): void {
+    const isSameVoucher =
+      (order.voucherRedemption?.code ?? null) === (input.voucherCode ?? null);
+
+    const isSameDestination = input.pickupStoreId
+      ? order.pickupStoreId === input.pickupStoreId &&
+        order.pickupAt?.getTime() === new Date(input.pickupAt!).getTime()
+      : !order.pickupStoreId &&
+        order.shippingAddress === input.address &&
+        order.shippingLatitude.equals(input.latitude!) &&
+        order.shippingLongitude.equals(input.longitude!);
+
     const isSameRequest =
       order.userId === userId &&
       order.paymentMethod === input.paymentMethod &&
-      order.shippingAddress === input.address &&
-      order.shippingLatitude.equals(input.latitude) &&
-      order.shippingLongitude.equals(input.longitude) &&
+      isSameDestination &&
       order.recipientName === input.receiverName &&
       order.recipientPhone === input.phone &&
-      (order.note ?? null) === (input.note ?? null);
+      (order.note ?? null) === (input.note ?? null) &&
+      isSameVoucher;
 
     if (!isSameRequest) {
       throw new AppError(
@@ -434,6 +625,7 @@ export class CheckoutService {
         invoiceNumber: order.invoice.invoiceNo,
         status: order.invoice.status,
         subtotalAmount: toNumber(order.invoice.subtotalAmount),
+        discountAmount: toNumber(order.invoice.discountAmount),
         taxAmount: toNumber(order.invoice.taxAmount),
         shippingFee: toNumber(order.invoice.shippingFee),
         grandTotal: toNumber(order.invoice.grandTotal),
