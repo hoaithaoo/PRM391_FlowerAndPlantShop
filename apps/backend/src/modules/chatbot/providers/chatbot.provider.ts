@@ -1,3 +1,5 @@
+import type { ChatbotCartAction } from "../chatbot.types";
+
 /**
  * Sản phẩm được phép đưa cho AI; AI chỉ được gợi ý các id trong danh sách này.
  */
@@ -29,10 +31,12 @@ export interface ChatbotProviderKnowledgeChunk {
 /**
  * AI phân loại câu trả lời để server áp quy tắc an toàn:
  * ANSWER tư vấn sản phẩm, INCIDENT hỗ trợ báo sự cố, IDENTITY hỏi bot là ai,
- * TRANSLATION dịch câu trước, OFF_TOPIC ngoài phạm vi, NO_KNOWLEDGE thiếu dữ liệu.
+ * TRANSLATION dịch câu trước, OFF_TOPIC ngoài phạm vi, NO_KNOWLEDGE thiếu dữ liệu,
+ * CART xem hoặc thay đổi giỏ hàng của người dùng.
  */
 export type ChatbotResponseType =
   | "ANSWER"
+  | "CART"
   | "INCIDENT"
   | "IDENTITY"
   | "TRANSLATION"
@@ -61,9 +65,20 @@ export interface ProviderIncidentDraft {
 }
 
 /**
+ * Một dòng trong giỏ hàng hiện tại của user.
+ */
+export interface ChatbotCartItem {
+  productId: string;
+  name: string;
+  price: string;
+  quantity: number;
+}
+
+/**
  * Toàn bộ dữ liệu gửi cho AI trong một lượt; chỉ gồm dữ liệu đã xác minh.
  */
 export interface ChatbotProviderInput {
+  cartItems?: ChatbotCartItem[];
   message: string;
   history: ChatbotProviderMessage[];
   catalogProducts: ChatbotProviderProduct[];
@@ -80,6 +95,7 @@ export interface ChatbotProviderResult {
   reply: string;
   suggestedProductIds: string[];
   actionDraft: ProviderIncidentDraft | null;
+  cartActions?: ChatbotCartAction[];
 }
 
 /**
