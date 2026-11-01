@@ -81,6 +81,7 @@ model Profile {
   notifications        Notification[]
   chatbotConversations ChatbotConversation[]
   chatbotRateLimit     ChatbotRateLimit?
+  addresses            UserAddress[]
 
   @@map("profiles")
 }
@@ -380,4 +381,27 @@ model ChatbotRateLimit {
   user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("chatbot_rate_limits")
+}
+
+model UserAddress {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
+  recipientName  String    @map("recipient_name")
+  recipientPhone String    @map("recipient_phone")
+  addressLine    String    @map("address_line")
+  label          String?   @default("Nhà riêng")
+  deliveryNote   String?   @map("delivery_note")
+  latitude       Float?
+  longitude      Float?
+  isDefault      Boolean   @default(true) @map("is_default")
+  isDelete       Boolean?  @default(false) @map("is_delete")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isDefault])
+  @@index([userId, isDelete])
+  @@index([userId, createdAt])
+  @@map("user_addresses")
 }

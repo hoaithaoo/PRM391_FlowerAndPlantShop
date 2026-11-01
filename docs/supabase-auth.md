@@ -57,6 +57,42 @@ Web có thể bỏ `redirectTo` nếu Site URL đã đúng. Xem hướng dẫn c
 [Flutter OAuth](https://supabase.com/docs/reference/dart/auth-signinwithoauth)
 và [redirect URLs](https://supabase.com/docs/guides/auth/redirect-urls).
 
+### Chạy Google login trên Android/iOS thật (`apps/mobile`)
+
+Deep link của app là `com.plantflowershop.mobile://login-callback/` (hằng
+`SupabaseAuthRepository.mobileRedirectUrl`). Nền tảng đã khai báo sẵn:
+
+- Android: `intent-filter` VIEW/BROWSABLE với scheme `com.plantflowershop.mobile`,
+  host `login-callback` trong `android/app/src/main/AndroidManifest.xml`.
+- iOS: `CFBundleURLTypes` với scheme `com.plantflowershop.mobile` trong
+  `ios/Runner/Info.plist`.
+- Cả hai tắt deep linking mặc định của Flutter (`flutter_deeplinking_enabled`,
+  `FlutterDeepLinkingEnabled`) vì `supabase_flutter` tự bắt callback qua
+  `app_links`.
+
+Đổi deep link thì phải sửa cả ba nơi trên cùng lúc.
+
+Việc cần làm một lần trên Supabase:
+
+1. Vào **Supabase Dashboard > Authentication > URL Configuration**.
+2. Ở **Redirect URLs**, bấm **Add URL** và thêm chính xác
+   `com.plantflowershop.mobile://login-callback/`, rồi lưu.
+3. Bảo đảm provider Google đã bật (mục trên).
+
+Chạy app với Supabase thật:
+
+```bash
+cd apps/mobile
+flutter run --dart-define=SUPABASE_URL=https://PROJECT_REF.supabase.co --dart-define=SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+```
+
+Thiếu một trong hai biến thì `main.dart` tự dùng `MockAuthRepository` (dữ liệu
+giả, OTP đúng là `123456`) và nút Google không gọi Supabase.
+
+Nếu sau khi chọn tài khoản Google, trình duyệt báo lỗi hoặc quay về Site URL
+thay vì mở app, kiểm tra lại URL ở bước 2 có khớp từng ký tự (kể cả dấu `/`
+cuối) với `mobileRedirectUrl`.
+
 ## 3. Email OTP 6 chữ số
 
 Bật Email provider. Trong **Authentication > Email Templates**, sửa template
