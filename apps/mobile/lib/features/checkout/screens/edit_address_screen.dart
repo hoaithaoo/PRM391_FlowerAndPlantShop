@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../core/location/location_service.dart';
 import '../models/checkout_flow_models.dart';
 import '../utils/checkout_assets.dart';
 import '../utils/checkout_theme.dart';
@@ -96,15 +97,28 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     super.dispose();
   }
 
-  void _locate() {
-    // TODO: Nhận latitude/longitude thật từ module bản đồ sau khi tích hợp location.
-    setState(() {
-      _hasLocation = true;
-      _locationTouched = true;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã ghim vị trí minh họa trên bản đồ.')),
-    );
+  // void _locate() {
+  //   // TODO: Nhận latitude/longitude thật từ module bản đồ sau khi tích hợp location.
+  //   setState(() {
+  //     _hasLocation = true;
+  //     _locationTouched = true;
+  //   });
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     const SnackBar(content: Text('Đã ghim vị trí minh họa trên bản đồ.')),
+  //   );
+  // }
+
+  // Tạm thời: chỉ kiểm tra xin quyền + lấy tọa độ, in ra console.
+  // TODO(map): gán tọa độ vào địa chỉ và cập nhật UI.
+  Future<void> _locate() async {
+    try {
+      final curLocation = await const LocationService().getCurrentLocation();
+      debugPrint(
+        'Current location: ${curLocation.latitude}, ${curLocation.longitude}',
+      );
+    } on LocationException catch (e) {
+      debugPrint('Location error: ${e.failure}');
+    }
   }
 
   void _changeProvince(String? value) {
