@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_flower_mobile/features/cart/state/cart_controller.dart';
 import 'package:plant_flower_mobile/features/cart/models/cart_item.dart';
+import 'package:plant_flower_mobile/features/checkout/screens/checkout_screen.dart';
 import 'package:plant_flower_mobile/features/products/data/mock_product_repository.dart';
 import 'package:plant_flower_mobile/features/products/data/product_repository.dart';
 import 'package:plant_flower_mobile/features/products/product_routes.dart';
@@ -55,7 +56,6 @@ Future<void> _openDetail(
   String productId, {
   Size size = designSize,
   bool settle = true,
-  CartController? cartController,
 }) async {
   // Dựng lại từ đầu để không giữ Navigator của lần mở trước
   await tester.pumpWidget(const SizedBox());
@@ -73,7 +73,6 @@ Future<void> _openDetail(
       ),
     ),
     repository: repository,
-    cartController: cartController,
     size: size,
   );
   await tester.tap(find.byKey(const Key('launcher')));
@@ -182,15 +181,10 @@ void main() {
       expect(_text(tester, 'detail-name'), seed.name);
       expect(_text(tester, 'detail-price'), formatVnd(seed.price));
       expect(_text(tester, 'detail-sku'), 'SKU: ${seed.sku}');
-      expect(
-        _text(tester, 'detail-category'),
-        seed.category.name.toUpperCase(),
-      );
+      expect(_text(tester, 'detail-category'), seed.category.name.toUpperCase());
     });
 
-    testWidgets('không có mô tả (null) thì ẩn thẻ mô tả nhưng vẫn có ghi chú', (
-      tester,
-    ) async {
+    testWidgets('không có mô tả (null) thì ẩn thẻ mô tả nhưng vẫn có ghi chú', (tester) async {
       await _openDetail(
         tester,
         _repo([_product('p1', description: null)]),
@@ -203,9 +197,7 @@ void main() {
       expect(find.byKey(const Key('detail-name')), findsOneWidget);
     });
 
-    testWidgets('mô tả rỗng hoặc toàn khoảng trắng cũng ẩn thẻ mô tả', (
-      tester,
-    ) async {
+    testWidgets('mô tả rỗng hoặc toàn khoảng trắng cũng ẩn thẻ mô tả', (tester) async {
       for (final description in ['', '   \n ']) {
         await _openDetail(
           tester,
@@ -242,9 +234,7 @@ void main() {
   });
 
   group('bộ chọn số lượng', () {
-    testWidgets('stock 5: giới hạn 1..5, hint "Chỉ còn 5 sản phẩm"', (
-      tester,
-    ) async {
+    testWidgets('stock 5: giới hạn 1..5, hint "Chỉ còn 5 sản phẩm"', (tester) async {
       await _openDetail(
         tester,
         _repo([_product('p1', stock: 5, price: 100000)]),
@@ -270,31 +260,23 @@ void main() {
       expect(_text(tester, 'detail-qty-value'), '5');
     });
 
-    testWidgets(
-      'stock 12: tối đa 10 mỗi đơn, hint "Tối đa 10 sản phẩm / đơn hàng"',
-      (tester) async {
-        await _openDetail(
-          tester,
-          _repo([_product('p1', stock: 12, price: 50000)]),
-          'p1',
-        );
+    testWidgets('stock 12: tối đa 10 mỗi đơn, hint "Tối đa 10 sản phẩm / đơn hàng"', (tester) async {
+      await _openDetail(
+        tester,
+        _repo([_product('p1', stock: 12, price: 50000)]),
+        'p1',
+      );
 
-        expect(
-          _text(tester, 'detail-qty-hint'),
-          'Tối đa 10 sản phẩm / đơn hàng',
-        );
-        for (var i = 0; i < 9; i++) {
-          await _tapKey(tester, 'detail-qty-increase');
-        }
-        expect(_text(tester, 'detail-qty-value'), '10');
-        expect(_text(tester, 'detail-total'), formatVnd(500000));
-        expect(_stepEnabled(tester, 'detail-qty-increase'), isFalse);
-      },
-    );
+      expect(_text(tester, 'detail-qty-hint'), 'Tối đa 10 sản phẩm / đơn hàng');
+      for (var i = 0; i < 9; i++) {
+        await _tapKey(tester, 'detail-qty-increase');
+      }
+      expect(_text(tester, 'detail-qty-value'), '10');
+      expect(_text(tester, 'detail-total'), formatVnd(500000));
+      expect(_stepEnabled(tester, 'detail-qty-increase'), isFalse);
+    });
 
-    testWidgets('stock đúng 10 hiện hint tối đa, 9 hiện "Chỉ còn 9"', (
-      tester,
-    ) async {
+    testWidgets('stock đúng 10 hiện hint tối đa, 9 hiện "Chỉ còn 9"', (tester) async {
       await _openDetail(tester, _repo([_product('p1', stock: 10)]), 'p1');
       expect(_text(tester, 'detail-qty-hint'), 'Tối đa 10 sản phẩm / đơn hàng');
 
@@ -311,9 +293,7 @@ void main() {
       expect(_enabled(tester, 'detail-add-to-cart'), isTrue);
     });
 
-    testWidgets('giảm số lượng và tổng tiền theo, không xuống dưới 1', (
-      tester,
-    ) async {
+    testWidgets('giảm số lượng và tổng tiền theo, không xuống dưới 1', (tester) async {
       await _openDetail(
         tester,
         _repo([_product('p1', stock: 8, price: 200000)]),
@@ -335,7 +315,13 @@ void main() {
     testWidgets('tổng tạm tính ban đầu bằng đúng giá', (tester) async {
       await _openDetail(tester, _repo([_product('p1', price: 350000)]), 'p1');
       expect(find.text('Tổng tạm tính'), findsOneWidget);
+      await _openDetail(
+        tester,
+        _repo([_product('p1', price: 350000)]),
+        'p1',
+      );
       expect(_text(tester, 'detail-total'), '350.000 ₫');
+      expect(find.byKey(const Key('detail-buy-now')), findsOneWidget);
     });
 
     test('detailMaxQuantity: min(10, stock), không âm', () {
@@ -469,6 +455,68 @@ void main() {
     testWidgets('thêm lần hai thay SnackBar cũ bằng số lượng mới', (
       tester,
     ) async {
+    testWidgets('nút mua ngay mở pop-up chọn số lượng và bấm thanh toán', (tester) async {
+      await _openDetail(
+        tester,
+        _repo([_product('p1', name: 'Bó Tulip', price: 200000, stock: 5)]),
+        'p1',
+      );
+
+      final buyNowFinder = find.byKey(const Key('detail-buy-now'));
+      expect(buyNowFinder, findsOneWidget);
+      expect(_enabled(tester, 'detail-buy-now'), isTrue);
+
+      await tester.tap(buyNowFinder);
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('buy-now-checkout-button')), findsOneWidget);
+      expect(_text(tester, 'buy-now-qty-value'), '1');
+      expect(_text(tester, 'buy-now-total'), '200.000 ₫');
+
+      await _tapKey(tester, 'buy-now-qty-increase');
+      expect(_text(tester, 'buy-now-qty-value'), '2');
+      expect(_text(tester, 'buy-now-total'), '400.000 ₫');
+
+      await tester.tap(find.byKey(const Key('buy-now-checkout-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+      expect(find.text('THANH TOÁN'), findsOneWidget);
+      expect(find.text('Thông tin giao hoa'), findsOneWidget);
+    });
+
+    testWidgets('mua ngay kế thừa số lượng đã chọn ở màn hình chi tiết', (tester) async {
+      await _openDetail(
+        tester,
+        _repo([_product('p1', name: 'Bó Tulip', price: 200000, stock: 5)]),
+        'p1',
+      );
+
+      await _tapKey(tester, 'detail-qty-increase');
+      await _tapKey(tester, 'detail-qty-increase');
+      expect(_text(tester, 'detail-total'), '600.000 ₫');
+
+      await tester.tap(find.byKey(const Key('detail-buy-now')));
+      await tester.pumpAndSettle();
+
+      expect(_text(tester, 'buy-now-qty-value'), '3');
+      expect(_text(tester, 'buy-now-total'), '600.000 ₫');
+
+      await tester.tap(find.byKey(const Key('buy-now-checkout-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(CheckoutScreen), findsOneWidget);
+      expect(find.text('THANH TOÁN'), findsOneWidget);
+      expect(find.text('Thông tin giao hoa'), findsOneWidget);
+    });
+
+    testWidgets('nút mua ngay bị vô hiệu khi hết hàng', (tester) async {
+      await _openDetail(tester, _repo([_product('p1', stock: 0)]), 'p1');
+
+      expect(_enabled(tester, 'detail-buy-now'), isFalse);
+    });
+
+    testWidgets('thêm lần hai thay SnackBar cũ bằng số lượng mới', (tester) async {
       await _openDetail(
         tester,
         _repo([_product('p1', name: 'Bó Tulip')]),
@@ -493,23 +541,30 @@ void main() {
       expect(find.text('Tính năng chia sẻ sẽ sớm ra mắt'), findsOneWidget);
     });
 
-    testWidgets('nút giỏ hàng đóng màn chi tiết để mở tab giỏ hàng', (
-      tester,
-    ) async {
+    testWidgets('nút giỏ hàng hiện SnackBar', (tester) async {
       await _openDetail(tester, _repo([_product('p1')]), 'p1');
 
       await tester.tap(find.byKey(const Key('detail-cart')));
+      await tester.pump();
+
+      expect(find.text('Giỏ hàng đang được phát triển'), findsOneWidget);
+    });
+
+    testWidgets('các SnackBar nối tiếp nhau chỉ hiện một cái', (tester) async {
+      await _openDetail(tester, _repo([_product('p1')]), 'p1');
+
+      await tester.tap(find.byKey(const Key('header-share')));
+      await tester.pump();
+      await tester.tap(find.byKey(const Key('detail-cart')));
       await tester.pumpAndSettle();
 
-      expect(find.byType(ProductDetailScreen), findsNothing);
-      expect(find.byKey(const Key('launcher')), findsOneWidget);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(find.text('Giỏ hàng đang được phát triển'), findsOneWidget);
     });
   });
 
   group('lỗi', () {
-    testWidgets('không tìm thấy: thông báo + nút Quay lại, pop về màn trước', (
-      tester,
-    ) async {
+    testWidgets('không tìm thấy: thông báo + nút Quay lại, pop về màn trước', (tester) async {
       await _openDetail(tester, createTestRepository(), 'id-la');
 
       expect(
@@ -534,24 +589,21 @@ void main() {
       expect(find.byKey(const Key('launcher')), findsOneWidget);
     });
 
-    testWidgets(
-      'sản phẩm ngừng bán (isActive = false) cũng là không tìm thấy',
-      (tester) async {
-        final inactive = ProductDetail(
-          id: 'old',
-          sku: 'X',
-          name: 'Cũ',
-          price: 1,
-          stock: 1,
-          taxRate: 0,
-          category: _flowers,
-          isActive: false,
-        );
-        await _openDetail(tester, _repo([inactive]), 'old');
+    testWidgets('sản phẩm ngừng bán (isActive = false) cũng là không tìm thấy', (tester) async {
+      final inactive = ProductDetail(
+        id: 'old',
+        sku: 'X',
+        name: 'Cũ',
+        price: 1,
+        stock: 1,
+        taxRate: 0,
+        category: _flowers,
+        isActive: false,
+      );
+      await _openDetail(tester, _repo([inactive]), 'old');
 
-        expect(find.byKey(const Key('detail-back')), findsOneWidget);
-      },
-    );
+      expect(find.byKey(const Key('detail-back')), findsOneWidget);
+    });
 
     testWidgets('lỗi offline: câu hướng dẫn mạng + Thử lại', (tester) async {
       final repo = GatedDetailRepository();
@@ -581,9 +633,7 @@ void main() {
       expect(find.byIcon(Icons.error_outline), findsOneWidget);
     });
 
-    testWidgets('lỗi không phải ProductFailure hiện thông báo chung', (
-      tester,
-    ) async {
+    testWidgets('lỗi không phải ProductFailure hiện thông báo chung', (tester) async {
       final repo = GatedDetailRepository();
       await _openDetail(tester, repo, 'p1', settle: false);
 
@@ -616,9 +666,7 @@ void main() {
       expect(_text(tester, 'detail-name'), 'Đã tải được');
     });
 
-    testWidgets('Thử lại lần hai vẫn lỗi thì hiện lại nút Thử lại', (
-      tester,
-    ) async {
+    testWidgets('Thử lại lần hai vẫn lỗi thì hiện lại nút Thử lại', (tester) async {
       final repo = GatedDetailRepository();
       await _openDetail(tester, repo, 'p1', settle: false);
       repo.calls[0].fail(const ProductFailure('lỗi 1'));
@@ -633,9 +681,7 @@ void main() {
       expect(find.byKey(const Key('detail-retry')), findsOneWidget);
     });
 
-    testWidgets('header (back + chia sẻ) vẫn dùng được khi đang lỗi', (
-      tester,
-    ) async {
+    testWidgets('header (back + chia sẻ) vẫn dùng được khi đang lỗi', (tester) async {
       final repo = GatedDetailRepository();
       await _openDetail(tester, repo, 'p1', settle: false);
       repo.calls[0].fail(const ProductFailure('lỗi'));
@@ -659,9 +705,7 @@ void main() {
       expect(find.byKey(const Key('launcher')), findsOneWidget);
     });
 
-    testWidgets('mở lại sản phẩm khác sau khi quay lại thì tải lại từ đầu', (
-      tester,
-    ) async {
+    testWidgets('mở lại sản phẩm khác sau khi quay lại thì tải lại từ đầu', (tester) async {
       final repo = GatedDetailRepository();
       await _openDetail(tester, repo, 'p1', settle: false);
       repo.calls[0].complete(_product('p1'));
@@ -681,9 +725,7 @@ void main() {
   });
 
   group('carousel ảnh', () {
-    testWidgets('không có ảnh: placeholder, chip "1 / 1", không có chấm', (
-      tester,
-    ) async {
+    testWidgets('không có ảnh: placeholder, chip "1 / 1", không có chấm', (tester) async {
       await _openDetail(
         tester,
         _repo([_product('p1', imageUrls: const [])]),
@@ -710,9 +752,7 @@ void main() {
     testWidgets('1 ảnh: chip "1 / 1" và không có chấm', (tester) async {
       await _openDetail(
         tester,
-        _repo([
-          _product('p1', imageUrls: const ['https://example.com/1.jpg']),
-        ]),
+        _repo([_product('p1', imageUrls: const ['https://example.com/1.jpg'])]),
         'p1',
       );
 
@@ -721,9 +761,7 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('3 ảnh: chip "1 / 3", có 3 chấm, vuốt đổi trang', (
-      tester,
-    ) async {
+    testWidgets('3 ảnh: chip "1 / 3", có 3 chấm, vuốt đổi trang', (tester) async {
       await _openDetail(
         tester,
         _repo([
@@ -796,9 +834,7 @@ void main() {
       expect(widths(), [6, 8, 6]);
     });
 
-    testWidgets('lỗi tải ảnh mạng vẫn hiện placeholder, không ném lỗi', (
-      tester,
-    ) async {
+    testWidgets('lỗi tải ảnh mạng vẫn hiện placeholder, không ném lỗi', (tester) async {
       await _openDetail(
         tester,
         _repo([
@@ -838,9 +874,7 @@ void main() {
       return id;
     }
 
-    testWidgets('đổi productId tải lại, về loading và reset số lượng', (
-      tester,
-    ) async {
+    testWidgets('đổi productId tải lại, về loading và reset số lượng', (tester) async {
       final repo = GatedDetailRepository();
       final id = await pumpHost(tester, repo, 'a');
       repo.calls[0].complete(_product('a', name: 'Sản phẩm A', stock: 8));
@@ -879,9 +913,7 @@ void main() {
       expect(_text(tester, 'detail-name'), 'Sản phẩm B');
     });
 
-    testWidgets('lỗi của sản phẩm cũ về muộn không ghi đè nội dung mới', (
-      tester,
-    ) async {
+    testWidgets('lỗi của sản phẩm cũ về muộn không ghi đè nội dung mới', (tester) async {
       final repo = GatedDetailRepository();
       final id = await pumpHost(tester, repo, 'a');
 
@@ -930,8 +962,9 @@ void main() {
   });
 
   group('header và hàng giá', () {
-    Finder avatar() =>
-        find.byWidgetPredicate((w) => w.runtimeType.toString() == '_Avatar');
+    Finder avatar() => find.byWidgetPredicate(
+      (w) => w.runtimeType.toString() == '_Avatar',
+    );
 
     double logoSize(WidgetTester tester) {
       final logo = find.descendant(
@@ -951,28 +984,22 @@ void main() {
     });
 
     for (final width in [360.0, 390.0, 430.0]) {
-      testWidgets(
-        'font thật x1.0 ở $width: logo 20 và tiêu đề 16 không bị FittedBox thu nhỏ',
-        (tester) async {
-          await _openDetail(
-            tester,
-            _repo([_product('p1')]),
-            'p1',
-            size: Size(width, 800),
-          );
+      testWidgets('font thật x1.0 ở $width: logo 20 và tiêu đề 16 không bị FittedBox thu nhỏ', (tester) async {
+        await _openDetail(
+          tester,
+          _repo([_product('p1')]),
+          'p1',
+          size: Size(width, 800),
+        );
 
-          expect(
-            fittedBoxScale(tester, find.byKey(const Key('detail-header'))),
-            1.0,
-          );
-          final title = tester
-              .widget<Text>(find.text('Chi Tiết Tác Phẩm'))
-              .style!;
-          expect(title.fontSize, 16);
-          expect(logoSize(tester), 20);
-        },
-        skip: _usingAhem,
-      );
+        expect(
+          fittedBoxScale(tester, find.byKey(const Key('detail-header'))),
+          1.0,
+        );
+        final title = tester.widget<Text>(find.text('Chi Tiết Tác Phẩm')).style!;
+        expect(title.fontSize, 16);
+        expect(logoSize(tester), 20);
+      }, skip: _usingAhem);
     }
 
     for (final (width, scale) in [
@@ -982,53 +1009,39 @@ void main() {
       (390.0, 1.3),
       (360.0, 1.3),
     ]) {
-      testWidgets(
-        'tiêu đề "Chi Tiết Tác Phẩm" 1 dòng, không overflow ($width, x$scale)',
-        (tester) async {
-          tester.platformDispatcher.textScaleFactorTestValue = scale;
-          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-          await _openDetail(
-            tester,
-            _repo([_product('p1')]),
-            'p1',
-            size: Size(width, 800),
-          );
+      testWidgets('tiêu đề "Chi Tiết Tác Phẩm" 1 dòng, không overflow ($width, x$scale)', (tester) async {
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        await _openDetail(
+          tester,
+          _repo([_product('p1')]),
+          'p1',
+          size: Size(width, 800),
+        );
 
-          final title = find.text('Chi Tiết Tác Phẩm');
-          expect(title, findsOneWidget);
-          final style = tester.widget<Text>(title).style!;
-          final lineHeight = style.fontSize! * (style.height ?? 1.5) * scale;
-          expect(
-            tester.getSize(title).height,
-            lessThanOrEqualTo(lineHeight * 1.2),
-          );
-          // Tiêu đề nằm gọn trong header, không vượt qua nút chia sẻ
-          final header = tester.getRect(find.byKey(const Key('detail-header')));
-          expect(tester.getRect(title).right, lessThanOrEqualTo(header.right));
-          expect(
-            tester.getRect(title).right,
-            lessThanOrEqualTo(
-              tester.getRect(find.byKey(const Key('header-share'))).left + 0.5,
-            ),
-          );
-          expect(tester.takeException(), isNull);
-        },
-      );
+        final title = find.text('Chi Tiết Tác Phẩm');
+        expect(title, findsOneWidget);
+        final style = tester.widget<Text>(title).style!;
+        final lineHeight = style.fontSize! * (style.height ?? 1.5) * scale;
+        expect(tester.getSize(title).height, lessThanOrEqualTo(lineHeight * 1.2));
+        // Tiêu đề nằm gọn trong header, không vượt qua nút chia sẻ
+        final header = tester.getRect(find.byKey(const Key('detail-header')));
+        expect(tester.getRect(title).right, lessThanOrEqualTo(header.right));
+        expect(
+          tester.getRect(title).right,
+          lessThanOrEqualTo(tester.getRect(find.byKey(const Key('header-share'))).left + 0.5),
+        );
+        expect(tester.takeException(), isNull);
+      });
     }
 
-    testWidgets('SKU nằm bên phải giá, căn phải, tối đa 2 dòng', (
-      tester,
-    ) async {
+    testWidgets('SKU nằm bên phải giá, căn phải, tối đa 2 dòng', (tester) async {
       await _openDetail(tester, _repo([_product('p1')]), 'p1');
 
       final price = tester.getRect(find.byKey(const Key('detail-price')));
       final sku = tester.getRect(find.byKey(const Key('detail-sku')));
-      expect(
-        tester.getTopLeft(find.byKey(const Key('detail-sku'))).dx,
-        greaterThan(
-          tester.getTopLeft(find.byKey(const Key('detail-price'))).dx,
-        ),
-      );
+      expect(tester.getTopLeft(find.byKey(const Key('detail-sku'))).dx,
+          greaterThan(tester.getTopLeft(find.byKey(const Key('detail-price'))).dx));
       expect(sku.left, greaterThanOrEqualTo(price.right));
       final skuText = tester.widget<Text>(find.byKey(const Key('detail-sku')));
       expect(skuText.textAlign, TextAlign.end);
@@ -1043,18 +1056,11 @@ void main() {
       expect(sku.right, closeTo(designSize.width - 20, 0.5));
     });
 
-    testWidgets('giá 12.000.000 ₫ ở 360 với chữ x1.3 không overflow', (
-      tester,
-    ) async {
+    testWidgets('giá 12.000.000 ₫ ở 360 với chữ x1.3 không overflow', (tester) async {
       tester.platformDispatcher.textScaleFactorTestValue = 1.3;
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
       final product = _product('p1', price: 12000000, stock: 10);
-      await _openDetail(
-        tester,
-        _repo([product]),
-        'p1',
-        size: const Size(360, 800),
-      );
+      await _openDetail(tester, _repo([product]), 'p1', size: const Size(360, 800));
 
       expect(_text(tester, 'detail-price'), '12.000.000 ₫');
       expect(tester.takeException(), isNull);
@@ -1080,12 +1086,7 @@ void main() {
         taxRate: 8,
         category: _flowers,
       );
-      await _openDetail(
-        tester,
-        _repo([product]),
-        'p1',
-        size: const Size(360, 800),
-      );
+      await _openDetail(tester, _repo([product]), 'p1', size: const Size(360, 800));
 
       final sku = find.byKey(const Key('detail-sku'));
       final style = tester.widget<Text>(sku).style!;
@@ -1120,6 +1121,16 @@ void main() {
         expect(total.fontSize, 18);
       },
     );
+      final price = tester.widget<Text>(find.byKey(const Key('detail-price'))).style!;
+      final total = tester.widget<Text>(find.byKey(const Key('detail-total'))).style!;
+      for (final style in [price, total]) {
+        expect(style.fontFamily, 'Plus Jakarta Sans');
+        expect(style.fontFamily, isNot('Cormorant Garamond'));
+        expect(style.fontWeight, FontWeight.w700);
+      }
+      expect(price.fontSize, 20);
+      expect(total.fontSize, 12);
+    });
   });
 
   group('cuộn', () {
@@ -1137,32 +1148,20 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const Key('detail-quantity')), findsOneWidget);
-      final quantityRect = tester.getRect(
-        find.byKey(const Key('detail-quantity')),
-      );
-      final barRect = tester.getRect(
-        find.byKey(const Key('detail-purchase-bar')),
-      );
+      final quantityRect = tester.getRect(find.byKey(const Key('detail-quantity')));
+      final barRect = tester.getRect(find.byKey(const Key('detail-purchase-bar')));
       // Thanh mua hàng không che bộ chọn số lượng
       expect(quantityRect.bottom, lessThanOrEqualTo(barRect.top));
     });
 
     testWidgets('thanh mua hàng luôn cố định ở đáy khi cuộn', (tester) async {
       await _openDetail(tester, _repo([_product('p1')]), 'p1');
-      final before = tester.getRect(
-        find.byKey(const Key('detail-purchase-bar')),
-      );
+      final before = tester.getRect(find.byKey(const Key('detail-purchase-bar')));
 
-      await tester.drag(
-        find.byKey(const Key('detail-scroll')),
-        const Offset(0, -300),
-      );
+      await tester.drag(find.byKey(const Key('detail-scroll')), const Offset(0, -300));
       await tester.pumpAndSettle();
 
-      expect(
-        tester.getRect(find.byKey(const Key('detail-purchase-bar'))),
-        before,
-      );
+      expect(tester.getRect(find.byKey(const Key('detail-purchase-bar'))), before);
       expect(before.bottom, closeTo(designSize.height, 0.5));
     });
   });

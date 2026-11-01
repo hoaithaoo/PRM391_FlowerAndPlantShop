@@ -3,12 +3,14 @@ import 'package:plant_flower_shared/plant_flower_shared.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
 import '../../cart/state/cart_scope.dart';
+import '../../checkout/checkout.dart';
 import '../data/product_repository.dart';
 import '../data/product_scope.dart';
 import '../widgets/common/brand_header.dart';
 import '../widgets/detail/detail_image_carousel.dart';
 import '../widgets/detail/detail_info_section.dart';
 import '../widgets/detail/detail_states.dart';
+import '../widgets/detail/buy_now_sheet.dart';
 import '../widgets/detail/detail_sub_bar.dart';
 import '../widgets/detail/purchase_bar.dart';
 import '../widgets/detail/quantity_selector.dart';
@@ -108,6 +110,46 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  Future<void> _buyNow(ProductDetail product) async {
+    final quantity = await showBuyNowSheet(
+      context,
+      product: product,
+      initialQuantity: _quantity,
+    );
+    if (quantity == null || !mounted) return;
+    _proceedToCheckout(product, quantity);
+  }
+
+  void _proceedToCheckout(ProductDetail product, int quantity) {
+    final subtotal = product.price * quantity;
+    final tax = (subtotal * (product.taxRate / 100)).round();
+    const shippingFee = 30000;
+    final summary = CheckoutSummary(
+      items: [
+        CheckoutSummaryItem(
+          productId: product.id,
+          name: product.name,
+          quantity: quantity,
+          unitPrice: product.price,
+          subtotal: subtotal,
+          imageUrl:
+              product.imageUrls.isNotEmpty ? product.imageUrls.first : null,
+          variant:
+              product.category.name.isNotEmpty ? product.category.name : null,
+        ),
+      ],
+      subtotal: subtotal,
+      tax: tax,
+      shippingFee: shippingFee,
+      grandTotal: subtotal + tax + shippingFee,
+    );
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CheckoutScreen.withMockData(summary: summary),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final product = _product;
@@ -126,6 +168,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               total: product.price * _quantity,
               inStock: product.inStock,
               onAddToCart: () => _addToCart(product),
+              onBuyNow: () => _buyNow(product),
             ),
     );
   }
