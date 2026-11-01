@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_flower_mobile/app/main_shell.dart';
+import 'package:plant_flower_mobile/features/cart/state/cart_controller.dart';
+import 'package:plant_flower_mobile/features/cart/state/cart_scope.dart';
 import 'package:plant_flower_mobile/features/products/data/mock_product_repository.dart';
 import 'package:plant_flower_mobile/features/products/data/product_repository.dart';
 import 'package:plant_flower_mobile/features/products/data/product_scope.dart';
 import 'package:plant_flower_mobile/features/products/product_routes.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
+
+import 'cart_test_repository.dart';
 
 /// Kích thước màn hình thiết kế Penpot (390 x 844).
 const designSize = Size(390, 844);
@@ -21,18 +25,26 @@ Future<void> pumpProductApp(
   WidgetTester tester,
   Widget child, {
   ProductRepository? repository,
+  CartController? cartController,
   Size size = designSize,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
+  final cart =
+      cartController ?? CartController(repository: TestCartRepository());
+  if (cartController == null) addTearDown(cart.dispose);
+  if (cart.status == CartStatus.initial) await cart.initialize();
   await tester.pumpWidget(
-    ProductScope(
-      repository: repository ?? createTestRepository(),
-      child: MaterialApp(
-        theme: AppTheme.data(),
-        home: child,
-        onGenerateRoute: ProductRoutes.onGenerateRoute,
+    CartScope(
+      controller: cart,
+      child: ProductScope(
+        repository: repository ?? createTestRepository(),
+        child: MaterialApp(
+          theme: AppTheme.data(),
+          home: child,
+          onGenerateRoute: ProductRoutes.onGenerateRoute,
+        ),
       ),
     ),
   );
@@ -42,6 +54,7 @@ Future<void> pumpProductApp(
 Future<void> pumpMainShell(
   WidgetTester tester, {
   ProductRepository? repository,
+  CartController? cartController,
   MainTab initialTab = MainTab.home,
   Size size = designSize,
 }) {
@@ -49,6 +62,7 @@ Future<void> pumpMainShell(
     tester,
     MainShell(initialTab: initialTab),
     repository: repository,
+    cartController: cartController,
     size: size,
   );
 }

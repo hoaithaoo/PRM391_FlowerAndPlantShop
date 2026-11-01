@@ -133,6 +133,12 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
     });
   }
 
+  Future<void> _openProduct(ProductSummary product) async {
+    final result = await ProductRoutes.openDetail(context, product.id);
+    if (!mounted) return;
+    if (result == ProductDetailResult.openCart) MainShell.openCart(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Material(
@@ -281,7 +287,7 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
     Widget card(ProductSummary product) => CatalogProductCard(
       product: product,
       isFavorite: _favorites.contains(product.id),
-      onTap: () => ProductRoutes.openDetail(context, product.id),
+      onTap: () => _openProduct(product),
       onToggleFavorite: () => _toggleFavorite(product.id),
     );
 
