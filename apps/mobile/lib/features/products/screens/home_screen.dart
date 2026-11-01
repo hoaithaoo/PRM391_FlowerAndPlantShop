@@ -112,6 +112,12 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   }
 
+  Future<void> _openProduct(ProductSummary product) async {
+    final result = await ProductRoutes.openDetail(context, product.id);
+    if (!mounted) return;
+    if (result == ProductDetailResult.openCart) MainShell.openCart(context);
+  }
+
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
@@ -143,8 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       loading: _loading,
                       products: _products,
                       errorMessage: _error,
-                      onProductTap: (product) =>
-                          ProductRoutes.openDetail(context, product.id),
+                      onProductTap: _openProduct,
                       onRetry: _retry,
                     ),
                     const HomeStoryCard(),
