@@ -16,6 +16,7 @@ class ChatbotOverlayHost extends StatefulWidget {
     this.contextProvider,
     this.onProductTap,
     this.onOpenIncidentReport,
+    this.onCartAction,
   });
 
   final ChatbotRepository repository;
@@ -25,6 +26,7 @@ class ChatbotOverlayHost extends StatefulWidget {
   final ChatbotContextProvider? contextProvider;
   final ValueChanged<String>? onProductTap;
   final ValueChanged<IncidentReportDraft>? onOpenIncidentReport;
+  final ChatbotCartHandler? onCartAction;
 
   @override
   State<ChatbotOverlayHost> createState() => _ChatbotOverlayHostState();
@@ -43,8 +45,10 @@ class _ChatbotOverlayHostState extends State<ChatbotOverlayHost> {
   @override
   void didUpdateWidget(covariant ChatbotOverlayHost oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Ẩn host (đăng xuất) cũng bỏ hội thoại cũ để không lộ sang tài khoản khác.
     if (!identical(oldWidget.repository, widget.repository) ||
-        !identical(oldWidget.contextProvider, widget.contextProvider)) {
+        !identical(oldWidget.contextProvider, widget.contextProvider) ||
+        (oldWidget.visible && !widget.visible)) {
       _controller.dispose();
       _controller = _createController();
     }
@@ -56,6 +60,7 @@ class _ChatbotOverlayHostState extends State<ChatbotOverlayHost> {
   ChatbotController _createController() => ChatbotController(
     repository: widget.repository,
     contextProvider: widget.contextProvider,
+    onCartAction: widget.onCartAction,
   );
 
   void _openPanel() => setState(() => _isPanelOpen = true);

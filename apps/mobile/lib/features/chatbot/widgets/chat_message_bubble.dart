@@ -3,6 +3,28 @@ import 'package:flutter/material.dart';
 import '../models/chatbot_models.dart';
 import 'suggested_product_card.dart';
 
+/// Đổi `**chữ đậm**` trong câu trả lời AI thành span in đậm.
+List<InlineSpan> boldMarkdownSpans(String text) {
+  final spans = <InlineSpan>[];
+  text.splitMapJoin(
+    RegExp(r'\*\*(.+?)\*\*'),
+    onMatch: (match) {
+      spans.add(
+        TextSpan(
+          text: match[1],
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      );
+      return '';
+    },
+    onNonMatch: (plain) {
+      if (plain.isNotEmpty) spans.add(TextSpan(text: plain));
+      return '';
+    },
+  );
+  return spans;
+}
+
 class ChatMessageBubble extends StatelessWidget {
   const ChatMessageBubble({
     super.key,
@@ -46,8 +68,13 @@ class ChatMessageBubble extends StatelessWidget {
                   horizontal: 14,
                   vertical: 11,
                 ),
-                child: Text(
-                  message.content,
+                child: Text.rich(
+                  TextSpan(
+                    // Chỉ tin nhắn AI có Markdown, tin của người dùng giữ nguyên.
+                    children: isUser
+                        ? <InlineSpan>[TextSpan(text: message.content)]
+                        : boldMarkdownSpans(message.content),
+                  ),
                   style: TextStyle(
                     color: isUser ? Colors.white : const Color(0xFF36403A),
                     fontSize: 14,

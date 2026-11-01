@@ -23,9 +23,20 @@ enum MainTab {
 
 /// Khung chính có thanh điều hướng nổi (Penpot board "Nav").
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, this.initialTab = MainTab.home});
+  const MainShell({
+    super.key,
+    this.initialTab = MainTab.home,
+    this.onSignOut,
+    this.onCheckout,
+  });
 
   final MainTab initialTab;
+
+  /// Hiện nút đăng xuất ở tab Tài khoản khi được truyền vào.
+  final VoidCallback? onSignOut;
+
+  /// Mở màn thanh toán từ giỏ hàng.
+  final VoidCallback? onCheckout;
 
   /// Chuyển sang tab Sản phẩm, chọn sẵn [categoryId] (null là "Tất cả").
   ///
@@ -70,8 +81,14 @@ class _MainShellState extends State<MainShell> {
         key: ValueKey(_catalogVersion),
         initialCategoryId: _catalogCategoryId,
       ),
-      MainTab.cart => CartScreen(onContinueShopping: () => _openCatalog(null)),
-      _ => _ComingSoon(tab: tab),
+      MainTab.cart => CartScreen(
+        onContinueShopping: () => _openCatalog(null),
+        onCheckout: widget.onCheckout,
+      ),
+      _ => _ComingSoon(
+        tab: tab,
+        onSignOut: tab == MainTab.account ? widget.onSignOut : null,
+      ),
     };
   }
 
@@ -221,9 +238,10 @@ class _NavItem extends StatelessWidget {
 }
 
 class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.tab});
+  const _ComingSoon({required this.tab, this.onSignOut});
 
   final MainTab tab;
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) {
@@ -241,6 +259,14 @@ class _ComingSoon extends StatelessWidget {
               'Tính năng đang được phát triển.',
               style: AppTextStyles.body.copyWith(color: AppColors.textMuted),
             ),
+            if (onSignOut != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton(
+                key: const Key('account_sign_out'),
+                onPressed: onSignOut,
+                child: const Text('Đăng xuất'),
+              ),
+            ],
           ],
         ),
       ),

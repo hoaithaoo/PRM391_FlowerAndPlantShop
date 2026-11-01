@@ -162,5 +162,9 @@ class WidgetTestChatbotRepository implements ChatbotRepository {
   }
 
   @override
+  Future<List<ChatbotConversationSummary>> listConversations() async =>
+      const [];
+
+  @override
   Future<void> deleteConversation(String conversationId) async {}
 }

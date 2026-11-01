@@ -19,15 +19,12 @@ Map<String, dynamic> _envelope() => {
         'id': _itemId,
         'productId': _productId,
         'name': 'Bó Tulip',
-        'variant': 'Hoa tươi',
-        'unitPrice': '490000',
-        'stock': 8,
+        'price': 490000,
         'quantity': 2,
-        'imageUrl': 'https://example.com/tulip.jpg',
-        'subtotal': '980000',
+        'subtotal': 980000,
       },
     ],
-    'subtotal': '980000',
+    'subtotal': 980000,
     'totalQuantity': 2,
   },
   'meta': {'requestId': 'req_test'},
@@ -38,8 +35,15 @@ void main() {
     final requests = <http.Request>[];
     final client = MockClient((request) async {
       requests.add(request);
+      if (request.method == 'DELETE') return http.Response('', 204);
       return http.Response(
-        jsonEncode(_envelope()),
+        request.method == 'GET'
+            ? jsonEncode(_envelope())
+            // POST/PUT chỉ trả dòng vừa đổi, không phải cả giỏ.
+            : jsonEncode({
+                'success': true,
+                'data': {'id': _itemId, 'quantity': 3, 'subtotal': 1470000},
+              }),
         request.method == 'POST' ? 201 : 200,
         headers: {'content-type': 'application/json; charset=utf-8'},
       );
@@ -50,30 +54,32 @@ void main() {
     );
 
     final loaded = await repository.load();
-    await repository.add(productId: _productId, quantity: 2);
+    final added = await repository.add(productId: _productId, quantity: 2);
     await repository.update(itemId: _itemId, quantity: 3);
     await repository.remove(itemId: _itemId);
     await repository.clear();
 
+    expect(added.items.single.id, _itemId);
     expect(loaded.id, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd');
     expect(loaded.items.single.name, 'Bó Tulip');
     expect(loaded.items.single.unitPrice, 490000);
     expect(loaded.subtotal, 980000);
     expect(loaded.totalQuantity, 2);
-    expect(requests.map((request) => request.method), [
-      'GET',
-      'POST',
-      'PATCH',
-      'DELETE',
-      'DELETE',
-    ]);
-    expect(requests.map((request) => request.url.path), [
-      '/api/v1/cart',
-      '/api/v1/cart/items',
-      '/api/v1/cart/items/$_itemId',
-      '/api/v1/cart/items/$_itemId',
-      '/api/v1/cart/items',
-    ]);
+    expect(
+      requests.map((request) => '${request.method} ${request.url.path}'),
+      [
+        'GET /api/v1/cart',
+        'POST /api/v1/cart/items',
+        'GET /api/v1/cart',
+        'PUT /api/v1/cart/items/$_itemId',
+        'GET /api/v1/cart',
+        'DELETE /api/v1/cart/items/$_itemId',
+        'GET /api/v1/cart',
+        'GET /api/v1/cart',
+        'DELETE /api/v1/cart/items/$_itemId',
+        'GET /api/v1/cart',
+      ],
+    );
     expect(
       requests.every(
         (request) => request.headers['authorization'] == 'Bearer token-123',
@@ -84,7 +90,7 @@ void main() {
       'productId': _productId,
       'quantity': 2,
     });
-    expect(jsonDecode(requests[2].body), {'quantity': 3});
+    expect(jsonDecode(requests[3].body), {'quantity': 3});
   });
 
   test(

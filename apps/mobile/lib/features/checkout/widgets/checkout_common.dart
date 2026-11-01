@@ -570,16 +570,18 @@ class PriceSummaryCard extends StatelessWidget {
           _row('Tạm tính', formatVnd(summary.subtotal)),
           const SizedBox(height: 11),
           _row(
-            pickup ? 'Phí nhận tại quán' : 'Phí giao hoa ưu tiên',
+            pickup ? 'Phí nhận tại quán' : 'Phí giao hàng',
             pickup ? 'Miễn phí' : formatVnd(summary.shippingFee),
             valueColor: pickup ? CheckoutPalette.forest700 : null,
           ),
-          const SizedBox(height: 11),
-          _row(
-            'Ưu đãi thành viên',
-            '-${formatVnd(summary.discount)}',
-            valueColor: CheckoutPalette.petal500,
-          ),
+          if (summary.discount > 0) ...[
+            const SizedBox(height: 11),
+            _row(
+              'Ưu đãi thành viên',
+              '-${formatVnd(summary.discount)}',
+              valueColor: CheckoutPalette.petal500,
+            ),
+          ],
           const Padding(
             padding: EdgeInsets.symmetric(vertical: 14),
             child: Divider(),
@@ -589,7 +591,7 @@ class PriceSummaryCard extends StatelessWidget {
           const Align(
             alignment: Alignment.centerRight,
             child: Text(
-              'Đã bao gồm thuế',
+              'Số tiền cuối cùng được xác nhận khi đặt hàng',
               style: TextStyle(
                 color: CheckoutPalette.charcoal400,
                 fontSize: 10,

@@ -13,11 +13,13 @@ class CheckoutState {
     this.status = CheckoutStatus.initial,
     this.result,
     this.errorMessage,
+    this.errorCode,
   });
 
   final CheckoutStatus status;
   final CheckoutResult? result;
   final String? errorMessage;
+  final String? errorCode;
 
   bool get isSubmitting => status == CheckoutStatus.submitting;
 }
