@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:plant_flower_shared/plant_flower_shared.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
 import '../features/auth/auth.dart';
@@ -11,11 +12,15 @@ import '../features/chatbot/data/chatbot_repository.dart';
 import '../features/chatbot/models/chatbot_models.dart';
 import '../features/chatbot/widgets/chatbot_overlay_host.dart';
 import '../features/checkout/data/checkout_repository.dart';
+import '../features/checkout/models/checkout_request.dart';
 import '../features/checkout/models/checkout_summary.dart';
 import '../features/checkout/screens/checkout_screen.dart';
+import '../features/products/data/buy_now_scope.dart';
 import '../features/products/data/product_repository.dart';
 import '../features/products/data/product_scope.dart';
 import '../features/products/product_routes.dart';
+import '../features/profile/data/profile_repository.dart';
+import '../features/profile/screens/account_screen.dart';
 import 'main_shell.dart';
 
 const _chatbotCartItemMissing = 'Không tìm thấy sản phẩm này trong giỏ hàng.';
@@ -28,6 +33,7 @@ class PlantFlowerApp extends StatefulWidget {
     required this.cartRepository,
     required this.chatbotRepository,
     required this.checkoutRepository,
+    this.profileRepository,
   });
 
   final AuthRepository authRepository;
@@ -35,6 +41,7 @@ class PlantFlowerApp extends StatefulWidget {
   final CartRepository cartRepository;
   final ChatbotRepository chatbotRepository;
   final CheckoutRepository checkoutRepository;
+  final ProfileRepository? profileRepository;
 
   @override
   State<PlantFlowerApp> createState() => _PlantFlowerAppState();
@@ -66,6 +73,34 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
     _signedInSub.cancel();
     _cartController.dispose();
     super.dispose();
+  }
+
+  void _buyNow(ProductDetail product, int quantity) {
+    final subtotal = product.price * quantity;
+    _navigatorKey.currentState?.push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => CheckoutScreen(
+          repository: widget.checkoutRepository,
+          buyNow: CheckoutBuyNow(productId: product.id, quantity: quantity),
+          summary: CheckoutSummary(
+            items: <CheckoutSummaryItem>[
+              CheckoutSummaryItem(
+                productId: product.id,
+                name: product.name,
+                quantity: quantity,
+                unitPrice: product.price,
+                subtotal: subtotal,
+                imageUrl: product.imageUrls.firstOrNull,
+              ),
+            ],
+            subtotal: subtotal,
+            tax: 0,
+            shippingFee: 0,
+            grandTotal: subtotal,
+          ),
+        ),
+      ),
+    );
   }
 
   void _openCheckout() {
@@ -121,7 +156,8 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
         done = await cart.clear();
     }
     if (done) return null;
-    return cart.errorMessage ?? 'Chưa cập nhật được giỏ hàng. Vui lòng thử lại.';
+    return cart.errorMessage ??
+        'Chưa cập nhật được giỏ hàng. Vui lòng thử lại.';
   }
 
   Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
@@ -132,39 +168,47 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
   @override
   Widget build(BuildContext context) {
     final auth = widget.authRepository;
+    final profile = widget.profileRepository;
     return AuthScope(
       repository: auth,
       child: CartScope(
         controller: _cartController,
         child: ProductScope(
           repository: widget.productRepository,
-          child: MaterialApp(
-            navigatorKey: _navigatorKey,
-            debugShowCheckedModeBanner: false,
-            title: 'Nhà Có Hoa',
-            theme: AppTheme.data(),
-            home: AuthSessionGate(
-              signedInBuilder: (_) => MainShell(
-                onSignOut: auth.signOut,
-                onCheckout: _openCheckout,
+          child: BuyNowScope(
+            onBuyNow: _buyNow,
+            child: MaterialApp(
+              navigatorKey: _navigatorKey,
+              debugShowCheckedModeBanner: false,
+              title: 'Nhà Có Hoa',
+              theme: AppTheme.data(),
+              home: AuthSessionGate(
+                signedInBuilder: (_) => MainShell(
+                  onSignOut: auth.signOut,
+                  onCheckout: _openCheckout,
+                  accountBuilder: profile == null
+                      ? null
+                      : (_) => AccountScreen(
+                          repository: profile,
+                          checkoutRepository: widget.checkoutRepository,
+                          onSignOut: auth.signOut,
+                        ),
+                ),
               ),
-            ),
-            onGenerateRoute: _onGenerateRoute,
-            builder: (context, child) => StreamBuilder<bool>(
-              stream: auth.signedInChanges,
-              initialData: auth.isSignedIn,
-              builder: (context, snapshot) => ChatbotOverlayHost(
-                repository: widget.chatbotRepository,
-                // Chỉ hiện trên màn chính, không che form đăng nhập.
-                visible: (snapshot.data ?? false) && auth.isProfileComplete,
-                launcherBottomInset: AppBottomNav.reservedHeight + 8,
-                onProductTap: (productId) =>
-                    _navigatorKey.currentState?.pushNamed(
-                      ProductRoutes.detail,
-                      arguments: productId,
-                    ),
-                onCartAction: _applyChatbotCartAction,
-                child: child ?? const SizedBox.shrink(),
+              onGenerateRoute: _onGenerateRoute,
+              builder: (context, child) => StreamBuilder<bool>(
+                stream: auth.signedInChanges,
+                initialData: auth.isSignedIn,
+                builder: (context, snapshot) => ChatbotOverlayHost(
+                  repository: widget.chatbotRepository,
+                  // Chỉ hiện trên màn chính, không che form đăng nhập.
+                  visible: (snapshot.data ?? false) && auth.isProfileComplete,
+                  launcherBottomInset: AppBottomNav.reservedHeight + 8,
+                  onProductTap: (productId) => _navigatorKey.currentState
+                      ?.pushNamed(ProductRoutes.detail, arguments: productId),
+                  onCartAction: _applyChatbotCartAction,
+                  child: child ?? const SizedBox.shrink(),
+                ),
               ),
             ),
           ),

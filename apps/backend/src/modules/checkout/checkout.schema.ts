@@ -18,6 +18,12 @@ export const checkoutSchema = z.object({
     }),
     note: z.string().trim().max(500, "Ghi chú không được vượt quá 500 ký tự.").nullable().optional(),
     voucherCode: voucherCodeSchema.nullable().optional(),
+    shippingVoucherCode: voucherCodeSchema.nullable().optional(),
+    // Mua ngay: chỉ đặt sản phẩm này, giỏ hàng giữ nguyên.
+    buyNow: z.object({
+      productId: z.string().uuid("Sản phẩm không hợp lệ."),
+      quantity: z.number().int().min(1, "Số lượng phải từ 1 trở lên.").max(100, "Số lượng không được vượt quá 100."),
+    }).strict().optional(),
 }).strict().superRefine((input, ctx) => {
     // Nhận tại quán lấy địa chỉ từ cửa hàng; giao hàng bắt buộc có địa chỉ và tọa độ.
     const required = input.pickupStoreId

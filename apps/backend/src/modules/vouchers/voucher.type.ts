@@ -1,5 +1,11 @@
-import { Prisma, Voucher, VoucherType } from "@prisma/client";
+import { Prisma, VoucherScope, VoucherType } from "@prisma/client";
 import { ErrorCode } from "../../common/errors/error-codes";
+
+/** Số app gửi để xem trước; thiếu subtotal thì tính theo giỏ hàng. */
+export interface VoucherPreview {
+  subtotal?: number;
+  shippingFee?: number;
+}
 
 export interface VoucherEvaluationResult {
   eligible: boolean;
@@ -12,6 +18,7 @@ export interface VoucherEvaluationResult {
 export interface AvailableVoucherItem {
   code: string;
   type: VoucherType;
+  scope: VoucherScope;
   value: number;
   maxDiscount: number | null;
   minOrderAmount: number;
@@ -29,6 +36,10 @@ export interface AvailableVouchersResponse {
 
 export interface ValidateVoucherResponse {
   code: string;
+  type: VoucherType;
+  scope: VoucherScope;
+  value: number;
+  maxDiscount: number | null;
   discountAmount: number;
   subtotal: number;
 }

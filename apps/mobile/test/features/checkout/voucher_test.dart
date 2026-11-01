@@ -22,7 +22,7 @@ class _MockVoucherRepository implements CheckoutRepository {
   final keys = <String>[];
 
   @override
-  Future<List<Voucher>> availableVouchers() async => vouchers;
+  Future<List<Voucher>> availableVouchers({num? subtotal, num? shippingFee}) async => vouchers;
 
   @override
   Future<List<PickupBranch>> listStores({
@@ -31,7 +31,7 @@ class _MockVoucherRepository implements CheckoutRepository {
   }) async => const <PickupBranch>[];
 
   @override
-  Future<Voucher> validateVoucher(String code) async {
+  Future<Voucher> validateVoucher(String code, {num? subtotal, num? shippingFee}) async {
     if (validateError != null) throw validateError!;
     return validateResult ??
         Voucher(
@@ -122,6 +122,28 @@ const _testSummary = CheckoutSummary(
 );
 
 void main() {
+  test('discountOn: voucher ship giảm theo phí ship và không vượt phí', () {
+    const fixed = Voucher(
+      code: 'SHIP',
+      type: 'FIXED',
+      scope: Voucher.shippingScope,
+      value: 20000,
+      discountAmount: 0,
+    );
+    const percent = Voucher(
+      code: 'SHIP50',
+      type: 'PERCENT',
+      scope: Voucher.shippingScope,
+      value: 50,
+      maxDiscount: 10000,
+      discountAmount: 0,
+    );
+    expect(fixed.discountOn(15000), 15000);
+    expect(fixed.discountOn(30000), 20000);
+    expect(percent.discountOn(15000), 7500);
+    expect(percent.discountOn(40000), 10000);
+  });
+
   group('CheckoutRequest voucher serialization', () {
     test('toJson excludes voucherCode when absent or empty', () {
       const requestWithout = CheckoutRequest(

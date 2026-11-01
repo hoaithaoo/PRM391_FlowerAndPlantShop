@@ -62,7 +62,7 @@ const createFakeDb = (payments: PaymentState[], brokenId?: string) => {
         return {};
       },
     },
-    voucherRedemption: { updateMany: async () => ({ count: 0 }) },
+    voucherRedemption: { findMany: async () => [], updateMany: async () => ({ count: 0 }) },
     invoice: { updateMany: async () => ({ count: 1 }) },
     notification: {
       create: async ({ data }: any) => {
