@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_flower_mobile/app/main_shell.dart';
 import 'package:plant_flower_mobile/features/cart/state/cart_controller.dart';
 import 'package:plant_flower_mobile/features/cart/state/cart_scope.dart';
+import 'package:plant_flower_mobile/features/products/data/buy_now_scope.dart';
 import 'package:plant_flower_mobile/features/products/data/mock_product_repository.dart';
 import 'package:plant_flower_mobile/features/products/data/product_repository.dart';
 import 'package:plant_flower_mobile/features/products/data/product_scope.dart';
@@ -26,6 +27,7 @@ Future<void> pumpProductApp(
   Widget child, {
   ProductRepository? repository,
   CartController? cartController,
+  BuyNowCallback? onBuyNow,
   Size size = designSize,
 }) async {
   tester.view.physicalSize = size;
@@ -40,10 +42,13 @@ Future<void> pumpProductApp(
       controller: cart,
       child: ProductScope(
         repository: repository ?? createTestRepository(),
-        child: MaterialApp(
-          theme: AppTheme.data(),
-          home: child,
-          onGenerateRoute: ProductRoutes.onGenerateRoute,
+        child: BuyNowScope(
+          onBuyNow: onBuyNow ?? (_, _) {},
+          child: MaterialApp(
+            theme: AppTheme.data(),
+            home: child,
+            onGenerateRoute: ProductRoutes.onGenerateRoute,
+          ),
         ),
       ),
     ),

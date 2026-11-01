@@ -27,7 +27,12 @@ abstract interface class CheckoutRepository {
 
   Future<void> cancelOrder(String orderId, {String? reason});
 
-  Future<List<Voucher>> availableVouchers();
+  /// [subtotal] và [shippingFee] chỉ để xem trước số tiền giảm.
+  Future<List<Voucher>> availableVouchers({num? subtotal, num? shippingFee});
 
-  Future<Voucher> validateVoucher(String code);
+  Future<Voucher> validateVoucher(
+    String code, {
+    num? subtotal,
+    num? shippingFee,
+  });
 }
