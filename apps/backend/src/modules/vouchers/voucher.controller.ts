@@ -3,6 +3,7 @@ import { AppError } from "../../common/errors/app-error";
 import { ErrorCodes } from "../../common/errors/error-codes";
 import { sendSuccess } from "../../common/utils/response";
 import { voucherService } from "./voucher.service";
+import type { VoucherPreview } from "./voucher.type";
 
 export class VoucherController {
   private getUserId(req: Request): string {
@@ -21,7 +22,10 @@ export class VoucherController {
   async getAvailable(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = this.getUserId(req);
-      const data = await voucherService.getAvailableVouchers(userId);
+      const data = await voucherService.getAvailableVouchers(
+        userId,
+        req.query as VoucherPreview
+      );
       sendSuccess(req, res, data);
     } catch (error) {
       next(error);
@@ -32,7 +36,8 @@ export class VoucherController {
   async validate(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const userId = this.getUserId(req);
-      const data = await voucherService.validateVoucher(userId, req.body.code);
+      const { code, ...preview } = req.body;
+      const data = await voucherService.validateVoucher(userId, code, preview);
       sendSuccess(req, res, data);
     } catch (error) {
       next(error);

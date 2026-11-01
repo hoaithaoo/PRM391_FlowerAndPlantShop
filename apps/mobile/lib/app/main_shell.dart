@@ -10,7 +10,6 @@ import '../features/products/screens/product_catalog_screen.dart';
 enum MainTab {
   home('Trang chủ', Icons.home_outlined, Icons.home),
   products('Sản phẩm', Icons.storefront_outlined, Icons.storefront),
-  chatbot('Chatbot', Icons.auto_awesome_outlined, Icons.auto_awesome),
   cart('Giỏ hàng', Icons.shopping_bag_outlined, Icons.shopping_bag),
   account('Tài khoản', Icons.person_outline, Icons.person);
 
@@ -28,6 +27,7 @@ class MainShell extends StatefulWidget {
     this.initialTab = MainTab.home,
     this.onSignOut,
     this.onCheckout,
+    this.accountBuilder,
   });
 
   final MainTab initialTab;
@@ -37,6 +37,9 @@ class MainShell extends StatefulWidget {
 
   /// Mở màn thanh toán từ giỏ hàng.
   final VoidCallback? onCheckout;
+
+  /// Nội dung tab Tài khoản. Không truyền thì hiện màn tạm có nút đăng xuất.
+  final WidgetBuilder? accountBuilder;
 
   /// Chuyển sang tab Sản phẩm, chọn sẵn [categoryId] (null là "Tất cả").
   ///
@@ -85,6 +88,8 @@ class _MainShellState extends State<MainShell> {
         onContinueShopping: () => _openCatalog(null),
         onCheckout: widget.onCheckout,
       ),
+      MainTab.account when widget.accountBuilder != null =>
+        widget.accountBuilder!(context),
       _ => _ComingSoon(
         tab: tab,
         onSignOut: tab == MainTab.account ? widget.onSignOut : null,

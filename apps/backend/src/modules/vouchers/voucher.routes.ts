@@ -7,6 +7,7 @@ import { requireRole } from "../../middlewares/role.middleware";
 import { validateRequest } from "../../middlewares/validate.middleware";
 import { voucherController } from "./voucher.controller";
 import {
+  availableVouchersQuerySchema,
   createAdminVoucherSchema,
   listAdminVouchersQuerySchema,
   updateAdminVoucherSchema,
@@ -20,8 +21,10 @@ export const adminVoucherRoutes = Router();
 // Khách: authMiddleware, profileMiddleware, accountStatusMiddleware
 voucherRoutes.use(authMiddleware, profileMiddleware, accountStatusMiddleware);
 
-voucherRoutes.get("/available", (req, res, next) =>
-  voucherController.getAvailable(req, res, next)
+voucherRoutes.get(
+  "/available",
+  validateRequest({ query: availableVouchersQuerySchema }),
+  (req, res, next) => voucherController.getAvailable(req, res, next)
 );
 
 voucherRoutes.post(

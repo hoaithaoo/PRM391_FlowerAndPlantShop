@@ -21,6 +21,7 @@ describe("VoucherService.evaluateVoucher", () => {
     perUserLimit: 1,
     usedCount: 0,
     isPublic: true,
+    scope: "ORDER" as const,
     isActive: true,
     createdAt: now,
     updatedAt: now,

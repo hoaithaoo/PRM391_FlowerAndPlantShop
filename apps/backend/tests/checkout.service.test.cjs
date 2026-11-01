@@ -57,6 +57,7 @@ function fixture(t) {
         discountAmount: data.discountAmount,
         taxAmount: data.taxAmount,
         shippingFee: data.shippingFee,
+        shippingDiscountAmount: data.shippingDiscountAmount,
         grandTotal: data.grandTotal,
       })),
     },
@@ -148,7 +149,7 @@ test("COD checkout maps API delivery fields into Order and creates tax snapshots
   });
   assert.deepEqual(tx.cartItem.deleteMany.mock.calls[0].arguments[0].where, {
     id: { in: ["cart-item-a"] },
-    cartId: "cart-a",
+    cart: { userId: "user-a" },
   });
 });
 
@@ -198,6 +199,7 @@ test("checkout with voucher calculates tax after discount and creates redemption
     perUserLimit: 1,
     isActive: true,
     isPublic: true,
+    scope: "ORDER",
   };
   tx.voucher.findUnique.mock.mockImplementation(async () => voucher);
 
@@ -244,6 +246,7 @@ test("checkout throws VOUCHER_USAGE_EXCEEDED when voucher cannot be claimed", as
     perUserLimit: 1,
     isActive: true,
     isPublic: true,
+    scope: "ORDER",
   };
   tx.voucher.findUnique.mock.mockImplementation(async () => voucher);
   tx.voucher.updateMany.mock.mockImplementation(async () => ({ count: 0 }));
@@ -277,6 +280,7 @@ test("checkout throws VOUCHER_NOT_APPLICABLE for SEPAY when grandTotal is 0", as
     perUserLimit: 1,
     isActive: true,
     isPublic: true,
+    scope: "ORDER",
   };
   tx.voucher.findUnique.mock.mockImplementation(async () => voucher);
 
@@ -333,7 +337,8 @@ test("an identical idempotent replay returns the original checkout", async (t) =
     completedAt: null,
     createdAt: new Date(),
     updatedAt: new Date(),
-    voucherRedemption: null,
+    voucherRedemptions: [],
+    items: [],
     invoice: {
       id: "invoice-original",
       orderId: "order-original",
@@ -374,7 +379,8 @@ test("reusing an idempotency key with a different voucherCode is a conflict", as
     recipientName: input.receiverName,
     recipientPhone: input.phone,
     note: input.note,
-    voucherRedemption: { code: "OLDVOUCHER" },
+    voucherRedemptions: [{ code: "OLDVOUCHER" }],
+    items: [],
   }));
 
   await assert.rejects(
@@ -395,7 +401,8 @@ test("reusing an idempotency key with a different payload is a conflict", async 
     recipientName: input.receiverName,
     recipientPhone: input.phone,
     note: input.note,
-    voucherRedemption: null,
+    voucherRedemptions: [],
+    items: [],
   }));
 
   await assert.rejects(
@@ -416,4 +423,70 @@ test("serialization conflicts retry and eventually return CHECKOUT_CONFLICT", as
     hasError(409, "CHECKOUT_CONFLICT")
   );
   assert.equal(db.$transaction.mock.callCount(), 3);
+});
+
+const voucherFixture = (code, scope) => ({
+  id: `voucher-${code}`,
+  code,
+  type: "FIXED",
+  scope,
+  value: new Prisma.Decimal(scope === "SHIPPING" ? "10000" : "50000"),
+  maxDiscount: null,
+  minOrderAmount: new Prisma.Decimal("0"),
+  startsAt: new Date("2020-01-01T00:00:00Z"),
+  endsAt: new Date("2100-01-01T00:00:00Z"),
+  usageLimit: null,
+  perUserLimit: 1,
+  usedCount: 0,
+  isPublic: true,
+  isActive: true,
+});
+
+test("một đơn dùng được voucher khuyến mãi và voucher ship", async (t) => {
+  const { service, tx } = fixture(t);
+  tx.voucher.findUnique.mock.mockImplementation(async ({ where }) =>
+    voucherFixture(where.code, where.code === "SHIP10K" ? "SHIPPING" : "ORDER")
+  );
+
+  const result = await service.checkout(
+    "user-a",
+    { ...input, voucherCode: "HOA50K", shippingVoucherCode: "SHIP10K" },
+    "request-two-vouchers"
+  );
+
+  assert.equal(result.invoice.discountAmount, 50000);
+  assert.equal(result.invoice.shippingDiscountAmount, 10000);
+  assert.equal(result.invoice.shippingFee, 15000);
+  // 200.000 sau giảm + 16.000 thuế + 15.000 ship - 10.000 giảm ship
+  assert.equal(result.invoice.grandTotal, 221000);
+  assert.equal(tx.voucher.updateMany.mock.callCount(), 2);
+  assert.equal(tx.voucherRedemption.create.mock.callCount(), 2);
+});
+
+test("voucher ship không dùng được ở ô voucher khuyến mãi", async (t) => {
+  const { service, tx } = fixture(t);
+  tx.voucher.findUnique.mock.mockImplementation(async ({ where }) =>
+    voucherFixture(where.code, "SHIPPING")
+  );
+
+  await assert.rejects(
+    service.checkout("user-a", { ...input, voucherCode: "SHIP10K" }, "request-b"),
+    hasError(422, "VOUCHER_NOT_APPLICABLE")
+  );
+  assert.equal(tx.order.create.mock.callCount(), 0);
+});
+
+test("mua ngay chỉ đặt sản phẩm đã chọn và không đụng tới giỏ", async (t) => {
+  const { service, tx } = fixture(t);
+  tx.product.findUnique = t.mock.fn(async () => product);
+
+  const result = await service.checkout(
+    "user-a",
+    { ...input, buyNow: { productId: product.id, quantity: 1 } },
+    "request-buy-now"
+  );
+
+  assert.equal(result.invoice.subtotalAmount, 125000);
+  assert.equal(tx.cart.findUnique.mock.callCount(), 0);
+  assert.equal(tx.cartItem.deleteMany.mock.callCount(), 0);
 });

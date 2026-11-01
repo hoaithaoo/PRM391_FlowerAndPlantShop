@@ -181,6 +181,26 @@ class SupabaseAuthRepository implements AuthRepository {
   }
 
   @override
+  bool get canChangePassword {
+    final providers = _auth.currentUser?.appMetadata['providers'];
+    return providers is List && providers.contains('email');
+  }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return _guard(() async {
+      await _auth.signInWithPassword(
+        email: _auth.currentUser?.email ?? '',
+        password: currentPassword,
+      );
+      await _auth.updateUser(UserAttributes(password: newPassword));
+    });
+  }
+
+  @override
   Future<void> cancelPasswordRecovery() async {
     _isInPasswordRecovery = false;
     _passwordRecoveryController.add(false);

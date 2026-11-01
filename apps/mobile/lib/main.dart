@@ -21,6 +21,8 @@ import 'features/checkout/data/mock_checkout_repository.dart';
 import 'features/products/data/api_product_repository.dart';
 import 'features/products/data/mock_product_repository.dart';
 import 'features/products/data/product_repository.dart';
+import 'features/profile/data/mock_profile_repository.dart';
+import 'features/profile/data/profile_repository.dart';
 
 // Truyền qua --dart-define, ví dụ API_BASE_URL=http://10.0.2.2:4000
 const _apiBaseUrl = String.fromEnvironment('API_BASE_URL');
@@ -36,6 +38,8 @@ Future<void> main() async {
   Future<String?> Function() accessTokenProvider = () async => null;
   Future<String?> Function()? refreshAccessToken;
   void Function()? onSessionExpired;
+  AvatarUploader avatarUploader = (_, _) =>
+      Future.error(StateError('Chưa cấu hình Supabase.'));
   if (_supabaseUrl.isNotEmpty && _supabasePublishableKey.isNotEmpty) {
     await Supabase.initialize(
       url: _supabaseUrl,
@@ -60,6 +64,18 @@ Future<void> main() async {
     // Chỉ xóa phiên trên máy: token đã hỏng, gọi server cũng không được.
     void expire() => auth.signOut(scope: SignOutScope.local);
 
+    avatarUploader = (bytes, contentType) async {
+      final path = '${auth.currentUser!.id}/avatar';
+      final bucket = Supabase.instance.client.storage.from('avatars');
+      await bucket.uploadBinary(
+        path,
+        bytes,
+        fileOptions: FileOptions(upsert: true, contentType: contentType),
+      );
+      // Tham số v để ảnh mới không bị cache theo URL cũ.
+      final version = DateTime.now().millisecondsSinceEpoch;
+      return '${bucket.getPublicUrl(path)}?v=$version';
+    };
     refreshAccessToken = refresh;
     onSessionExpired = expire;
     accessTokenProvider = () async {
@@ -83,6 +99,7 @@ Future<void> main() async {
   final CartRepository cartRepository;
   final ChatbotRepository chatbotRepository;
   final CheckoutRepository checkoutRepository;
+  final ProfileRepository profileRepository;
   if (_apiBaseUrl.isNotEmpty) {
     // Render gói free ngủ khi rảnh: lần gọi đầu có thể mất 30-60 giây.
     final apiClient = ApiClient(
@@ -109,6 +126,11 @@ Future<void> main() async {
         accessTokenProvider: accessTokenProvider,
       ),
     );
+    profileRepository = ApiProfileRepository(
+      apiClient,
+      accessTokenProvider: accessTokenProvider,
+      avatarUploader: avatarUploader,
+    );
   } else {
     // Chưa cấu hình backend: chạy demo với dữ liệu giả
     debugPrint('API_BASE_URL chưa được cấu hình, dùng MockProductRepository.');
@@ -116,6 +138,7 @@ Future<void> main() async {
     cartRepository = const _UnavailableCartRepository();
     chatbotRepository = MockChatbotRepository();
     checkoutRepository = const MockCheckoutRepository();
+    profileRepository = MockProfileRepository();
   }
 
   runApp(
@@ -125,6 +148,7 @@ Future<void> main() async {
       cartRepository: cartRepository,
       chatbotRepository: chatbotRepository,
       checkoutRepository: checkoutRepository,
+      profileRepository: profileRepository,
     ),
   );
 }

@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient, VoucherType } from "@prisma/client";
+import { Prisma, PrismaClient, VoucherScope, VoucherType } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -192,6 +192,20 @@ async function main(): Promise<void> {
       usageLimit: 10,
       perUserLimit: 1,
       isPublic: false,
+      isActive: true,
+    },
+    {
+      code: "FREESHIP15K",
+      type: VoucherType.FIXED,
+      scope: VoucherScope.SHIPPING,
+      value: new Prisma.Decimal(15000),
+      maxDiscount: null,
+      minOrderAmount: new Prisma.Decimal(200000),
+      startsAt: now,
+      endsAt,
+      usageLimit: 100,
+      perUserLimit: 1,
+      isPublic: true,
       isActive: true,
     },
   ];
