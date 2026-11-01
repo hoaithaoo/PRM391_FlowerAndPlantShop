@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../models/checkout_flow_models.dart';
 import '../models/checkout_summary.dart';
+import '../models/voucher.dart';
 import '../utils/checkout_assets.dart';
 import '../utils/checkout_theme.dart';
 import '../utils/currency_formatter.dart';
@@ -639,6 +640,162 @@ class PriceSummaryCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Ô chọn voucher; [shipping] là voucher phí ship, còn lại là voucher giảm giá đơn.
+class CheckoutVoucherCard extends StatelessWidget {
+  const CheckoutVoucherCard({
+    super.key,
+    required this.voucher,
+    required this.discount,
+    required this.onTap,
+    required this.onRemove,
+    this.shipping = false,
+    this.keyPrefix = 'checkout',
+  });
+
+  final Voucher? voucher;
+  final num discount;
+  final VoidCallback onTap;
+  final VoidCallback onRemove;
+  final bool shipping;
+  final String keyPrefix;
+
+  @override
+  Widget build(BuildContext context) {
+    final voucher = this.voucher;
+    final selectedPrefix = shipping ? '$keyPrefix-shipping' : keyPrefix;
+    if (voucher == null) {
+      return CheckoutSurfaceCard(
+        key: Key(
+          shipping
+              ? '$keyPrefix-select-shipping-voucher'
+              : '$keyPrefix-select-voucher',
+        ),
+        onTap: onTap,
+        child: Row(
+          children: <Widget>[
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: CheckoutPalette.forest100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                shipping
+                    ? Icons.local_shipping_outlined
+                    : Icons.local_offer_outlined,
+                color: CheckoutPalette.forest800,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: <Widget>[
+                  Text(
+                    shipping ? 'Chọn voucher phí ship' : 'Chọn voucher',
+                    style: const TextStyle(
+                      color: CheckoutPalette.charcoal900,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    shipping
+                        ? 'Giảm phí giao hoa cho đơn này'
+                        : 'Áp dụng mã giảm giá cho đơn hoa',
+                    style: const TextStyle(
+                      color: CheckoutPalette.charcoal500,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: CheckoutPalette.charcoal400,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return CheckoutSurfaceCard(
+      key: Key('$selectedPrefix-selected-voucher'),
+      onTap: onTap,
+      borderColor: CheckoutPalette.petal300,
+      color: CheckoutPalette.petal50,
+      child: Row(
+        children: <Widget>[
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: CheckoutPalette.petal100,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(
+              Icons.local_offer_rounded,
+              color: CheckoutPalette.petal500,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Row(
+                  children: <Widget>[
+                    Text(
+                      voucher.code,
+                      style: const TextStyle(
+                        color: CheckoutPalette.charcoal900,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '-${formatVnd(discount)}',
+                      style: const TextStyle(
+                        color: CheckoutPalette.petal500,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Đã áp dụng mã giảm giá',
+                  style: TextStyle(
+                    color: CheckoutPalette.charcoal500,
+                    fontSize: 11,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            key: Key('$selectedPrefix-remove-voucher'),
+            icon: const Icon(
+              Icons.close_rounded,
+              color: CheckoutPalette.charcoal500,
+              size: 20,
+            ),
+            onPressed: onRemove,
+            tooltip: 'Bỏ chọn',
+          ),
+        ],
+      ),
     );
   }
 }

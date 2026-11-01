@@ -578,5 +578,53 @@ void main() {
       expect(find.byKey(const Key('checkout-select-voucher')), findsOneWidget);
       expect(find.text('Ưu đãi thành viên'), findsNothing);
     });
+
+    testWidgets('lấy tại quán chọn được voucher, không tính phí ship', (
+      tester,
+    ) async {
+      final voucher = Voucher(
+        code: 'HOA50K',
+        type: 'FIXED',
+        value: 50000,
+        minOrderAmount: 300000,
+        eligible: true,
+        discountAmount: 50000,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: CheckoutScreen(
+            repository: _MockVoucherRepository(
+              addresses: [_testAddress],
+              vouchers: [voucher],
+            ),
+            summary: _testSummary,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Lấy tại quán'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('pickup-select-shipping-voucher')), findsNothing);
+      expect(find.text('350.000 ₫'), findsWidgets);
+
+      final select = find.byKey(const Key('pickup-select-voucher'));
+      await tester.ensureVisible(select);
+      await tester.tap(select);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('voucher-item-HOA50K')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('pickup-selected-voucher')), findsOneWidget);
+      expect(find.text('300.000 ₫'), findsWidgets); // 350k - 50k, không ship
+
+      // Quay lại giao hàng vẫn giữ voucher đã chọn.
+      await tester.ensureVisible(find.text('Giao tận nơi'));
+      await tester.tap(find.text('Giao tận nơi'));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('checkout-selected-voucher')), findsOneWidget);
+      expect(find.text('320.000 ₫'), findsWidgets);
+    });
   });
 }
