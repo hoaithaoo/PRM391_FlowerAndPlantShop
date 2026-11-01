@@ -271,7 +271,11 @@ class _CartImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (item.imageAsset case final asset?) {
-      return Image.asset(asset, fit: BoxFit.cover);
+      return Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const _CartImagePlaceholder(),
+      );
     }
     if (item.imageUrl case final url?) {
       return Image.network(

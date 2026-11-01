@@ -47,7 +47,34 @@ class SupabaseAuthRepository implements AuthRepository {
       _passwordRecoveryController.stream;
 
   @override
-  bool get isSignedIn => _auth.currentSession != null;
+  bool get isSignedIn {
+    final session = _auth.currentSession;
+    return session != null && !session.isExpired;
+  }
+
+  @override
+  String? get accessToken {
+    final session = _auth.currentSession;
+    if (session == null || session.isExpired) return null;
+    return session.accessToken;
+  }
+
+  @override
+  Future<bool> refreshSessionIfExpired() async {
+    final session = _auth.currentSession;
+    if (session == null) return false;
+    if (!session.isExpired) return true;
+    try {
+      final response = await _auth.refreshSession();
+      final refreshed = response.session;
+      return refreshed != null && !refreshed.isExpired;
+    } catch (_) {
+      try {
+        await _auth.signOut();
+      } catch (_) {}
+      return false;
+    }
+  }
 
   @override
   Stream<bool> get signedInChanges => _auth.onAuthStateChange
@@ -55,9 +82,13 @@ class SupabaseAuthRepository implements AuthRepository {
         (state) =>
             state.event == AuthChangeEvent.signedIn ||
             state.event == AuthChangeEvent.signedOut ||
-            state.event == AuthChangeEvent.userUpdated,
+            state.event == AuthChangeEvent.userUpdated ||
+            state.event == AuthChangeEvent.tokenRefreshed,
       )
-      .map((state) => state.session != null);
+      .map((state) {
+        final session = state.session;
+        return session != null && !session.isExpired;
+      });
 
   @override
   Future<void> signInWithPassword({

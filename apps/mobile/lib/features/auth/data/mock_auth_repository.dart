@@ -10,7 +10,10 @@ import 'auth_repository.dart';
 /// - Mật khẩu [wrongPassword] luôn bị từ chối, mật khẩu khác đều đăng nhập được.
 /// - Email [existingEmail] coi như đã được đăng ký.
 class MockAuthRepository implements AuthRepository {
-  MockAuthRepository({this.delay = const Duration(milliseconds: 600)});
+  MockAuthRepository({
+    this.delay = const Duration(milliseconds: 600),
+    bool initialSignedIn = false,
+  }) : _isSignedIn = initialSignedIn;
 
   static const wrongPassword = 'wrong-password';
   static const existingEmail = 'existing@fleure.vn';
@@ -19,13 +22,35 @@ class MockAuthRepository implements AuthRepository {
   final _signedIn = StreamController<bool>.broadcast();
   final _passwordRecovery = StreamController<bool>.broadcast();
   bool _isSignedIn = false;
+  bool _isSessionExpired = false;
+  String? mockAccessToken = 'mock-valid-access-token';
   bool _isInPasswordRecovery = false;
   bool mockIsProfileComplete = true;
   Map<String, dynamic>? mockMetadata;
   String? mockEmail;
 
   @override
-  bool get isSignedIn => _isSignedIn;
+  bool get isSignedIn => _isSignedIn && !_isSessionExpired;
+
+  @override
+  String? get accessToken =>
+      (_isSignedIn && !_isSessionExpired) ? mockAccessToken : null;
+
+  void simulateSessionExpired() {
+    _isSessionExpired = true;
+    _signedIn.add(false);
+  }
+
+  @override
+  Future<bool> refreshSessionIfExpired() async {
+    if (!_isSignedIn) return false;
+    if (_isSessionExpired) {
+      _isSignedIn = false;
+      _signedIn.add(false);
+      return false;
+    }
+    return true;
+  }
 
   @override
   bool get isInPasswordRecovery => _isInPasswordRecovery;
@@ -127,6 +152,7 @@ class MockAuthRepository implements AuthRepository {
 
   void _setSignedIn(bool value) {
     _isSignedIn = value;
+    _isSessionExpired = false;
     _signedIn.add(value);
   }
 

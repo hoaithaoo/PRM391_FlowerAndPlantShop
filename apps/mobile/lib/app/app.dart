@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
+import '../features/auth/auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+
 import '../features/cart/state/cart_controller.dart';
 import '../features/cart/state/cart_scope.dart';
 import '../features/cart/data/cart_repository.dart';
@@ -14,11 +18,13 @@ import 'main_shell.dart';
 class PlantFlowerApp extends StatefulWidget {
   const PlantFlowerApp({
     super.key,
+    this.authRepository,
     required this.productRepository,
     required this.cartRepository,
     required this.chatbotRepository,
   });
 
+  final AuthRepository? authRepository;
   final ProductRepository productRepository;
   final CartRepository cartRepository;
   final ChatbotRepository chatbotRepository;
@@ -29,6 +35,20 @@ class PlantFlowerApp extends StatefulWidget {
 
 class _PlantFlowerAppState extends State<PlantFlowerApp> {
   final _navigatorKey = GlobalKey<NavigatorState>();
+  late final AuthRepository _authRepository =
+      widget.authRepository ?? _defaultAuthRepository();
+
+  static AuthRepository _defaultAuthRepository() {
+    try {
+      final client = Supabase.instance.client;
+      return SupabaseAuthRepository(
+        client.auth,
+        geocoder: NominatimAddressGeocoder(),
+      );
+    } catch (_) {
+      return MockAuthRepository(initialSignedIn: false);
+    }
+  }
   late final CartController _cartController = CartController(
     repository: widget.cartRepository,
   )..initialize();
@@ -41,7 +61,9 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
 
   @override
   Widget build(BuildContext context) {
-    return CartScope(
+    return AuthScope(
+      repository: _authRepository,
+      child: CartScope(
       controller: _cartController,
       child: ProductScope(
         repository: widget.productRepository,
@@ -49,9 +71,14 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
           navigatorKey: _navigatorKey,
           debugShowCheckedModeBanner: false,
           title: 'Nhà Có Hoa',
-          theme: AppTheme.data(),
-          home: const MainShell(),
-          onGenerateRoute: ProductRoutes.onGenerateRoute,
+          theme: AuthTheme.data(AppTheme.data()),
+          home: AuthSessionGate(
+            signedInBuilder: (_) => const MainShell(),
+          ),
+          onGenerateRoute: (settings) {
+            return AuthRoutes.onGenerateRoute(settings) ??
+                ProductRoutes.onGenerateRoute(settings);
+          },
           builder: (context, child) => ChatbotOverlayHost(
             repository: widget.chatbotRepository,
             launcherBottomInset: AppBottomNav.reservedHeight + 8,
@@ -62,6 +89,7 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
             child: child ?? const SizedBox.shrink(),
           ),
         ),
+      ),
       ),
     );
   }

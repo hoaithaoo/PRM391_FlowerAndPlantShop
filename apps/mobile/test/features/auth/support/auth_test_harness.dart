@@ -175,6 +175,14 @@ class FakeAuthRepository implements AuthRepository {
     await _enter('cancelPasswordRecovery');
     return _inner.cancelPasswordRecovery();
   }
+
+  @override
+  String? get accessToken => _inner.accessToken;
+
+  @override
+  Future<bool> refreshSessionIfExpired() => _inner.refreshSessionIfExpired();
+
+  void simulateSessionExpired() => _inner.simulateSessionExpired();
 }
 
 /// Dựng app auth bọc [AuthScope]. Mặc định có màn nền [kHomeText] ở đáy stack

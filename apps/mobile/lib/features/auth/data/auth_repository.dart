@@ -7,6 +7,13 @@ import '../models/auth_models.dart';
 abstract interface class AuthRepository {
   bool get isSignedIn;
 
+  /// Access token của phiên đăng nhập hiện tại (nếu có và còn hạn).
+  String? get accessToken;
+
+  /// Kiểm tra và làm mới token nếu session đã hết hạn.
+  /// Trả về `true` nếu session hợp lệ/làm mới thành công, `false` nếu không có hoặc hết hạn hoàn toàn.
+  Future<bool> refreshSessionIfExpired();
+
   /// Phát `true` khi có phiên đăng nhập mới (ví dụ quay về từ Google OAuth),
   /// `false` khi đăng xuất.
   Stream<bool> get signedInChanges;
