@@ -26,14 +26,22 @@ class AuthSessionGate extends StatefulWidget {
 
 class _AuthSessionGateState extends State<AuthSessionGate> {
   StreamSubscription<bool>? _recoverySub;
+  StreamSubscription<bool>? _signedInSub;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _recoverySub?.cancel();
+    _signedInSub?.cancel();
     final repository = AuthScope.of(context);
     _recoverySub = repository.passwordRecoveryChanges.listen((isRecovery) {
       if (isRecovery && mounted) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+    });
+    // Hết phiên giữa chừng: đóng các màn đang mở để lộ màn đăng nhập.
+    _signedInSub = repository.signedInChanges.listen((signedIn) {
+      if (!signedIn && mounted) {
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     });
@@ -42,6 +50,7 @@ class _AuthSessionGateState extends State<AuthSessionGate> {
   @override
   void dispose() {
     _recoverySub?.cancel();
+    _signedInSub?.cancel();
     super.dispose();
   }
 
@@ -54,7 +63,7 @@ class _AuthSessionGateState extends State<AuthSessionGate> {
       builder: (context, recoverySnapshot) {
         final isRecovery = recoverySnapshot.data ?? false;
         if (isRecovery) {
-          return const ResetPasswordScreen();
+          return const AuthTheme(child: ResetPasswordScreen());
         }
 
         return StreamBuilder<bool>(
@@ -63,13 +72,13 @@ class _AuthSessionGateState extends State<AuthSessionGate> {
           builder: (context, snapshot) {
             if (snapshot.data ?? false) {
               if (!repository.isProfileComplete) {
-                return const CompleteProfileScreen();
+                return const AuthTheme(child: CompleteProfileScreen());
               }
               return (widget.signedInBuilder ?? (_) => const SignedInPlaceholder())(
                 context,
               );
             }
-            return const LoginScreen();
+            return const AuthTheme(child: LoginScreen());
           },
         );
       },

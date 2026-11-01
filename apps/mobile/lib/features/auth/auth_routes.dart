@@ -6,6 +6,7 @@ import 'screens/forgot_password_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/reset_password_screen.dart';
+import 'utils/auth_theme.dart';
 
 /// Tên route và điều hướng dùng chung cho luồng auth.
 ///
@@ -35,7 +36,10 @@ abstract final class AuthRoutes {
       _ => null,
     };
     if (page == null) return null;
-    return MaterialPageRoute<void>(builder: (_) => page, settings: settings);
+    return MaterialPageRoute<void>(
+      builder: (_) => AuthTheme(child: page),
+      settings: settings,
+    );
   }
 
   static Future<void> openVerifyEmail(BuildContext context, String email) {

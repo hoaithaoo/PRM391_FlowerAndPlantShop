@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/checkout_flow_models.dart';
-import '../utils/checkout_assets.dart';
 import '../utils/checkout_theme.dart';
 import '../utils/checkout_validators.dart';
 import '../widgets/checkout_common.dart';
@@ -35,7 +34,6 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   };
 
   final _formKey = GlobalKey<FormState>();
-  final _locationAnchorKey = GlobalKey();
   final _nameAnchorKey = GlobalKey();
   final _phoneAnchorKey = GlobalKey();
   final _provinceAnchorKey = GlobalKey();
@@ -53,8 +51,6 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   late String? _ward;
   late String _label;
   late bool _isDefault;
-  late bool _hasLocation;
-  bool _locationTouched = false;
 
   @override
   void initState() {
@@ -83,8 +79,6 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     );
     _label = widget.address.label;
     _isDefault = widget.address.isDefault;
-    _hasLocation =
-        widget.address.latitude != null && widget.address.longitude != null;
   }
 
   @override
@@ -94,17 +88,6 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     _addressController.dispose();
     _driverNoteController.dispose();
     super.dispose();
-  }
-
-  void _locate() {
-    // TODO: Nhận latitude/longitude thật từ module bản đồ sau khi tích hợp location.
-    setState(() {
-      _hasLocation = true;
-      _locationTouched = true;
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã ghim vị trí minh họa trên bản đồ.')),
-    );
   }
 
   void _changeProvince(String? value) {
@@ -130,15 +113,14 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
 
   void _save() {
     final valid = _formKey.currentState?.validate() ?? false;
-    setState(() => _locationTouched = true);
-    if (!valid || !_hasLocation) {
+    if (!valid) {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _revealFirstInvalid(),
       );
       return;
     }
 
-    final address = CheckoutAddress(
+    final draft = CheckoutAddress(
       id: widget.address.id,
       label: _label,
       recipientName: _nameController.text.trim(),
@@ -151,15 +133,21 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
         _driverNoteController.text,
       ),
       isDefault: _isDefault,
-      latitude: widget.address.latitude ?? 10.7764,
-      longitude: widget.address.longitude ?? 106.7009,
     );
-    Navigator.of(context).pop(address);
+    // Đổi địa chỉ thì bỏ tọa độ cũ để server tra lại từ địa chỉ mới.
+    final sameAddress = draft.fullAddress == widget.address.fullAddress;
+    Navigator.of(context).pop(
+      sameAddress
+          ? draft.copyWith(
+              latitude: widget.address.latitude,
+              longitude: widget.address.longitude,
+            )
+          : draft,
+    );
   }
 
   void _revealFirstInvalid() {
     final checks = <(String?, GlobalKey)>[
-      (!_hasLocation ? 'invalid' : null, _locationAnchorKey),
       (CheckoutValidators.recipientName(_nameController.text), _nameAnchorKey),
       (
         CheckoutValidators.vietnamesePhone(_phoneController.text),
@@ -183,30 +171,6 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
       );
       break;
     }
-  }
-
-  Future<void> _delete() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Xóa địa chỉ này?'),
-        content: const Text('Địa chỉ sẽ được xóa khỏi danh sách nhận hoa.'),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Giữ lại'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: CheckoutPalette.error,
-            ),
-            child: const Text('Xóa địa chỉ'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -237,96 +201,12 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-              CheckoutSurfaceCard(
-                key: _locationAnchorKey,
-                padding: EdgeInsets.zero,
-                borderColor: _locationTouched && !_hasLocation
-                    ? CheckoutPalette.error
-                    : CheckoutPalette.cream300,
-                child: Column(
-                  children: <Widget>[
-                    Stack(
-                      children: <Widget>[
-                        const CheckoutAssetImage(
-                          asset: CheckoutAssets.addressMap,
-                          width: double.infinity,
-                          height: 142,
-                          fit: BoxFit.cover,
-                        ),
-                        Positioned.fill(
-                          child: Center(
-                            child: Container(
-                              width: 42,
-                              height: 42,
-                              decoration: const BoxDecoration(
-                                color: CheckoutPalette.forest900,
-                                shape: BoxShape.circle,
-                                boxShadow: <BoxShadow>[
-                                  BoxShadow(
-                                    color: Color(0x330D1E15),
-                                    blurRadius: 16,
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.local_florist_rounded,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: <Widget>[
-                                Text(
-                                  _hasLocation
-                                      ? 'Đã xác định vị trí giao hoa'
-                                      : 'Chưa xác định vị trí',
-                                  style: const TextStyle(
-                                    color: CheckoutPalette.charcoal900,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 3),
-                                const Text(
-                                  'Vị trí được ghi nhận tự động từ bản đồ.',
-                                  style: TextStyle(
-                                    color: CheckoutPalette.charcoal500,
-                                    fontSize: 10.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          TextButton.icon(
-                            onPressed: _locate,
-                            icon: const Icon(
-                              Icons.my_location_rounded,
-                              size: 17,
-                            ),
-                            label: Text(_hasLocation ? 'Cập nhật' : 'Định vị'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+              const CheckoutInfoBanner(
+                icon: Icons.location_on_outlined,
+                title: 'Vị trí giao hoa',
+                message:
+                    'Vị trí được xác định tự động từ địa chỉ để tính phí giao hàng.',
               ),
-              if (_locationTouched && !_hasLocation) ...[
-                const SizedBox(height: 7),
-                const Text(
-                  'Vui lòng chọn vị trí giao hàng.',
-                  style: TextStyle(color: CheckoutPalette.error, fontSize: 11),
-                ),
-              ],
               const SizedBox(height: 22),
               LabeledCheckoutField(
                 key: _nameAnchorKey,
@@ -464,17 +344,6 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                   widget.isCreating ? 'Thêm địa chỉ' : 'Lưu thay đổi',
                 ),
               ),
-              if (!widget.isCreating) ...[
-                const SizedBox(height: 10),
-                TextButton.icon(
-                  onPressed: _delete,
-                  icon: const Icon(Icons.delete_outline_rounded),
-                  label: const Text('Xóa địa chỉ'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: CheckoutPalette.error,
-                  ),
-                ),
-              ],
             ],
           ),
         ),

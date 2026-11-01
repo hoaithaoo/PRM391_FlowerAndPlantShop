@@ -8,9 +8,14 @@ import '../state/cart_controller.dart';
 import '../state/cart_scope.dart';
 
 class CartScreen extends StatelessWidget {
-  const CartScreen({super.key, required this.onContinueShopping});
+  const CartScreen({
+    super.key,
+    required this.onContinueShopping,
+    this.onCheckout,
+  });
 
   final VoidCallback onContinueShopping;
+  final VoidCallback? onCheckout;
 
   @override
   Widget build(BuildContext context) {
@@ -42,13 +47,7 @@ class CartScreen extends StatelessWidget {
             _CheckoutBar(
               subtotal: controller.subtotal,
               isBusy: controller.isMutating,
-              onCheckout: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Checkout API chưa được triển khai trên backend.',
-                  ),
-                ),
-              ),
+              onCheckout: onCheckout,
             ),
         ],
       ),
@@ -465,7 +464,7 @@ class _CheckoutBar extends StatelessWidget {
 
   final int subtotal;
   final bool isBusy;
-  final VoidCallback onCheckout;
+  final VoidCallback? onCheckout;
 
   @override
   Widget build(BuildContext context) {

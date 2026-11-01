@@ -220,6 +220,14 @@ void main() {
       },
     );
 
+    test('204 không có body là thành công với data null', () async {
+      final client = clientFor((_) async => http.Response('', 204));
+
+      final response = await client.delete('api/v1/cart/items/1');
+
+      expect(response.data, isNull);
+    });
+
     test('body rỗng với status lỗi thành UNKNOWN_ERROR', () async {
       final client = clientFor((_) async => http.Response('', 500));
 
