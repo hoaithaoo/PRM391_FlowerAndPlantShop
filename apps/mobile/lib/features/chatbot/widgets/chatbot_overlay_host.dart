@@ -12,6 +12,7 @@ class ChatbotOverlayHost extends StatefulWidget {
     required this.repository,
     required this.child,
     this.visible = true,
+    this.launcherBottomInset = 16,
     this.contextProvider,
     this.onProductTap,
     this.onOpenIncidentReport,
@@ -20,6 +21,7 @@ class ChatbotOverlayHost extends StatefulWidget {
   final ChatbotRepository repository;
   final Widget child;
   final bool visible;
+  final double launcherBottomInset;
   final ChatbotContextProvider? contextProvider;
   final ValueChanged<String>? onProductTap;
   final ValueChanged<IncidentReportDraft>? onOpenIncidentReport;
@@ -114,7 +116,9 @@ class _ChatbotOverlayHostState extends State<ChatbotOverlayHost> {
         if (widget.visible && !_isPanelOpen)
           Positioned(
             right: 16,
-            bottom: MediaQuery.paddingOf(context).bottom + 16,
+            bottom:
+                MediaQuery.paddingOf(context).bottom +
+                widget.launcherBottomInset,
             child: ChatbotLauncher(onPressed: _openPanel),
           ),
       ],
