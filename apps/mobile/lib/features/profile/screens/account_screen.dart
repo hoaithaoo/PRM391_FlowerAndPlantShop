@@ -279,7 +279,7 @@ class _Asset extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      SvgPicture.asset('assets/account/$name.svg', width: size, height: size);
+      SvgPicture.asset('assets/account/$name.svg');
 }
 
 class _AccountHeader extends StatelessWidget {
