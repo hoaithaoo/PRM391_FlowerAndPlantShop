@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_flower_mobile/app/main_shell.dart';
 import 'package:plant_flower_mobile/features/products/data/mock_product_repository.dart';
+import 'package:plant_flower_mobile/features/products/screens/product_detail_screen.dart';
 import 'package:plant_flower_mobile/features/products/screens/home_screen.dart';
 import 'package:plant_flower_mobile/features/products/screens/product_catalog_screen.dart';
 
@@ -12,12 +13,16 @@ import '../support/finders.dart';
 import '../support/product_test_app.dart';
 
 const _comingSoon = 'Tính năng đang được phát triển.';
-final _flowersKey = Key('catalog-category-${MockProductRepository.freshFlowers.id}');
+final _flowersKey = Key(
+  'catalog-category-${MockProductRepository.freshFlowers.id}',
+);
 final _plantsKey = Key('catalog-category-${MockProductRepository.plants.id}');
 
 void main() {
   group('thanh điều hướng', () {
-    testWidgets('hiện đủ 5 tab đúng thứ tự, mặc định ở Trang chủ', (tester) async {
+    testWidgets('hiện đủ 5 tab đúng thứ tự, mặc định ở Trang chủ', (
+      tester,
+    ) async {
       await pumpMainShell(tester);
       await tester.pumpAndSettle();
 
@@ -35,7 +40,9 @@ void main() {
       expect(find.byType(HomeScreen), findsOneWidget);
     });
 
-    testWidgets('tab đang chọn dùng icon đặc, tab khác dùng icon viền', (tester) async {
+    testWidgets('tab đang chọn dùng icon đặc, tab khác dùng icon viền', (
+      tester,
+    ) async {
       await pumpMainShell(tester);
       await tester.pumpAndSettle();
 
@@ -72,12 +79,14 @@ void main() {
       }
     });
 
-    testWidgets('tab chưa làm hiện "Tính năng đang được phát triển."', (tester) async {
+    testWidgets('tab chưa làm hiện "Tính năng đang được phát triển."', (
+      tester,
+    ) async {
       await pumpMainShell(tester);
       await tester.pumpAndSettle();
       expect(find.text(_comingSoon), findsNothing);
 
-      for (final tab in [MainTab.chatbot, MainTab.cart, MainTab.account]) {
+      for (final tab in [MainTab.chatbot, MainTab.account]) {
         await tapNav(tester, tab);
         expect(find.text(_comingSoon), findsOneWidget, reason: tab.label);
         // Tiêu đề của tab nằm trong nội dung (ngoài thanh điều hướng)
@@ -94,6 +103,97 @@ void main() {
       expect(find.text(_comingSoon), findsNothing);
     });
 
+    testWidgets('tab Giỏ hàng hiển thị thiết kế và cập nhật tổng tiền', (
+      tester,
+    ) async {
+      await pumpMainShell(tester);
+      await tester.pumpAndSettle();
+
+      await tapNav(tester, MainTab.cart);
+
+      expect(find.byKey(const Key('cart-screen')), findsOneWidget);
+      expect(
+        find.byKey(const Key('cart-item-30000000-0000-4000-8000-000000000001')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('cart-item-30000000-0000-4000-8000-000000000002')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const Key('cart-item-30000000-0000-4000-8000-000000000008')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('cart-subtotal')),
+          matching: find.text('1.385.000 ₫'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(
+          const Key('cart-increase-30000000-0000-4000-8000-000000000002'),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(
+          const Key('cart-quantity-30000000-0000-4000-8000-000000000002'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('cart-subtotal')),
+          matching: find.text('1.735.000 ₫'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.byKey(
+          const Key('cart-remove-30000000-0000-4000-8000-000000000008'),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('cart-item-30000000-0000-4000-8000-000000000008')),
+        findsNothing,
+      );
+      expect(find.text('Giỏ hàng (2)'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('cart-subtotal')),
+          matching: find.text('1.540.000 ₫'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('nút giỏ hàng từ chi tiết chuyển sang tab Giỏ hàng', (
+      tester,
+    ) async {
+      await pumpMainShell(tester);
+      await tester.pumpAndSettle();
+      final product = MockProductRepository.defaultProducts.first;
+      final card = find.byKey(Key('home-product-${product.id}'));
+      await tester.ensureVisible(card);
+      await tester.tap(card);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ProductDetailScreen), findsOneWidget);
+      await tester.tap(find.byKey(const Key('detail-cart')));
+      await tester.pumpAndSettle();
+
+      expect(currentTab(tester), MainTab.cart);
+      expect(find.byKey(const Key('cart-screen')), findsOneWidget);
+      expect(find.byType(ProductDetailScreen), findsNothing);
+    });
+
     testWidgets('chạm lại tab đang chọn không đổi gì', (tester) async {
       await pumpMainShell(tester);
       await tester.pumpAndSettle();
@@ -104,7 +204,9 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('chuyển tab giữ nguyên trạng thái màn danh mục', (tester) async {
+    testWidgets('chuyển tab giữ nguyên trạng thái màn danh mục', (
+      tester,
+    ) async {
       await pumpMainShell(tester);
       await tester.pumpAndSettle();
       await tapNav(tester, MainTab.products);
@@ -117,12 +219,19 @@ void main() {
       await tapNav(tester, MainTab.chatbot);
       await tapNav(tester, MainTab.products);
 
-      final field = tester.widget<TextField>(find.byKey(const Key('catalog-search')));
+      final field = tester.widget<TextField>(
+        find.byKey(const Key('catalog-search')),
+      );
       expect(field.controller!.text, 'tulip');
-      expect(textOf(tester, find.byKey(const Key('catalog-count'))), 'Hiển thị 1 tác phẩm');
+      expect(
+        textOf(tester, find.byKey(const Key('catalog-count'))),
+        'Hiển thị 1 tác phẩm',
+      );
     });
 
-    testWidgets('có chấm thông báo ở tab Giỏ hàng khi showCartDot', (tester) async {
+    testWidgets('có chấm thông báo ở tab Giỏ hàng khi showCartDot', (
+      tester,
+    ) async {
       Future<int> dots({required bool show}) async {
         await tester.pumpWidget(
           MaterialApp(
@@ -218,22 +327,36 @@ void main() {
 
       expect(currentTab(tester), MainTab.products);
       expect(isChipSelected(tester, _plantsKey), isTrue);
-      expect(isChipSelected(tester, const Key('catalog-category-all')), isFalse);
+      expect(
+        isChipSelected(tester, const Key('catalog-category-all')),
+        isFalse,
+      );
       expect(isChipSelected(tester, _flowersKey), isFalse);
       // Mock có 3 sản phẩm Cây cảnh
-      expect(textOf(tester, find.byKey(const Key('catalog-count'))), 'Hiển thị 3 tác phẩm');
+      expect(
+        textOf(tester, find.byKey(const Key('catalog-count'))),
+        'Hiển thị 3 tác phẩm',
+      );
     });
 
-    testWidgets('gọi lại với category khác hoặc null thì đổi theo', (tester) async {
+    testWidgets('gọi lại với category khác hoặc null thì đổi theo', (
+      tester,
+    ) async {
       await pumpMainShell(tester);
       await tester.pumpAndSettle();
       final context = tester.element(find.byType(HomeScreen));
 
-      MainShell.openCatalog(context, categoryId: MockProductRepository.plants.id);
+      MainShell.openCatalog(
+        context,
+        categoryId: MockProductRepository.plants.id,
+      );
       await tester.pumpAndSettle();
       expect(isChipSelected(tester, _plantsKey), isTrue);
 
-      MainShell.openCatalog(context, categoryId: MockProductRepository.freshFlowers.id);
+      MainShell.openCatalog(
+        context,
+        categoryId: MockProductRepository.freshFlowers.id,
+      );
       await tester.pumpAndSettle();
       expect(isChipSelected(tester, _flowersKey), isTrue);
       expect(isChipSelected(tester, _plantsKey), isFalse);
@@ -241,7 +364,10 @@ void main() {
       MainShell.openCatalog(context);
       await tester.pumpAndSettle();
       expect(isChipSelected(tester, const Key('catalog-category-all')), isTrue);
-      expect(textOf(tester, find.byKey(const Key('catalog-count'))), 'Hiển thị 10 tác phẩm');
+      expect(
+        textOf(tester, find.byKey(const Key('catalog-count'))),
+        'Hiển thị 10 tác phẩm',
+      );
     });
 
     testWidgets('từ tab khác vẫn quay về Sản phẩm', (tester) async {
@@ -259,7 +385,9 @@ void main() {
       expect(isChipSelected(tester, _flowersKey), isTrue);
     });
 
-    testWidgets('màn danh mục trong shell không có nút quay lại', (tester) async {
+    testWidgets('màn danh mục trong shell không có nút quay lại', (
+      tester,
+    ) async {
       await pumpMainShell(tester, initialTab: MainTab.products);
       await tester.pumpAndSettle();
 
