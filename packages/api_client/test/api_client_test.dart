@@ -6,6 +6,20 @@ import 'package:http/testing.dart';
 import 'package:plant_flower_api_client/plant_flower_api_client.dart';
 import 'package:test/test.dart';
 
+class _StalledBodyClient extends http.BaseClient {
+  final _body = StreamController<List<int>>();
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async =>
+      http.StreamedResponse(_body.stream, 200);
+
+  @override
+  void close() {
+    _body.close();
+    super.close();
+  }
+}
+
 http.Response jsonResponse(Object body, [int status = 200]) => http.Response(
   jsonEncode(body),
   status,
@@ -72,7 +86,10 @@ void main() {
         return jsonResponse({'success': true, 'data': null});
       });
 
-      await client.get('api/v1/products', query: {'page': '1', 'search': 'a b'});
+      await client.get(
+        'api/v1/products',
+        query: {'page': '1', 'search': 'a b'},
+      );
 
       expect(captured.method, 'GET');
       expect(captured.url.path, '/api/v1/products');
@@ -82,10 +99,7 @@ void main() {
 
     test('baseUrl có hoặc không có dấu / cuối đều ra cùng URL', () async {
       final urls = <String>[];
-      for (final base in [
-        'http://localhost:3000',
-        'http://localhost:3000/',
-      ]) {
+      for (final base in ['http://localhost:3000', 'http://localhost:3000/']) {
         final client = clientFor((request) async {
           urls.add(request.url.toString());
           return jsonResponse({'success': true, 'data': null});
@@ -112,29 +126,32 @@ void main() {
   });
 
   group('ApiClient.get - lỗi từ backend', () {
-    test('error envelope thành ApiException đúng status, code, message', () async {
-      final client = clientFor(
-        (_) async => jsonResponse({
-          'success': false,
-          'error': {
-            'code': 'PRODUCT_NOT_FOUND',
-            'message': 'Không tìm thấy sản phẩm',
-          },
-        }, 404),
-      );
+    test(
+      'error envelope thành ApiException đúng status, code, message',
+      () async {
+        final client = clientFor(
+          (_) async => jsonResponse({
+            'success': false,
+            'error': {
+              'code': 'PRODUCT_NOT_FOUND',
+              'message': 'Không tìm thấy sản phẩm',
+            },
+          }, 404),
+        );
 
-      await expectLater(
-        client.get('api/v1/products/x'),
-        throwsA(
-          isA<ApiException>()
-              .having((e) => e.statusCode, 'statusCode', 404)
-              .having((e) => e.code, 'code', 'PRODUCT_NOT_FOUND')
-              .having((e) => e.message, 'message', 'Không tìm thấy sản phẩm')
-              .having((e) => e.isNotFound, 'isNotFound', isTrue)
-              .having((e) => e.isNetworkError, 'isNetworkError', isFalse),
-        ),
-      );
-    });
+        await expectLater(
+          client.get('api/v1/products/x'),
+          throwsA(
+            isA<ApiException>()
+                .having((e) => e.statusCode, 'statusCode', 404)
+                .having((e) => e.code, 'code', 'PRODUCT_NOT_FOUND')
+                .having((e) => e.message, 'message', 'Không tìm thấy sản phẩm')
+                .having((e) => e.isNotFound, 'isNotFound', isTrue)
+                .having((e) => e.isNetworkError, 'isNetworkError', isFalse),
+          ),
+        );
+      },
+    );
 
     test('lỗi 400 validation giữ nguyên code', () async {
       final client = clientFor(
@@ -187,18 +204,21 @@ void main() {
       );
     });
 
-    test('status 2xx nhưng body không phải JSON cũng là UNKNOWN_ERROR', () async {
-      final client = clientFor((_) async => http.Response('OK', 200));
+    test(
+      'status 2xx nhưng body không phải JSON cũng là UNKNOWN_ERROR',
+      () async {
+        final client = clientFor((_) async => http.Response('OK', 200));
 
-      await expectLater(
-        client.get('x'),
-        throwsA(
-          isA<ApiException>()
-              .having((e) => e.statusCode, 'statusCode', 200)
-              .having((e) => e.code, 'code', 'UNKNOWN_ERROR'),
-        ),
-      );
-    });
+        await expectLater(
+          client.get('x'),
+          throwsA(
+            isA<ApiException>()
+                .having((e) => e.statusCode, 'statusCode', 200)
+                .having((e) => e.code, 'code', 'UNKNOWN_ERROR'),
+          ),
+        );
+      },
+    );
 
     test('body rỗng với status lỗi thành UNKNOWN_ERROR', () async {
       final client = clientFor((_) async => http.Response('', 500));
@@ -272,6 +292,29 @@ void main() {
           isA<ApiException>()
               .having((e) => e.isNetworkError, 'isNetworkError', isTrue)
               .having((e) => e.message, 'message', isNotEmpty),
+        ),
+      );
+    });
+  });
+
+  group('ApiClient response body timeout', () {
+    test('timeout includes downloading the response body', () async {
+      final stalled = _StalledBodyClient();
+      final client = ApiClient(
+        baseUrl: 'http://localhost:3000',
+        httpClient: stalled,
+        timeout: const Duration(milliseconds: 20),
+      );
+      addTearDown(client.close);
+
+      await expectLater(
+        client.get('x'),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.isNetworkError,
+            'isNetworkError',
+            isTrue,
+          ),
         ),
       );
     });
