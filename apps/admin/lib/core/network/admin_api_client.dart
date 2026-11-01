@@ -55,6 +55,23 @@ class AdminApiClient {
   late AdminUsersService users;
   late AdminFinanceService finance;
 
+  static String get defaultBaseUrl {
+    const fromEnv = String.fromEnvironment('API_BASE_URL');
+    if (fromEnv.isNotEmpty) {
+      return fromEnv.endsWith('/api/v1') ? fromEnv : '$fromEnv/api/v1';
+    }
+    const adminFromEnv = String.fromEnvironment('ADMIN_API_BASE_URL');
+    if (adminFromEnv.isNotEmpty) {
+      return adminFromEnv.endsWith('/api/v1') ? adminFromEnv : '$adminFromEnv/api/v1';
+    }
+    return (kIsWeb ||
+            defaultTargetPlatform == TargetPlatform.macOS ||
+            defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux)
+        ? 'http://localhost:5000/api/v1'
+        : 'http://10.0.2.2:5000/api/v1';
+  }
+
   AdminApiClient({
     String? baseUrl,
     http.Client? httpClient,
@@ -66,18 +83,31 @@ class AdminApiClient {
     AdminOrdersService? orders,
     AdminUsersService? users,
     AdminFinanceService? finance,
-  })  : baseUrl = baseUrl ??
-            (kIsWeb
-                ? 'http://localhost:5000/api/v1'
-                : 'http://10.0.2.2:5000/api/v1'),
+  })  : baseUrl = baseUrl ?? defaultBaseUrl,
         httpClient = httpClient ?? http.Client() {
-    this.auth = auth ?? MockAuthService(onTokenGenerated: setAuthToken);
-    this.dashboard = dashboard ?? MockDashboardService();
-    this.products = products ?? MockProductsService();
-    this.categories = categories ?? MockCategoriesService();
-    this.orders = orders ?? MockOrdersService();
-    this.users = users ?? MockUsersService();
-    this.finance = finance ?? MockFinanceService();
+    this.auth = auth ?? createRemoteAuth();
+    this.dashboard = dashboard ?? createRemoteDashboard();
+    this.products = products ?? createRemoteProducts();
+    this.categories = categories ?? createRemoteCategories();
+    this.orders = orders ?? createRemoteOrders();
+    this.users = users ?? createRemoteUsers();
+    this.finance = finance ?? createRemoteFinance();
+  }
+
+  /// Khởi tạo với Mock data (dành cho kiểm thử ngoại tuyến hoặc test)
+  AdminApiClient.mock({
+    String? baseUrl,
+    http.Client? httpClient,
+    this.onSessionExpired,
+  })  : baseUrl = baseUrl ?? defaultBaseUrl,
+        httpClient = httpClient ?? http.Client() {
+    auth = MockAuthService(onTokenGenerated: setAuthToken);
+    dashboard = MockDashboardService();
+    products = MockProductsService();
+    categories = MockCategoriesService();
+    orders = MockOrdersService();
+    users = MockUsersService();
+    finance = MockFinanceService();
   }
 
   void setAuthToken(String? token) {

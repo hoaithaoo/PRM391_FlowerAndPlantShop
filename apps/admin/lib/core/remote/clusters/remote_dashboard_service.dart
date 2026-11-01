@@ -29,7 +29,7 @@ class RemoteDashboardService implements AdminDashboardService {
     responseValidator?.call(res);
     final data = jsonDecode(res.body)['data'];
     return DashboardStatsModel.fromJson(
-      data['stats'] as Map<String, dynamic>,
+      (data['stats'] ?? data) as Map<String, dynamic>,
     );
   }
 }

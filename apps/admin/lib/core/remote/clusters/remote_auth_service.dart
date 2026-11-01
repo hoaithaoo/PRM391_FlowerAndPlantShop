@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:plant_flower_shared/plant_flower_shared.dart';
+import '../../network/api_exceptions.dart';
 import '../../services/contracts/admin_auth_service.dart';
 
 class RemoteAuthService implements AdminAuthService {
@@ -27,10 +28,17 @@ class RemoteAuthService implements AdminAuthService {
     );
     responseValidator?.call(res);
     final data = jsonDecode(res.body)['data'];
+    final profile = UserProfile.fromJson(
+      data['profile'] as Map<String, dynamic>,
+    );
+    // App quản trị chỉ cho tài khoản ADMIN.
+    if (profile.role != UserRole.admin) {
+      throw const ForbiddenException();
+    }
     final token = data['token'] as String?;
     if (token != null) {
       onTokenSaved?.call(token);
     }
-    return UserProfile.fromJson(data['profile'] as Map<String, dynamic>);
+    return profile;
   }
 }

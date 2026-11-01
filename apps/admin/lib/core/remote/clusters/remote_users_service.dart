@@ -16,6 +16,9 @@ class RemoteUsersService implements AdminUsersService {
     this.responseValidator,
   });
 
+  static List<dynamic> _listFrom(dynamic data) =>
+      data is List ? data : (data as Map<String, dynamic>)['items'] as List<dynamic>;
+
   @override
   Future<List<UserProfile>> getUsers({
     String? search,
@@ -26,15 +29,15 @@ class RemoteUsersService implements AdminUsersService {
     final queryParams = <String, String>{
       'page': page.toString(),
       if (search != null && search.isNotEmpty) 'search': search,
-      if (role != null) 'role': role.name,
-      if (status != null) 'status': status.name,
+      if (role != null) 'role': role.toApiString(),
+      if (status != null) 'status': status.toApiString(),
     };
     final uri = Uri.parse('$baseUrl/admin/users').replace(
       queryParameters: queryParams,
     );
     final res = await httpClient.get(uri, headers: headersProvider());
     responseValidator?.call(res);
-    final data = jsonDecode(res.body)['data'] as List<dynamic>;
+    final data = _listFrom(jsonDecode(res.body)['data']);
     return data.map((e) => UserProfile.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -54,11 +57,11 @@ class RemoteUsersService implements AdminUsersService {
     AccountStatus? status,
   }) async {
     final body = <String, dynamic>{
-      if (role != null) 'role': role.name,
-      if (status != null) 'status': status.name,
+      if (role != null) 'role': role.toApiString(),
+      if (status != null) 'status': status.toApiString(),
     };
     final uri = Uri.parse('$baseUrl/admin/users/$id');
-    final res = await httpClient.put(
+    final res = await httpClient.patch(
       uri,
       headers: headersProvider(),
       body: jsonEncode(body),

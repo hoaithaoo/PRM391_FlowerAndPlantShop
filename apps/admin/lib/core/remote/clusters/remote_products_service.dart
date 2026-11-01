@@ -16,12 +16,16 @@ class RemoteProductsService implements AdminProductsService {
     this.responseValidator,
   });
 
+  static List<dynamic> _listFrom(dynamic data) =>
+      data is List ? data : (data as Map<String, dynamic>)['items'] as List<dynamic>;
+
   @override
   Future<List<ProductModel>> getProducts({
     String? categoryId,
     String? search,
   }) async {
     final queryParams = <String, String>{
+      'limit': '100',
       if (categoryId != null && categoryId.isNotEmpty) 'categoryId': categoryId,
       if (search != null && search.isNotEmpty) 'search': search,
     };
@@ -30,7 +34,7 @@ class RemoteProductsService implements AdminProductsService {
     );
     final res = await httpClient.get(uri, headers: headersProvider());
     responseValidator?.call(res);
-    final data = jsonDecode(res.body)['data'] as List<dynamic>;
+    final data = _listFrom(jsonDecode(res.body)['data']);
     return data.map((e) => ProductModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 

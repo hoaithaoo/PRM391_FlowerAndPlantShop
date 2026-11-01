@@ -16,6 +16,10 @@ class RemoteFinanceService implements AdminFinanceService {
     this.responseValidator,
   });
 
+  /// Danh sách theo spec nằm ở `data.items`; vẫn nhận `data` là mảng cho tương thích.
+  static List<dynamic> _listFrom(dynamic data) =>
+      data is List ? data : (data as Map<String, dynamic>)['items'] as List<dynamic>;
+
   @override
   Future<List<InvoiceModel>> getInvoices({
     InvoiceStatus? status,
@@ -24,7 +28,7 @@ class RemoteFinanceService implements AdminFinanceService {
   }) async {
     final queryParams = <String, String>{
       'page': page.toString(),
-      if (status != null) 'status': status.name,
+      if (status != null) 'status': status.toApiString(),
       if (search != null && search.isNotEmpty) 'search': search,
     };
     final uri = Uri.parse('$baseUrl/admin/invoices').replace(
@@ -32,7 +36,7 @@ class RemoteFinanceService implements AdminFinanceService {
     );
     final res = await httpClient.get(uri, headers: headersProvider());
     responseValidator?.call(res);
-    final data = jsonDecode(res.body)['data'] as List<dynamic>;
+    final data = _listFrom(jsonDecode(res.body)['data']);
     return data.map((e) => InvoiceModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -61,7 +65,7 @@ class RemoteFinanceService implements AdminFinanceService {
     );
     final res = await httpClient.get(uri, headers: headersProvider());
     responseValidator?.call(res);
-    final data = jsonDecode(res.body)['data'] as List<dynamic>;
+    final data = _listFrom(jsonDecode(res.body)['data']);
     return data.map((e) => SepayTransactionModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
