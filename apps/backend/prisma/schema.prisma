@@ -63,6 +63,11 @@ enum ChatRole {
   ASSISTANT
 }
 
+enum VoucherType {
+  PERCENT
+  FIXED
+}
+
 model Profile {
   id        String     @id @db.Uuid // Maps to Supabase auth.users.id
   email     String?
@@ -82,6 +87,7 @@ model Profile {
   chatbotConversations ChatbotConversation[]
   chatbotRateLimit     ChatbotRateLimit?
   addresses            UserAddress[]
+  voucherRedemptions   VoucherRedemption[]
 
   @@map("profiles")
 }
@@ -187,14 +193,19 @@ model Order {
   recipientName     String        @map("recipient_name")
   recipientPhone    String        @map("recipient_phone")
   note              String?
+  /// Có giá trị nghĩa là khách nhận tại quán; shipping_* khi đó là của cửa hàng.
+  pickupStoreId     String?       @map("pickup_store_id") @db.Uuid
+  pickupAt          DateTime?     @map("pickup_at") @db.Timestamptz(3)
   cancelledAt       DateTime?     @map("cancelled_at") @db.Timestamptz(3)
   completedAt       DateTime?     @map("completed_at") @db.Timestamptz(3)
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user    Profile     @relation(fields: [userId], references: [id])
-  items   OrderItem[]
-  invoice Invoice?
+  user              Profile            @relation(fields: [userId], references: [id])
+  pickupStore       Store?             @relation(fields: [pickupStoreId], references: [id])
+  items             OrderItem[]
+  invoice           Invoice?
+  voucherRedemption VoucherRedemption?
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -341,6 +352,8 @@ model Store {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
+  pickupOrders Order[]
+
   @@map("stores")
 }
 
@@ -404,4 +417,46 @@ model UserAddress {
   @@index([userId, isDelete])
   @@index([userId, createdAt])
   @@map("user_addresses")
+}
+
+model Voucher {
+  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String      @unique
+  type           VoucherType
+  value          Decimal     @db.Decimal(18, 0)
+  maxDiscount    Decimal?    @map("max_discount") @db.Decimal(18, 0)
+  minOrderAmount Decimal     @default(0) @map("min_order_amount") @db.Decimal(18, 0)
+  startsAt       DateTime    @map("starts_at") @db.Timestamptz(3)
+  endsAt         DateTime    @map("ends_at") @db.Timestamptz(3)
+  usageLimit     Int?        @map("usage_limit")
+  perUserLimit   Int         @default(1) @map("per_user_limit")
+  usedCount      Int         @default(0) @map("used_count")
+  isPublic       Boolean     @default(true) @map("is_public")
+  isActive       Boolean     @default(true) @map("is_active")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  redemptions VoucherRedemption[]
+
+  @@index([isPublic, isActive, endsAt])
+  @@map("vouchers")
+}
+
+model VoucherRedemption {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  voucherId  String    @map("voucher_id") @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  orderId    String    @unique @map("order_id") @db.Uuid
+  code       String
+  amount     Decimal   @db.Decimal(18, 0)
+  releasedAt DateTime? @map("released_at") @db.Timestamptz(3)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  voucher Voucher @relation(fields: [voucherId], references: [id])
+  user    Profile @relation(fields: [userId], references: [id])
+  order   Order   @relation(fields: [orderId], references: [id])
+
+  @@index([voucherId, userId])
+  @@index([userId])
+  @@map("voucher_redemptions")
 }

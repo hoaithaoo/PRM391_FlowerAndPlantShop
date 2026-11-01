@@ -55,6 +55,8 @@ const orderSummarySelect = {
   recipientPhone: true,
   shippingAddress: true,
   note: true,
+  pickupAt: true,
+  pickupStore: { select: { id: true, name: true } },
   createdAt: true,
   updatedAt: true,
   user: { select: { id: true, fullName: true, email: true, phone: true } },
@@ -114,6 +116,8 @@ const mapSummary = (order: OrderSummaryRow) => {
     customerAddress: order.shippingAddress,
     invoiceId: order.invoice?.id ?? null,
     note: order.note,
+    pickupStore: order.pickupStore,
+    pickupAt: order.pickupAt,
     createdAt: order.createdAt,
     updatedAt: order.updatedAt,
   };

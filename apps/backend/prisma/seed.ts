@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient, VoucherType } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -151,8 +151,72 @@ async function main(): Promise<void> {
     });
   }
 
+  const now = new Date();
+  const endsAt = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+  const vouchers = [
+    {
+      code: "HOA50K",
+      type: VoucherType.FIXED,
+      value: new Prisma.Decimal(50000),
+      maxDiscount: null,
+      minOrderAmount: new Prisma.Decimal(300000),
+      startsAt: now,
+      endsAt,
+      usageLimit: 100,
+      perUserLimit: 1,
+      isPublic: true,
+      isActive: true,
+    },
+    {
+      code: "HOA20",
+      type: VoucherType.PERCENT,
+      value: new Prisma.Decimal(20),
+      maxDiscount: new Prisma.Decimal(100000),
+      minOrderAmount: new Prisma.Decimal(200000),
+      startsAt: now,
+      endsAt,
+      usageLimit: 100,
+      perUserLimit: 1,
+      isPublic: true,
+      isActive: true,
+    },
+    {
+      code: "HOAVIP",
+      type: VoucherType.FIXED,
+      value: new Prisma.Decimal(100000),
+      maxDiscount: null,
+      minOrderAmount: new Prisma.Decimal(500000),
+      startsAt: now,
+      endsAt,
+      usageLimit: 10,
+      perUserLimit: 1,
+      isPublic: false,
+      isActive: true,
+    },
+  ];
+
+  for (const voucher of vouchers) {
+    await prisma.voucher.upsert({
+      where: { code: voucher.code },
+      update: {
+        type: voucher.type,
+        value: voucher.value,
+        maxDiscount: voucher.maxDiscount,
+        minOrderAmount: voucher.minOrderAmount,
+        startsAt: voucher.startsAt,
+        endsAt: voucher.endsAt,
+        usageLimit: voucher.usageLimit,
+        perUserLimit: voucher.perUserLimit,
+        isPublic: voucher.isPublic,
+        isActive: voucher.isActive,
+      },
+      create: voucher,
+    });
+  }
+
   console.info(
-    `Seed completed: ${categories.length} categories, ${products.length} products, ${stores.length} stores.`
+    `Seed completed: ${categories.length} categories, ${products.length} products, ${stores.length} stores, ${vouchers.length} vouchers.`
   );
 }
 
