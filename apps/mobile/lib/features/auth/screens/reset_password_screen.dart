@@ -98,12 +98,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             onPressed: _onCancel,
           ),
           const SizedBox(width: 8),
-          Text(
-            'Tạo mật khẩu mới',
-            style: AuthFonts.sans(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: AuthPalette.ink,
+          Expanded(
+            child: Text(
+              'Tạo mật khẩu mới',
+              style: AuthFonts.sans(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: AuthPalette.ink,
+              ),
             ),
           ),
         ],
