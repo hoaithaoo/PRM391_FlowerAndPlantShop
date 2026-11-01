@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
+import '../features/cart/screens/cart_screen.dart';
+import '../features/cart/state/cart_scope.dart';
 import '../features/products/screens/home_screen.dart';
 import '../features/products/screens/product_catalog_screen.dart';
 
@@ -34,6 +36,12 @@ class MainShell extends StatefulWidget {
     state?._openCatalog(categoryId);
   }
 
+  static void openCart(BuildContext context) {
+    final state = context.findAncestorStateOfType<_MainShellState>();
+    assert(state != null, 'Không tìm thấy MainShell phía trên widget này.');
+    state?._openCart();
+  }
+
   @override
   State<MainShell> createState() => _MainShellState();
 }
@@ -53,6 +61,8 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  void _openCart() => setState(() => _tab = MainTab.cart);
+
   Widget _buildTab(MainTab tab) {
     return switch (tab) {
       MainTab.home => const HomeScreen(),
@@ -60,6 +70,7 @@ class _MainShellState extends State<MainShell> {
         key: ValueKey(_catalogVersion),
         initialCategoryId: _catalogCategoryId,
       ),
+      MainTab.cart => CartScreen(onContinueShopping: () => _openCatalog(null)),
       _ => _ComingSoon(tab: tab),
     };
   }
@@ -79,6 +90,7 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: AppBottomNav(
         current: _tab,
         onSelected: (tab) => setState(() => _tab = tab),
+        showCartDot: CartScope.of(context).totalQuantity > 0,
       ),
     );
   }
@@ -168,7 +180,11 @@ class _NavItem extends StatelessWidget {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Icon(selected ? tab.activeIcon : tab.icon, size: 20, color: color),
+                  Icon(
+                    selected ? tab.activeIcon : tab.icon,
+                    size: 20,
+                    color: color,
+                  ),
                   if (showDot)
                     const Positioned(
                       right: -2,

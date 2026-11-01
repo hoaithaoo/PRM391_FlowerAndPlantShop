@@ -1,4 +1,5 @@
 export 'data/chatbot_failure.dart';
+export 'data/api_client_chatbot_transport.dart';
 export 'data/chatbot_remote_data_source.dart';
 export 'data/chatbot_repository.dart';
 export 'data/chatbot_repository_impl.dart';
