@@ -119,6 +119,13 @@ class FakeRepository implements ChatbotRepository {
     return this.historyPage;
   }
 
+  async listOwnedConversations(userId: string) {
+    const items = [...this.conversations.values()]
+      .filter((conversation) => conversation.userId === userId)
+      .map(({ id, title }) => ({ id, title, updatedAt: NOW }));
+    return { items, total: items.length };
+  }
+
   async deleteOwnedConversation(conversationId: string, userId: string): Promise<boolean> {
     this.deleteCalls.push({ conversationId, userId });
     const conversation = await this.findOwnedConversation(conversationId, userId);
@@ -208,6 +215,21 @@ function service(
     newId: () => CONVERSATION_ID,
   });
 }
+
+describe("ChatbotService.listConversations", () => {
+  test("returns only the user's conversations", async () => {
+    const repository = new FakeRepository();
+    repository.conversations.set(CONVERSATION_ID, { id: CONVERSATION_ID, userId: USER_ID, title: "Hoa" });
+    repository.conversations.set("other", { id: "other", userId: "other-user", title: "Khác" });
+
+    const result = await service(repository, new FakeProvider()).listConversations(USER_ID, 1);
+
+    assert.deepEqual(result.items, [
+      { id: CONVERSATION_ID, title: "Hoa", updatedAt: NOW.toISOString() },
+    ]);
+    assert.equal(result.total, 1);
+  });
+});
 
 describe("ChatbotService.sendMessage", () => {
   test("creates a conversation and persists DB-backed product cards in assistant metadata", async () => {

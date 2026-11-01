@@ -6,6 +6,7 @@ import {
   ChatbotConversationRecord,
   ChatbotExchangeInput,
   ChatbotExchangeResult,
+  ChatbotConversationPage,
   ChatbotHistoryPage,
   ChatbotKnowledgeChunk,
   ChatbotRepository,
@@ -302,6 +303,24 @@ export class PrismaChatbotRepository implements ChatbotRepository {
     ]);
     // Phân trang từ tin mới nhất nhưng trả từng trang theo thứ tự đọc từ cũ đến mới.
     return { items: rows.reverse(), total };
+  }
+
+  async listOwnedConversations(
+    userId: string,
+    page: number,
+    pageSize: number
+  ): Promise<ChatbotConversationPage> {
+    const [items, total] = await this.client.$transaction([
+      this.client.chatbotConversation.findMany({
+        where: { userId },
+        orderBy: { updatedAt: "desc" },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        select: { id: true, title: true, updatedAt: true },
+      }),
+      this.client.chatbotConversation.count({ where: { userId } }),
+    ]);
+    return { items, total };
   }
 
   async deleteOwnedConversation(conversationId: string, userId: string): Promise<boolean> {
