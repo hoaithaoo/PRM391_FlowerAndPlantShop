@@ -36,7 +36,7 @@ class EmailVerificationHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          Image.asset(AuthAssets.fleureLogo, height: 32),
+          Image.asset(AuthAssets.fleureLogo, height: 32, errorBuilder: (_, _, _) => const SizedBox(width: 32, height: 32)),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -77,7 +77,7 @@ class EmailVerificationBanner extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             clipBehavior: Clip.antiAlias,
-            child: Image.asset(_thumbnailAsset, fit: BoxFit.cover),
+            child: Image.asset(_thumbnailAsset, fit: BoxFit.cover, errorBuilder: (_, _, _) => const SizedBox.shrink()),
           ),
           const SizedBox(width: 12),
           Expanded(
