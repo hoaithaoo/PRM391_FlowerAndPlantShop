@@ -15,6 +15,7 @@ Future<void> submitEmpty(WidgetTester tester) async {
 /// Điền dữ liệu y hệt thiết kế rồi submit: 6 lỗi, riêng địa chỉ hợp lệ.
 Future<void> enterDesignErrorState(WidgetTester tester) async {
   await fillDesignErrorData(tester);
+  await tester.pumpAndSettle();
   await tapKey(tester, 'register_submit_button');
   await settle(tester);
 }
