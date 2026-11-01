@@ -28,6 +28,7 @@ class CheckoutSummary {
     required this.shippingFee,
     required this.grandTotal,
     this.discount = 0,
+    this.shippingDiscount = 0,
   });
 
   final List<CheckoutSummaryItem> items;
@@ -36,6 +37,7 @@ class CheckoutSummary {
   final num shippingFee;
   final num grandTotal;
   final num discount;
+  final num shippingDiscount;
 
   int get totalQuantity {
     return items.fold<int>(0, (total, item) => total + item.quantity);

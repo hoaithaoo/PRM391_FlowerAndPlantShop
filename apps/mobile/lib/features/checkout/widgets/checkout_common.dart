@@ -562,7 +562,7 @@ class PriceSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final total = pickup
-        ? summary.grandTotal - summary.shippingFee
+        ? summary.grandTotal - summary.shippingFee + summary.shippingDiscount
         : summary.grandTotal;
     return CheckoutSurfaceCard(
       child: Column(
@@ -574,6 +574,14 @@ class PriceSummaryCard extends StatelessWidget {
             pickup ? 'Miễn phí' : formatVnd(summary.shippingFee),
             valueColor: pickup ? CheckoutPalette.forest700 : null,
           ),
+          if (!pickup && summary.shippingDiscount > 0) ...[
+            const SizedBox(height: 11),
+            _row(
+              'Giảm phí ship',
+              '-${formatVnd(summary.shippingDiscount)}',
+              valueColor: CheckoutPalette.petal500,
+            ),
+          ],
           if (summary.discount > 0) ...[
             const SizedBox(height: 11),
             _row(

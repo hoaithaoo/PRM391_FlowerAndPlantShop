@@ -93,8 +93,14 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   }
 
   @override
-  Future<List<Voucher>> availableVouchers() async {
-    final data = await _remoteDataSource.availableVouchers();
+  Future<List<Voucher>> availableVouchers({
+    num? subtotal,
+    num? shippingFee,
+  }) async {
+    final data = await _remoteDataSource.availableVouchers(
+      subtotal: subtotal,
+      shippingFee: shippingFee,
+    );
     return _parse(() {
       final items = data['items'];
       if (items is! List) throw const FormatException('Missing items.');
@@ -105,8 +111,16 @@ class CheckoutRepositoryImpl implements CheckoutRepository {
   }
 
   @override
-  Future<Voucher> validateVoucher(String code) async {
-    final data = await _remoteDataSource.validateVoucher(code);
+  Future<Voucher> validateVoucher(
+    String code, {
+    num? subtotal,
+    num? shippingFee,
+  }) async {
+    final data = await _remoteDataSource.validateVoucher(
+      code,
+      subtotal: subtotal,
+      shippingFee: shippingFee,
+    );
     return _parse(() => Voucher.fromJson(data));
   }
 

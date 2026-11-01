@@ -150,21 +150,36 @@ class CheckoutRemoteDataSource {
     );
   }
 
-  Future<Map<String, dynamic>> availableVouchers() {
+  Future<Map<String, dynamic>> availableVouchers({
+    num? subtotal,
+    num? shippingFee,
+  }) {
     return _send(
       (headers) => _transport.get(
         path: '$vouchersEndpoint/available',
         headers: headers,
+        query: <String, String>{
+          if (subtotal != null) 'subtotal': '${subtotal.round()}',
+          if (shippingFee != null) 'shippingFee': '${shippingFee.round()}',
+        },
       ),
     );
   }
 
-  Future<Map<String, dynamic>> validateVoucher(String code) {
+  Future<Map<String, dynamic>> validateVoucher(
+    String code, {
+    num? subtotal,
+    num? shippingFee,
+  }) {
     return _send(
       (headers) => _transport.post(
         path: '$vouchersEndpoint/validate',
         headers: headers,
-        body: <String, dynamic>{'code': code},
+        body: <String, dynamic>{
+          'code': code,
+          if (subtotal != null) 'subtotal': subtotal.round(),
+          if (shippingFee != null) 'shippingFee': shippingFee.round(),
+        },
       ),
     );
   }

@@ -19,12 +19,14 @@ class PickupCheckoutScreen extends StatefulWidget {
     required this.repository,
     required this.onPlaceOrder,
     this.voucherCode,
+    this.buyNow,
   });
 
   final CheckoutFlowController controller;
   final CheckoutSummary summary;
   final CheckoutRepository repository;
   final String? voucherCode;
+  final CheckoutBuyNow? buyNow;
 
   /// Màn checkout gửi đơn và điều hướng. [branch] là cửa hàng dưới dạng địa chỉ
   /// để các màn kết quả dùng chung; [pickupTime] là chuỗi hiển thị cho khách.
@@ -241,6 +243,7 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
             : PaymentMethod.cod,
         note: widget.controller.pickupNote,
         voucherCode: widget.voucherCode,
+        buyNow: widget.buyNow,
         pickupStoreId: branch.id,
         pickupAt: _pickupAt,
       ),
@@ -320,7 +323,10 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
   @override
   Widget build(BuildContext context) {
     final date = widget.controller.pickupDate;
-    final pickupTotal = widget.summary.grandTotal - widget.summary.shippingFee;
+    final pickupTotal =
+        widget.summary.grandTotal -
+        widget.summary.shippingFee +
+        widget.summary.shippingDiscount;
     return CheckoutTheme(
       child: Scaffold(
         appBar: const FleureAppBar(title: 'Thanh toán · Lấy tại quán'),

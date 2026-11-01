@@ -12,10 +12,18 @@ class VoucherListScreen extends StatefulWidget {
     super.key,
     required this.repository,
     this.currentVoucher,
+    this.scope = Voucher.orderScope,
+    this.subtotal,
+    this.shippingFee,
   });
 
   final CheckoutRepository repository;
   final Voucher? currentVoucher;
+
+  /// Chỉ hiện và chỉ nhận voucher loại này.
+  final String scope;
+  final num? subtotal;
+  final num? shippingFee;
 
   @override
   State<VoucherListScreen> createState() => _VoucherListScreenState();
@@ -48,10 +56,15 @@ class _VoucherListScreenState extends State<VoucherListScreen> {
     });
 
     try {
-      final items = await widget.repository.availableVouchers();
+      final items = await widget.repository.availableVouchers(
+        subtotal: widget.subtotal,
+        shippingFee: widget.shippingFee,
+      );
       if (!mounted) return;
       setState(() {
-        _vouchers = items;
+        _vouchers = items
+            .where((item) => item.scope == widget.scope)
+            .toList(growable: false);
         _loading = false;
       });
     } catch (_) {
@@ -74,8 +87,21 @@ class _VoucherListScreenState extends State<VoucherListScreen> {
     });
 
     try {
-      final voucher = await widget.repository.validateVoucher(code);
+      final voucher = await widget.repository.validateVoucher(
+        code,
+        subtotal: widget.subtotal,
+        shippingFee: widget.shippingFee,
+      );
       if (!mounted) return;
+      if (voucher.scope != widget.scope) {
+        setState(() {
+          _validating = false;
+          _validationError = widget.scope == Voucher.shippingScope
+              ? 'Đây không phải mã giảm phí ship.'
+              : 'Đây là mã giảm phí ship, vui lòng nhập ở mục phí ship.';
+        });
+        return;
+      }
       Navigator.of(context).pop(voucher);
     } on CheckoutFailure catch (failure) {
       if (!mounted) return;
@@ -214,15 +240,16 @@ class _VoucherListScreenState extends State<VoucherListScreen> {
     final isSelected = widget.currentVoucher?.code == voucher.code;
 
     String discountText;
+    final label = voucher.isShipping ? 'Giảm ship' : 'Giảm';
     if (voucher.type == 'PERCENT' && voucher.value != null) {
-      discountText = 'Giảm ${voucher.value}%';
+      discountText = '$label ${voucher.value}%';
       if (voucher.maxDiscount != null) {
         discountText += ' (tối đa ${formatVnd(voucher.maxDiscount!)})';
       }
     } else if (voucher.type == 'FIXED' && voucher.value != null) {
-      discountText = 'Giảm ${formatVnd(voucher.value!)}';
+      discountText = '$label ${formatVnd(voucher.value!)}';
     } else {
-      discountText = 'Giảm ${formatVnd(voucher.discountAmount)}';
+      discountText = '$label ${formatVnd(voucher.discountAmount)}';
     }
 
     final card = CheckoutSurfaceCard(
@@ -453,15 +480,18 @@ class _VoucherListScreenState extends State<VoucherListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final shipping = widget.scope == Voucher.shippingScope;
     return CheckoutTheme(
       child: Scaffold(
-        appBar: const FleureAppBar(title: 'Ưu đãi & Voucher'),
+        appBar: FleureAppBar(
+          title: shipping ? 'Voucher phí ship' : 'Ưu đãi & Voucher',
+        ),
         body: CheckoutContent(
           children: <Widget>[
             _buildInputSection(),
             const SizedBox(height: 24),
-            const CheckoutSectionHeader(
-              title: 'Mã giảm giá có sẵn',
+            CheckoutSectionHeader(
+              title: shipping ? 'Mã phí ship có sẵn' : 'Mã giảm giá có sẵn',
               subtitle: 'Chọn mã phù hợp nhất với đơn hoa của bạn.',
             ),
             const SizedBox(height: 12),

@@ -25,6 +25,7 @@ class CheckoutScreen extends StatefulWidget {
     required this.repository,
     required this.summary,
     this.onCartChanged,
+    this.buyNow,
   });
 
   final CheckoutRepository repository;
@@ -34,6 +35,9 @@ class CheckoutScreen extends StatefulWidget {
 
   /// Giỏ trên server đã đổi (đặt xong hoặc hết hàng), cần tải lại.
   final VoidCallback? onCartChanged;
+
+  /// Có giá trị nghĩa là mua ngay: giỏ hàng giữ nguyên.
+  final CheckoutBuyNow? buyNow;
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
@@ -56,17 +60,25 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   bool _paymentTouched = false;
   num _shippingFee = 0;
   Voucher? _voucher;
+  Voucher? _shippingVoucher;
 
   CheckoutSummary get _summary {
     final summary = widget.summary;
     final discount = _voucher?.discountAmount ?? 0;
-    final grandTotal = summary.subtotal - discount + summary.tax + _shippingFee;
+    final shippingDiscount = _shippingVoucher?.discountOn(_shippingFee) ?? 0;
+    final grandTotal =
+        summary.subtotal -
+        discount +
+        summary.tax +
+        _shippingFee -
+        shippingDiscount;
     return CheckoutSummary(
       items: summary.items,
       subtotal: summary.subtotal,
       discount: discount,
       tax: summary.tax,
       shippingFee: _shippingFee,
+      shippingDiscount: shippingDiscount,
       grandTotal: grandTotal < 0 ? 0 : grandTotal,
     );
   }
@@ -140,19 +152,26 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     await _refreshShippingFee();
   }
 
-  Future<void> _openVoucherList() async {
+  Future<void> _openVoucherList({required bool shipping}) async {
     final selected = await Navigator.of(context).push<Voucher>(
       MaterialPageRoute<Voucher>(
         builder: (_) => VoucherListScreen(
           repository: widget.repository,
-          currentVoucher: _voucher,
+          currentVoucher: shipping ? _shippingVoucher : _voucher,
+          scope: shipping ? Voucher.shippingScope : Voucher.orderScope,
+          subtotal: widget.summary.subtotal,
+          shippingFee: _shippingFee,
         ),
       ),
     );
-    if (!mounted) return;
-    if (selected != null) {
-      setState(() => _voucher = selected);
-    }
+    if (!mounted || selected == null) return;
+    setState(() {
+      if (shipping) {
+        _shippingVoucher = selected;
+      } else {
+        _voucher = selected;
+      }
+    });
   }
 
   void _showMessage(String message) {
@@ -208,6 +227,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             : PaymentMethod.cod,
         note: _buildNote(orderNote, cardMessage),
         voucherCode: _voucher?.code,
+        shippingVoucherCode: _shippingVoucher?.code,
+        buyNow: widget.buyNow,
       ),
       address: address,
       cardMessage: cardMessage,
@@ -222,6 +243,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           summary: _summary,
           repository: widget.repository,
           voucherCode: _voucher?.code,
+          buyNow: widget.buyNow,
           onPlaceOrder: (request, branch, pickupTime) =>
               _submitOrder(request, address: branch, pickupTime: pickupTime),
         ),
@@ -247,7 +269,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     if (result == null) {
       final code = _checkoutController.state.errorCode;
       if (code != null && code.startsWith('VOUCHER_')) {
-        setState(() => _voucher = null);
+        setState(() {
+          _voucher = null;
+          _shippingVoucher = null;
+        });
         // Tổng tiền ở màn nhận tại quán đã cũ, quay lại để khách thấy số mới.
         if (pickupTime != null) navigator.pop();
       }
@@ -365,11 +390,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Widget _buildVoucherSection() {
-    if (_voucher == null) {
+  Widget _buildVoucherSection({required bool shipping}) {
+    final voucher = shipping ? _shippingVoucher : _voucher;
+    final keyPrefix = shipping ? 'checkout-shipping' : 'checkout';
+    void open() => _openVoucherList(shipping: shipping);
+    if (voucher == null) {
       return CheckoutSurfaceCard(
-        key: const Key('checkout-select-voucher'),
-        onTap: _openVoucherList,
+        key: Key(
+          shipping
+              ? 'checkout-select-shipping-voucher'
+              : 'checkout-select-voucher',
+        ),
+        onTap: open,
         child: Row(
           children: <Widget>[
             Container(
@@ -379,29 +411,33 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 color: CheckoutPalette.forest100,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(
-                Icons.local_offer_outlined,
+              child: Icon(
+                shipping
+                    ? Icons.local_shipping_outlined
+                    : Icons.local_offer_outlined,
                 color: CheckoutPalette.forest800,
                 size: 20,
               ),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
                   Text(
-                    'Chọn voucher',
-                    style: TextStyle(
+                    shipping ? 'Chọn voucher phí ship' : 'Chọn voucher',
+                    style: const TextStyle(
                       color: CheckoutPalette.charcoal900,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   Text(
-                    'Áp dụng mã giảm giá cho đơn hoa',
-                    style: TextStyle(
+                    shipping
+                        ? 'Giảm phí giao hoa cho đơn này'
+                        : 'Áp dụng mã giảm giá cho đơn hoa',
+                    style: const TextStyle(
                       color: CheckoutPalette.charcoal500,
                       fontSize: 11,
                     ),
@@ -419,8 +455,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     }
 
     return CheckoutSurfaceCard(
-      key: const Key('checkout-selected-voucher'),
-      onTap: _openVoucherList,
+      key: Key('$keyPrefix-selected-voucher'),
+      onTap: open,
       borderColor: CheckoutPalette.petal300,
       color: CheckoutPalette.petal50,
       child: Row(
@@ -446,7 +482,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 Row(
                   children: <Widget>[
                     Text(
-                      _voucher!.code,
+                      voucher.code,
                       style: const TextStyle(
                         color: CheckoutPalette.charcoal900,
                         fontSize: 13,
@@ -455,7 +491,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      '-${formatVnd(_voucher!.discountAmount)}',
+                      '-${formatVnd(shipping ? voucher.discountOn(_shippingFee) : voucher.discountAmount)}',
                       style: const TextStyle(
                         color: CheckoutPalette.petal500,
                         fontSize: 12,
@@ -476,13 +512,19 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ),
           ),
           IconButton(
-            key: const Key('checkout-remove-voucher'),
+            key: Key('$keyPrefix-remove-voucher'),
             icon: const Icon(
               Icons.close_rounded,
               color: CheckoutPalette.charcoal500,
               size: 20,
             ),
-            onPressed: () => setState(() => _voucher = null),
+            onPressed: () => setState(() {
+              if (shipping) {
+                _shippingVoucher = null;
+              } else {
+                _voucher = null;
+              }
+            }),
             tooltip: 'Bỏ chọn',
           ),
         ],
@@ -610,7 +652,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              _buildVoucherSection(),
+              _buildVoucherSection(shipping: false),
+              const SizedBox(height: 10),
+              _buildVoucherSection(shipping: true),
               const SizedBox(height: 14),
               PriceSummaryCard(summary: summary),
               const SizedBox(height: 14),

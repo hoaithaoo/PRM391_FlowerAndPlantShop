@@ -46,7 +46,20 @@ class MockCheckoutRepository implements CheckoutRepository {
   Future<void> cancelOrder(String orderId, {String? reason}) async {}
 
   @override
-  Future<List<Voucher>> availableVouchers() async => <Voucher>[
+  Future<List<Voucher>> availableVouchers({
+    num? subtotal,
+    num? shippingFee,
+  }) async => <Voucher>[
+        Voucher(
+          code: 'FREESHIP15K',
+          type: 'FIXED',
+          scope: Voucher.shippingScope,
+          value: 15000,
+          minOrderAmount: 200000,
+          endsAt: DateTime.now().add(const Duration(days: 90)),
+          eligible: true,
+          discountAmount: 15000,
+        ),
         Voucher(
           code: 'HOA50K',
           type: 'FIXED',
@@ -69,7 +82,11 @@ class MockCheckoutRepository implements CheckoutRepository {
       ];
 
   @override
-  Future<Voucher> validateVoucher(String code) async {
+  Future<Voucher> validateVoucher(
+    String code, {
+    num? subtotal,
+    num? shippingFee,
+  }) async {
     final normalized = code.trim().toUpperCase();
     if (normalized == 'HOA50K') {
       return const Voucher(

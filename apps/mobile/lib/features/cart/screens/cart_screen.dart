@@ -6,6 +6,7 @@ import '../../products/widgets/common/brand_header.dart';
 import '../models/cart_item.dart';
 import '../state/cart_controller.dart';
 import '../state/cart_scope.dart';
+import '../widgets/quantity_input.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({
@@ -322,17 +323,14 @@ class _QuantityStepper extends StatelessWidget {
                 ? () => controller.updateQuantity(item.id, item.quantity - 1)
                 : null,
           ),
-          SizedBox(
-            width: 28,
-            child: Text(
-              '${item.quantity}',
-              key: Key('cart-quantity-${item.productId}'),
-              textAlign: TextAlign.center,
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.textHeading,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+          QuantityInput(
+            key: Key('cart-quantity-${item.productId}'),
+            value: item.quantity,
+            max: max,
+            width: 34,
+            enabled: !controller.isMutating,
+            semanticLabel: 'Số lượng ${item.name}',
+            onChanged: (value) => controller.updateQuantity(item.id, value),
           ),
           _StepButton(
             key: Key('cart-increase-${item.productId}'),

@@ -2,6 +2,7 @@ class Voucher {
   const Voucher({
     required this.code,
     this.type,
+    this.scope = orderScope,
     this.value,
     this.maxDiscount,
     this.minOrderAmount = 0,
@@ -12,8 +13,14 @@ class Voucher {
     this.missingAmount = 0,
   });
 
+  static const orderScope = 'ORDER';
+  static const shippingScope = 'SHIPPING';
+
   final String code;
   final String? type;
+
+  /// [orderScope] giảm tiền hàng, [shippingScope] giảm phí ship.
+  final String scope;
   final num? value;
   final num? maxDiscount;
   final num minOrderAmount;
@@ -27,6 +34,7 @@ class Voucher {
     return Voucher(
       code: _requiredString(json, 'code'),
       type: json['type'] as String?,
+      scope: json['scope'] as String? ?? orderScope,
       value: _optionalNumber(json, 'value'),
       maxDiscount: _optionalNumber(json, 'maxDiscount'),
       minOrderAmount: _optionalNumber(json, 'minOrderAmount') ?? 0,
@@ -40,10 +48,24 @@ class Voucher {
     );
   }
 
+  bool get isShipping => scope == shippingScope;
+
+  /// Số tiền giảm xem trước trên phí [base]. Phí ship đổi theo địa chỉ nên app
+  /// tự tính lại; số cuối cùng do server quyết định khi đặt hàng.
+  num discountOn(num base) {
+    final amount = value;
+    if (amount == null) return discountAmount;
+    num discount = type == 'PERCENT' ? (base * amount / 100).floor() : amount;
+    final cap = maxDiscount;
+    if (type == 'PERCENT' && cap != null && discount > cap) discount = cap;
+    return discount > base ? base : discount;
+  }
+
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
       'code': code,
       if (type != null) 'type': type,
+      'scope': scope,
       if (value != null) 'value': value,
       if (maxDiscount != null) 'maxDiscount': maxDiscount,
       'minOrderAmount': minOrderAmount,
