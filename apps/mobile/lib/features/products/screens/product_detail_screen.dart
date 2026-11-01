@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:plant_flower_shared/plant_flower_shared.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
+import '../../cart/state/cart_scope.dart';
 import '../data/product_repository.dart';
 import '../data/product_scope.dart';
 import '../widgets/common/brand_header.dart';
@@ -25,6 +26,8 @@ class ProductDetailScreen extends StatefulWidget {
   @override
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
+
+enum ProductDetailResult { openCart }
 
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   ProductDetail? _product;
@@ -92,10 +95,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _share() => _showMessage('Tính năng chia sẻ sẽ sớm ra mắt');
 
-  void _openCart() => _showMessage('Giỏ hàng đang được phát triển');
+  void _openCart() => Navigator.of(context).pop(ProductDetailResult.openCart);
 
-  void _addToCart(ProductDetail product) {
-    _showMessage('Đã thêm $_quantity × ${product.name} vào giỏ hàng');
+  Future<void> _addToCart(ProductDetail product) async {
+    final cart = CartScope.of(context);
+    final added = await cart.addProduct(product, quantity: _quantity);
+    if (!mounted) return;
+    _showMessage(
+      added
+          ? 'Đã thêm $_quantity × ${product.name} vào giỏ hàng'
+          : cart.errorMessage ?? 'Không thể thêm sản phẩm vào giỏ hàng.',
+    );
   }
 
   @override

@@ -27,13 +27,49 @@ class ApiClient {
   final Duration timeout;
 
   /// [path] tương đối với base URL, ví dụ `api/v1/products`.
-  Future<ApiResponse> get(String path, {Map<String, String>? query}) async {
+  Future<ApiResponse> get(
+    String path, {
+    Map<String, String>? query,
+    Map<String, String>? headers,
+  }) {
+    return _send('GET', path, query: query, headers: headers);
+  }
+
+  Future<ApiResponse> post(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) => _send('POST', path, headers: headers, body: body);
+
+  Future<ApiResponse> patch(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) => _send('PATCH', path, headers: headers, body: body);
+
+  Future<ApiResponse> delete(String path, {Map<String, String>? headers}) =>
+      _send('DELETE', path, headers: headers);
+
+  Future<ApiResponse> _send(
+    String method,
+    String path, {
+    Map<String, String>? query,
+    Map<String, String>? headers,
+    Object? body,
+  }) async {
     final uri = _baseUri.resolve(path).replace(queryParameters: query);
     final http.Response response;
     try {
-      response = await _http
-          .get(uri, headers: const {'Accept': 'application/json'})
-          .timeout(timeout);
+      final request = http.Request(method, uri)
+        ..headers.addAll({'Accept': 'application/json', ...?headers});
+      if (body != null) {
+        request.headers['Content-Type'] = 'application/json';
+        request.body = jsonEncode(body);
+      }
+      response = await (() async {
+        final streamed = await _http.send(request);
+        return http.Response.fromStream(streamed);
+      })().timeout(timeout);
     } on TimeoutException {
       throw const ApiException.network('Máy chủ phản hồi quá lâu.');
     } on http.ClientException {

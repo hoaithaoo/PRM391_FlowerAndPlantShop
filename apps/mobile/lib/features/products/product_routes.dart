@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'screens/product_detail_screen.dart';
 
+export 'screens/product_detail_screen.dart' show ProductDetailResult;
+
 /// Tên route và điều hướng của luồng sản phẩm.
 abstract final class ProductRoutes {
   /// Arguments: `String` productId.
@@ -16,10 +18,18 @@ abstract final class ProductRoutes {
       _ => null,
     };
     if (page == null) return null;
-    return MaterialPageRoute<void>(builder: (_) => page, settings: settings);
+    return MaterialPageRoute<ProductDetailResult>(
+      builder: (_) => page,
+      settings: settings,
+    );
   }
 
-  static Future<void> openDetail(BuildContext context, String productId) {
-    return Navigator.of(context).pushNamed(detail, arguments: productId);
+  static Future<ProductDetailResult?> openDetail(
+    BuildContext context,
+    String productId,
+  ) {
+    return Navigator.of(
+      context,
+    ).pushNamed<ProductDetailResult>(detail, arguments: productId);
   }
 }
