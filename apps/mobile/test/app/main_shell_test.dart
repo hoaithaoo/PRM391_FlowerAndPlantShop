@@ -29,7 +29,6 @@ void main() {
       expect(MainTab.values.map((t) => t.label), [
         'Trang chủ',
         'Sản phẩm',
-        'Chatbot',
         'Giỏ hàng',
         'Tài khoản',
       ]);
@@ -69,7 +68,6 @@ void main() {
 
       for (final tab in [
         MainTab.products,
-        MainTab.chatbot,
         MainTab.cart,
         MainTab.account,
         MainTab.home,
@@ -86,7 +84,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(_comingSoon), findsNothing);
 
-      for (final tab in [MainTab.chatbot, MainTab.account]) {
+      for (final tab in [MainTab.account]) {
         await tapNav(tester, tab);
         expect(find.text(_comingSoon), findsOneWidget, reason: tab.label);
         // Tiêu đề của tab nằm trong nội dung (ngoài thanh điều hướng)
@@ -216,7 +214,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('catalog-count')), findsOneWidget);
 
-      await tapNav(tester, MainTab.chatbot);
+      await tapNav(tester, MainTab.account);
       await tapNav(tester, MainTab.products);
 
       final field = tester.widget<TextField>(

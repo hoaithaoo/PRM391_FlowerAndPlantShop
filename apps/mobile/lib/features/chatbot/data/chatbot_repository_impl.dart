@@ -40,6 +40,19 @@ class ChatbotRepositoryImpl implements ChatbotRepository {
   }
 
   @override
+  Future<List<ChatbotConversationSummary>> listConversations() async {
+    final data = await _remoteDataSource.listConversations();
+    final items = data['items'];
+    if (items is! List) {
+      throw const ChatbotFailure(code: ChatbotErrorCode.malformedResponse);
+    }
+    return items
+        .map(ChatbotConversationSummary.tryParse)
+        .whereType<ChatbotConversationSummary>()
+        .toList(growable: false);
+  }
+
+  @override
   Future<void> deleteConversation(String conversationId) {
     return _remoteDataSource.deleteConversation(conversationId);
   }

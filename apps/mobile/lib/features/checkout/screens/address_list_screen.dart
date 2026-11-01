@@ -9,9 +9,16 @@ import '../widgets/checkout_common.dart';
 import 'edit_address_screen.dart';
 
 class AddressListScreen extends StatefulWidget {
-  const AddressListScreen({super.key, required this.controller});
+  const AddressListScreen({
+    super.key,
+    required this.controller,
+    required this.onSave,
+  });
 
   final CheckoutFlowController controller;
+
+  /// Lưu lên server, trả về địa chỉ có id thật và tọa độ server tính.
+  final Future<CheckoutAddress> Function(CheckoutAddress address) onSave;
 
   @override
   State<AddressListScreen> createState() => _AddressListScreenState();
@@ -27,12 +34,26 @@ class _AddressListScreenState extends State<AddressListScreen> {
         builder: (_) => EditAddressScreen(address: address),
       ),
     );
-    if (edited == null || !mounted) return;
-    widget.controller.updateAddress(edited);
-    setState(() {
-      _selectedAddress = edited;
-      _selectionTouched = true;
-    });
+    if (edited != null && mounted) await _persist(edited);
+  }
+
+  Future<void> _persist(CheckoutAddress address) async {
+    try {
+      final saved = await widget.onSave(address);
+      if (!mounted) return;
+      widget.controller.updateAddress(saved);
+      setState(() {
+        _selectedAddress = saved;
+        _selectionTouched = true;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không lưu được địa chỉ. Vui lòng thử lại.'),
+        ),
+      );
+    }
   }
 
   Future<void> _addAddress() async {
@@ -40,7 +61,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
       MaterialPageRoute<CheckoutAddress>(
         builder: (_) => const EditAddressScreen(
           address: CheckoutAddress(
-            id: 'new-address',
+            id: newAddressId,
             label: 'Nhà riêng',
             recipientName: '',
             phone: '',
@@ -53,12 +74,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
         ),
       ),
     );
-    if (created == null || !mounted) return;
-    widget.controller.updateAddress(created);
-    setState(() {
-      _selectedAddress = created;
-      _selectionTouched = true;
-    });
+    if (created != null && mounted) await _persist(created);
   }
 
   void _confirm() {
@@ -162,7 +178,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
                               Icons.my_location_rounded,
                               size: 17,
                             ),
-                            label: const Text('Cập nhật vị trí trên bản đồ'),
+                            label: const Text('Chỉnh sửa địa chỉ'),
                             style: FilledButton.styleFrom(
                               minimumSize: const Size(0, 40),
                               padding: const EdgeInsets.symmetric(
