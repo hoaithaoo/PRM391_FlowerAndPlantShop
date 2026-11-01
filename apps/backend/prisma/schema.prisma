@@ -68,6 +68,11 @@ enum VoucherType {
   FIXED
 }
 
+enum VoucherScope {
+  ORDER
+  SHIPPING
+}
+
 model Profile {
   id        String     @id @db.Uuid // Maps to Supabase auth.users.id
   email     String?
@@ -205,7 +210,7 @@ model Order {
   pickupStore       Store?             @relation(fields: [pickupStoreId], references: [id])
   items             OrderItem[]
   invoice           Invoice?
-  voucherRedemption VoucherRedemption?
+  voucherRedemptions VoucherRedemption[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -243,7 +248,8 @@ model Invoice {
   discountAmount  Decimal       @default(0) @map("discount_amount") @db.Decimal(18, 0)
   taxAmount       Decimal       @map("tax_amount") @db.Decimal(18, 0)
   shippingFee     Decimal       @default(0) @map("shipping_fee") @db.Decimal(18, 0)
-  grandTotal      Decimal       @map("grand_total") @db.Decimal(18, 0)
+  shippingDiscountAmount Decimal @default(0) @map("shipping_discount_amount") @db.Decimal(18, 0)
+  grandTotal     Decimal       @map("grand_total") @db.Decimal(18, 0)
   issuedAt        DateTime      @default(now()) @map("issued_at") @db.Timestamptz(3)
   paidAt          DateTime?     @map("paid_at") @db.Timestamptz(3)
   createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
@@ -423,6 +429,8 @@ model Voucher {
   id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code           String      @unique
   type           VoucherType
+  /// ORDER giảm tiền hàng, SHIPPING giảm phí ship. Mỗi đơn dùng tối đa 1 mã mỗi loại.
+  scope          VoucherScope @default(ORDER)
   value          Decimal     @db.Decimal(18, 0)
   maxDiscount    Decimal?    @map("max_discount") @db.Decimal(18, 0)
   minOrderAmount Decimal     @default(0) @map("min_order_amount") @db.Decimal(18, 0)
@@ -446,7 +454,7 @@ model VoucherRedemption {
   id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   voucherId  String    @map("voucher_id") @db.Uuid
   userId     String    @map("user_id") @db.Uuid
-  orderId    String    @unique @map("order_id") @db.Uuid
+  orderId    String    @map("order_id") @db.Uuid
   code       String
   amount     Decimal   @db.Decimal(18, 0)
   releasedAt DateTime? @map("released_at") @db.Timestamptz(3)
@@ -456,6 +464,7 @@ model VoucherRedemption {
   user    Profile @relation(fields: [userId], references: [id])
   order   Order   @relation(fields: [orderId], references: [id])
 
+  @@unique([orderId, voucherId])
   @@index([voucherId, userId])
   @@index([userId])
   @@map("voucher_redemptions")

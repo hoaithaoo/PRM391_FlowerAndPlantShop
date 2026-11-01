@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { VoucherType } from "@prisma/client";
+import { VoucherScope, VoucherType } from "@prisma/client";
 
 export const voucherCodeSchema = z
   .string()
@@ -9,9 +9,17 @@ export const voucherCodeSchema = z
   .max(32, "Mã voucher tối đa 32 ký tự")
   .regex(/^[A-Z0-9_-]+$/, "Mã voucher chỉ gồm chữ in hoa, số, dấu gạch dưới và gạch ngang");
 
+const previewFields = {
+  subtotal: z.coerce.number().int().min(0).optional(),
+  shippingFee: z.coerce.number().int().min(0).optional(),
+};
+
+export const availableVouchersQuerySchema = z.object(previewFields);
+
 export const validateVoucherSchema = z
   .object({
     code: voucherCodeSchema,
+    ...previewFields,
   })
   .strict();
 
@@ -37,6 +45,7 @@ export const createAdminVoucherSchema = z
   .object({
     code: voucherCodeSchema,
     type: z.nativeEnum(VoucherType),
+    scope: z.nativeEnum(VoucherScope).default(VoucherScope.ORDER),
     value: z.coerce.number().int().positive("Giá trị voucher phải lớn hơn 0"),
     maxDiscount: z.coerce.number().int().positive("Giảm tối đa phải lớn hơn 0").nullable().optional(),
     minOrderAmount: z.coerce.number().int().min(0, "Đơn tối thiểu không âm").default(0),

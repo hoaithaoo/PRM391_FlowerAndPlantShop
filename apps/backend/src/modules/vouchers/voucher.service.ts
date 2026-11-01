@@ -1,4 +1,10 @@
-import { Prisma, PrismaClient, Voucher, VoucherType } from "@prisma/client";
+import {
+  Prisma,
+  PrismaClient,
+  Voucher,
+  VoucherScope,
+  VoucherType,
+} from "@prisma/client";
 import { AppError } from "../../common/errors/app-error";
 import { ErrorCodes } from "../../common/errors/error-codes";
 import { prisma } from "../../lib/prisma";
@@ -8,9 +14,21 @@ import {
   AvailableVouchersResponse,
   ValidateVoucherResponse,
   VoucherEvaluationResult,
+  VoucherPreview,
 } from "./voucher.type";
 
 type VoucherDatabase = Pick<PrismaClient, "voucher" | "voucherRedemption" | "cart">;
+
+/** Voucher ship giảm trên phí ship; đơn tối thiểu của mọi loại vẫn tính theo tiền hàng. */
+const discountOf = (
+  voucher: Voucher,
+  subtotal: Prisma.Decimal,
+  shippingFee: Prisma.Decimal
+): Prisma.Decimal =>
+  calculateDiscount(
+    voucher,
+    voucher.scope === VoucherScope.SHIPPING ? shippingFee : subtotal
+  );
 
 export class VoucherService {
   constructor(private readonly db: VoucherDatabase = prisma) {}
@@ -65,7 +83,8 @@ export class VoucherService {
     userId: string,
     subtotal: Prisma.Decimal,
     now: Date,
-    tx: Prisma.TransactionClient | VoucherDatabase
+    tx: Prisma.TransactionClient | VoucherDatabase,
+    shippingFee: Prisma.Decimal = new Prisma.Decimal(0)
   ): Promise<VoucherEvaluationResult> {
     // 1. Voucher active
     if (!voucher.isActive) {
@@ -133,7 +152,7 @@ export class VoucherService {
     }
 
     // Đạt đủ điều kiện: tính discount
-    const discountAmount = calculateDiscount(voucher, subtotal);
+    const discountAmount = discountOf(voucher, subtotal, shippingFee);
     return {
       eligible: true,
       discountAmount,
@@ -147,10 +166,15 @@ export class VoucherService {
    * GET /api/v1/vouchers/available
    * Trả voucher public, active, còn hạn, còn tổng lượt và user chưa dùng hết.
    * Chưa đủ đơn tối thiểu vẫn trả với eligible = false.
+   * Chỉ để xem trước: [preview] do app gửi, checkout mới tính lại số thật.
    */
-  async getAvailableVouchers(userId: string): Promise<AvailableVouchersResponse> {
+  async getAvailableVouchers(
+    userId: string,
+    preview: VoucherPreview = {}
+  ): Promise<AvailableVouchersResponse> {
     const now = new Date();
-    const subtotal = await this.getCartSubtotal(this.db, userId);
+    const subtotal = await this.previewSubtotal(userId, preview);
+    const shippingFee = new Prisma.Decimal(preview.shippingFee ?? 0);
 
     // Lọc voucher public, active, còn hạn
     const candidates = await this.db.voucher.findMany({
@@ -188,7 +212,8 @@ export class VoucherService {
         userId,
         subtotal,
         now,
-        this.db
+        this.db,
+        shippingFee
       );
 
       // Nếu không eligible vì lý do khác VOUCHER_MIN_ORDER_NOT_MET thì bỏ qua
@@ -196,11 +221,12 @@ export class VoucherService {
         continue;
       }
 
-      const calculatedDiscount = calculateDiscount(voucher, subtotal);
+      const calculatedDiscount = discountOf(voucher, subtotal, shippingFee);
 
       evaluatedItems.push({
         code: voucher.code,
         type: voucher.type,
+        scope: voucher.scope,
         value: Number(voucher.value.toString()),
         maxDiscount: voucher.maxDiscount ? Number(voucher.maxDiscount.toString()) : null,
         minOrderAmount: Number(voucher.minOrderAmount.toString()),
@@ -238,7 +264,8 @@ export class VoucherService {
    */
   async validateVoucher(
     userId: string,
-    rawCode: string
+    rawCode: string,
+    preview: VoucherPreview = {}
   ): Promise<ValidateVoucherResponse> {
     const code = rawCode.trim().toUpperCase();
     const now = new Date();
@@ -255,14 +282,15 @@ export class VoucherService {
       );
     }
 
-    const subtotal = await this.getCartSubtotal(this.db, userId);
+    const subtotal = await this.previewSubtotal(userId, preview);
 
     const evalResult = await this.evaluateVoucher(
       voucher,
       userId,
       subtotal,
       now,
-      this.db
+      this.db,
+      new Prisma.Decimal(preview.shippingFee ?? 0)
     );
 
     if (!evalResult.eligible) {
@@ -297,9 +325,25 @@ export class VoucherService {
 
     return {
       code: voucher.code,
+      type: voucher.type,
+      scope: voucher.scope,
+      value: Number(voucher.value.toString()),
+      maxDiscount: voucher.maxDiscount
+        ? Number(voucher.maxDiscount.toString())
+        : null,
       discountAmount: Number(evalResult.discountAmount.toString()),
       subtotal: Number(subtotal.toString()),
     };
+  }
+
+  /** Mua ngay không dùng giỏ nên app gửi tạm tính của sản phẩm đang mua. */
+  private previewSubtotal(
+    userId: string,
+    preview: VoucherPreview
+  ): Promise<Prisma.Decimal> {
+    return preview.subtotal === undefined
+      ? this.getCartSubtotal(this.db, userId)
+      : Promise.resolve(new Prisma.Decimal(preview.subtotal));
   }
 
   // Admin APIs
@@ -368,6 +412,7 @@ export class VoucherService {
   async adminCreate(data: {
     code: string;
     type: VoucherType;
+    scope?: VoucherScope;
     value: number;
     maxDiscount?: number | null;
     minOrderAmount?: number;
@@ -394,6 +439,7 @@ export class VoucherService {
       data: {
         code: data.code,
         type: data.type,
+        scope: data.scope ?? VoucherScope.ORDER,
         value: new Prisma.Decimal(data.value),
         maxDiscount: data.maxDiscount != null ? new Prisma.Decimal(data.maxDiscount) : null,
         minOrderAmount: new Prisma.Decimal(data.minOrderAmount ?? 0),

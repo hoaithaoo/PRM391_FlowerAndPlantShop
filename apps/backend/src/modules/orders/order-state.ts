@@ -153,23 +153,22 @@ export const cancelOrderInTransaction = async (
   }
 
   // Hoàn lượt voucher nếu đơn hàng có áp dụng voucher
-  if (tx.voucherRedemption) {
-    const released = await tx.voucherRedemption.updateMany({
+  const redemptions = await tx.voucherRedemption.findMany({
+    where: { orderId, releasedAt: null },
+    select: { voucherId: true },
+  });
+  if (redemptions.length > 0) {
+    await tx.voucherRedemption.updateMany({
       where: { orderId, releasedAt: null },
       data: { releasedAt: options.cancelledAt },
     });
-    if (released.count > 0) {
-      const redemption = await tx.voucherRedemption.findUnique({
-        where: { orderId },
-        select: { voucherId: true },
-      });
-      if (redemption && tx.voucher) {
-        await tx.voucher.updateMany({
-          where: { id: redemption.voucherId, usedCount: { gt: 0 } },
-          data: { usedCount: { decrement: 1 } },
-        });
-      }
-    }
+    await tx.voucher.updateMany({
+      where: {
+        id: { in: redemptions.map((item) => item.voucherId) },
+        usedCount: { gt: 0 },
+      },
+      data: { usedCount: { decrement: 1 } },
+    });
   }
 
   if (order.invoice) {

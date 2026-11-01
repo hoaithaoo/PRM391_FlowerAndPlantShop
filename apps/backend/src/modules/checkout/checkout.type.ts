@@ -14,6 +14,7 @@ export interface CheckoutResponse {
     discountAmount: number;
     taxAmount: number;
     shippingFee: number;
+    shippingDiscountAmount: number;
     grandTotal: number;
   };
   payment: {

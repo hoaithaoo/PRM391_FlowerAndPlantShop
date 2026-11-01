@@ -56,6 +56,7 @@ const createFakeDb = (state: OrderState) => {
         return {};
       },
     },
+    voucherRedemption: { findMany: async () => [] },
     invoice: {
       updateMany: async (args: any) => {
         writes.push({ op: "invoice.updateMany", args });
