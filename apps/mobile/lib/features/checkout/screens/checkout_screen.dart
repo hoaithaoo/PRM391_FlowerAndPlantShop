@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 
+import '../data/checkout_api.dart';
+import '../data/checkout_failure.dart';
 import '../data/checkout_mock_data.dart';
 import '../data/checkout_repository.dart';
 import '../data/mock_checkout_repository.dart';
 import '../models/checkout_flow_models.dart';
+import '../models/checkout_request.dart';
 import '../models/checkout_result.dart';
 import '../models/checkout_summary.dart';
+import '../models/payment_method.dart';
+import '../state/checkout_controller.dart';
 import '../state/checkout_flow_controller.dart';
 import '../utils/checkout_theme.dart';
 import '../utils/checkout_validators.dart';
 import '../widgets/checkout_common.dart';
 import 'address_list_screen.dart';
 import 'order_success_screen.dart';
-import 'pickup_checkout_screen.dart';
 import 'sepay_qr_screen.dart';
 
 typedef CheckoutSuccessHandler =
@@ -23,8 +27,11 @@ class CheckoutScreen extends StatefulWidget {
     super.key,
     required this.repository,
     required this.summary,
+    this.api,
+    this.profile,
     this.flowController,
     this.onCheckoutSuccess,
+    this.onCheckoutCreated,
   });
 
   factory CheckoutScreen.withMockData({
@@ -44,8 +51,11 @@ class CheckoutScreen extends StatefulWidget {
 
   final CheckoutRepository repository;
   final CheckoutSummary summary;
+  final CheckoutApi? api;
+  final CheckoutUserProfile? profile;
   final CheckoutFlowController? flowController;
   final CheckoutSuccessHandler? onCheckoutSuccess;
+  final VoidCallback? onCheckoutCreated;
 
   static const CheckoutSummary mockCheckoutSummary = CheckoutMockData.summary;
 
@@ -56,68 +66,127 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final _formKey = GlobalKey<FormState>();
   late final CheckoutFlowController _flowController;
+  late final CheckoutController _checkoutController;
+  late CheckoutSummary _summary;
   late final bool _ownsController;
   late final TextEditingController _orderNoteController;
   late final TextEditingController _cardMessageController;
   bool _priorityDelivery = true;
   bool _submitting = false;
+  bool _estimatingShipping = false;
   bool _paymentTouched = false;
+  bool _checkoutCreated = false;
 
   @override
   void initState() {
     super.initState();
     _ownsController = widget.flowController == null;
     _flowController = widget.flowController ?? CheckoutFlowController();
+    _checkoutController = CheckoutController(repository: widget.repository);
+    _summary = widget.summary;
     _orderNoteController = TextEditingController(
       text: _flowController.deliveryNote,
     );
     _cardMessageController = TextEditingController(
       text: _flowController.cardMessage,
     );
+    WidgetsBinding.instance.addPostFrameCallback((_) => _estimateShipping());
   }
 
   @override
   void dispose() {
     _orderNoteController.dispose();
     _cardMessageController.dispose();
+    _checkoutController.dispose();
     if (_ownsController) _flowController.dispose();
     super.dispose();
   }
 
   Future<void> _openAddressBook() async {
+    final api = widget.api;
+    if (api == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chưa cấu hình dịch vụ địa chỉ cho thanh toán.'),
+        ),
+      );
+      return;
+    }
     await Navigator.of(context).push<CheckoutAddress>(
       MaterialPageRoute<CheckoutAddress>(
-        builder: (_) => AddressListScreen(controller: _flowController),
-      ),
-    );
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _openPickup() async {
-    _flowController.setFulfillmentMode(FulfillmentMode.pickup);
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => PickupCheckoutScreen(
+        builder: (_) => AddressListScreen(
           controller: _flowController,
-          summary: widget.summary,
+          api: api,
+          profile: widget.profile,
         ),
       ),
     );
     if (!mounted) return;
-    _flowController.setFulfillmentMode(FulfillmentMode.delivery);
     setState(() {});
+    await _estimateShipping();
+  }
+
+  Future<void> _estimateShipping() async {
+    final api = widget.api;
+    final address = _flowController.selectedAddress;
+    final latitude = address?.latitude;
+    final longitude = address?.longitude;
+    if (api == null || latitude == null || longitude == null) return;
+    setState(() => _estimatingShipping = true);
+    try {
+      final estimate = await api.estimateShipping(
+        latitude: latitude,
+        longitude: longitude,
+      );
+      if (!mounted) return;
+      setState(() {
+        _summary = _summary.copyWith(
+          shippingFee: estimate.shippingFee,
+          grandTotal:
+              _summary.subtotal + _summary.tax - _summary.discount +
+              estimate.shippingFee,
+        );
+      });
+    } on CheckoutFailure catch (failure) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            failure.message ??
+                'Không thể tính phí giao hoa. Vui lòng thử lại.',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _estimatingShipping = false);
+    }
   }
 
   Future<void> _placeOrder() async {
     final formValid = _formKey.currentState?.validate() ?? false;
     setState(() => _paymentTouched = true);
-    final addressError = CheckoutValidators.selectedAddress(
-      _flowController.selectedAddress,
-    );
+    final address = _flowController.selectedAddress;
+    final addressError = CheckoutValidators.selectedAddress(address);
     final paymentError = CheckoutValidators.selectedPayment(
       _flowController.deliveryPaymentMethod,
     );
     if (!formValid || addressError != null || paymentError != null) return;
+    if (address!.latitude == null || address.longitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Địa chỉ chưa có vị trí hợp lệ. Vui lòng cập nhật vị trí giao hàng.',
+          ),
+        ),
+      );
+      return;
+    }
+    if (_estimatingShipping) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đang tính phí giao hoa. Vui lòng đợi.')),
+      );
+      return;
+    }
 
     FocusScope.of(context).unfocus();
     _flowController.deliveryNote = CheckoutValidators.normalizeOptionalText(
@@ -126,20 +195,75 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     _flowController.cardMessage = CheckoutValidators.normalizeOptionalText(
       _cardMessageController.text,
     );
-    setState(() => _submitting = true);
+    final method = _flowController.deliveryPaymentMethod;
+    if (method != LocalPaymentMethod.cod &&
+        method != LocalPaymentMethod.sepay) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Phương thức thanh toán này chưa được hỗ trợ.'),
+        ),
+      );
+      return;
+    }
+    final request = CheckoutRequest(
+      receiverName: address.recipientName,
+      phone: address.phone.replaceAll(RegExp(r'\s+'), ''),
+      address: address.fullAddress,
+      latitude: address.latitude!,
+      longitude: address.longitude!,
+      paymentMethod: method == LocalPaymentMethod.sepay
+          ? PaymentMethod.sepay
+          : PaymentMethod.cod,
+      note: _flowController.deliveryNote,
+    );
 
-    // TODO: Gửi CheckoutRequest qua CheckoutRepository khi backend checkout hoàn tất.
-    await Future<void>.delayed(const Duration(milliseconds: 650));
+    setState(() => _submitting = true);
+    final result = await _checkoutController.submit(request);
     if (!mounted) return;
     setState(() => _submitting = false);
+    if (result == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _checkoutController.state.errorMessage ??
+                'Không thể xử lý đơn hàng. Vui lòng thử lại.',
+          ),
+        ),
+      );
+      return;
+    }
 
-    final method = _flowController.deliveryPaymentMethod;
+    setState(() => _checkoutCreated = true);
+    widget.onCheckoutCreated?.call();
+    widget.onCheckoutSuccess?.call(context, result);
+    final confirmedSummary = _summary.copyWith(
+      subtotal: result.invoice.subtotalAmount,
+      tax: result.invoice.taxAmount,
+      shippingFee: result.invoice.shippingFee,
+      grandTotal: result.invoice.grandTotal,
+      discount: 0,
+    );
+
     if (method == LocalPaymentMethod.sepay) {
+      final payment = result.payment;
+      final api = widget.api;
+      if (payment == null || api == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Máy chủ chưa trả về thông tin thanh toán SePay.',
+            ),
+          ),
+        );
+        return;
+      }
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
           builder: (_) => SepayQrScreen(
             controller: _flowController,
-            summary: widget.summary,
+            summary: confirmedSummary,
+            result: result,
+            api: api,
           ),
         ),
       );
@@ -150,7 +274,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       MaterialPageRoute<void>(
         builder: (_) => OrderSuccessScreen(
           controller: _flowController,
-          summary: widget.summary,
+          summary: confirmedSummary,
+          result: result,
           isPickup: false,
         ),
       ),
@@ -168,11 +293,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           child: CheckoutContent(
             bottom: 128,
             children: <Widget>[
-              FulfillmentSwitch(
-                value: FulfillmentMode.delivery,
-                onChanged: (value) {
-                  if (value == FulfillmentMode.pickup) _openPickup();
-                },
+              const CheckoutInfoBanner(
+                icon: Icons.local_shipping_outlined,
+                title: 'Giao hoa tận nơi',
+                message:
+                    'Hiện tại hệ thống thanh toán trực tuyến hỗ trợ giao tận nơi.',
               ),
               const SizedBox(height: 24),
               CheckoutSectionHeader(
@@ -184,77 +309,106 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              CheckoutSurfaceCard(
-                onTap: _openAddressBook,
-                borderColor: CheckoutPalette.forest100,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: CheckoutPalette.forest100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Icon(
-                        Icons.home_outlined,
+              if (address == null)
+                CheckoutSurfaceCard(
+                  onTap: _openAddressBook,
+                  borderColor: CheckoutPalette.petal200,
+                  child: const Row(
+                    children: <Widget>[
+                      Icon(
+                        Icons.add_location_alt_outlined,
                         color: CheckoutPalette.forest800,
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Row(
-                            children: <Widget>[
-                              Text(
-                                address.label,
-                                style: const TextStyle(
-                                  color: CheckoutPalette.charcoal900,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              if (address.isDefault)
-                                const CheckoutStatusBadge(text: 'Mặc định'),
-                            ],
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Bạn chưa có địa chỉ nhận hàng. Chạm để thêm địa chỉ.',
+                          style: TextStyle(
+                            color: CheckoutPalette.charcoal700,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
-                          const SizedBox(height: 7),
-                          Text(
-                            '${address.recipientName} · ${address.phone}',
-                            style: const TextStyle(
-                              color: CheckoutPalette.charcoal700,
-                              fontSize: 11.5,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            address.fullAddress,
-                            style: const TextStyle(
-                              color: CheckoutPalette.charcoal500,
-                              fontSize: 11,
-                              height: 1.45,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                    const Icon(
-                      Icons.chevron_right_rounded,
-                      color: CheckoutPalette.charcoal400,
-                    ),
-                  ],
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: CheckoutPalette.charcoal400,
+                      ),
+                    ],
+                  ),
+                )
+              else
+                CheckoutSurfaceCard(
+                  onTap: _openAddressBook,
+                  borderColor: CheckoutPalette.forest100,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: CheckoutPalette.forest100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(
+                          Icons.home_outlined,
+                          color: CheckoutPalette.forest800,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Row(
+                              children: <Widget>[
+                                Text(
+                                  address.label,
+                                  style: const TextStyle(
+                                    color: CheckoutPalette.charcoal900,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                if (address.isDefault)
+                                  const CheckoutStatusBadge(text: 'Mặc định'),
+                              ],
+                            ),
+                            const SizedBox(height: 7),
+                            Text(
+                              '${address.recipientName} · ${address.phone}',
+                              style: const TextStyle(
+                                color: CheckoutPalette.charcoal700,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              address.fullAddress,
+                              style: const TextStyle(
+                                color: CheckoutPalette.charcoal500,
+                                fontSize: 11,
+                                height: 1.45,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        color: CheckoutPalette.charcoal400,
+                      ),
+                    ],
+                  ),
                 ),
-              ),
               const SizedBox(height: 12),
               CheckoutInfoBanner(
                 icon: Icons.support_agent_rounded,
                 title: 'Chăm sóc hành trình giao hoa',
-                message: address.driverNote.isEmpty
+                message: address == null || address.driverNote.isEmpty
                     ? 'Tài xế sẽ gọi xác nhận trước khi giao.'
                     : address.driverNote,
               ),
@@ -348,9 +502,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ],
               const SizedBox(height: 28),
-              const CheckoutSectionHeader(
+              CheckoutSectionHeader(
                 title: 'Tác phẩm trong đơn',
-                subtitle: '2 tác phẩm · Được chăm chút riêng cho bạn',
+                subtitle:
+                    '${_summary.totalQuantity} sản phẩm · Được chăm chút riêng cho bạn',
               ),
               const SizedBox(height: 12),
               CheckoutSurfaceCard(
@@ -358,11 +513,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   children: <Widget>[
                     for (
                       var index = 0;
-                      index < widget.summary.items.length;
+                      index < _summary.items.length;
                       index++
                     ) ...[
-                      CheckoutProductTile(item: widget.summary.items[index]),
-                      if (index < widget.summary.items.length - 1)
+                      CheckoutProductTile(item: _summary.items[index]),
+                      if (index < _summary.items.length - 1)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 14),
                           child: Divider(),
@@ -372,7 +527,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-              PriceSummaryCard(summary: widget.summary),
+              PriceSummaryCard(summary: _summary),
+              if (_estimatingShipping) ...[
+                const SizedBox(height: 10),
+                const LinearProgressIndicator(),
+              ],
               const SizedBox(height: 14),
               const CheckoutInfoBanner(
                 icon: Icons.lock_outline_rounded,
@@ -384,9 +543,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           ),
         ),
         bottomNavigationBar: CheckoutStickyBar(
-          total: widget.summary.grandTotal,
-          label: 'Đặt hàng',
-          onPressed: _placeOrder,
+          total: _summary.grandTotal,
+          label: _checkoutCreated ? 'Đơn hàng đã được tạo' : 'Đặt hàng',
+          onPressed: _estimatingShipping || _checkoutCreated
+              ? null
+              : _placeOrder,
           loading: _submitting,
         ),
       ),

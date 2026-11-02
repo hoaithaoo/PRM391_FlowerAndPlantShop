@@ -7,9 +7,7 @@ import '../state/checkout_flow_controller.dart';
 import '../utils/checkout_theme.dart';
 import '../utils/checkout_validators.dart';
 import '../widgets/checkout_common.dart';
-import 'order_success_screen.dart';
 import 'pickup_branch_screen.dart';
-import 'sepay_qr_screen.dart';
 
 class PickupCheckoutScreen extends StatefulWidget {
   const PickupCheckoutScreen({
@@ -28,7 +26,6 @@ class PickupCheckoutScreen extends StatefulWidget {
 class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _noteController;
-  bool _submitting = false;
   bool _scheduleTouched = false;
   bool _paymentTouched = false;
   String? _dateError;
@@ -151,30 +148,10 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
     widget.controller.pickupNote = CheckoutValidators.normalizeOptionalText(
       _noteController.text,
     );
-    setState(() => _submitting = true);
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-    setState(() => _submitting = false);
-
-    if (widget.controller.pickupPaymentMethod == LocalPaymentMethod.sepay) {
-      await Navigator.of(context).push<void>(
-        MaterialPageRoute<void>(
-          builder: (_) => SepayQrScreen(
-            controller: widget.controller,
-            summary: widget.summary,
-            isPickup: true,
-          ),
-        ),
-      );
-      return;
-    }
-
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute<void>(
-        builder: (_) => OrderSuccessScreen(
-          controller: widget.controller,
-          summary: widget.summary,
-          isPickup: true,
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Hình thức lấy tại quán chưa được backend hỗ trợ. Vui lòng chọn giao tận nơi.',
         ),
       ),
     );
@@ -410,7 +387,7 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
           total: pickupTotal,
           label: 'Đặt đơn và lấy tại quán',
           onPressed: _submit,
-          loading: _submitting,
+          loading: false,
         ),
       ),
     );

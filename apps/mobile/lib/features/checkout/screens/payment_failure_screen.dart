@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../data/checkout_mock_data.dart';
 import '../models/checkout_summary.dart';
 import '../utils/checkout_assets.dart';
 import '../utils/checkout_theme.dart';
@@ -11,11 +10,17 @@ class PaymentFailureScreen extends StatelessWidget {
   const PaymentFailureScreen({
     super.key,
     required this.summary,
+    required this.orderCode,
+    required this.message,
     required this.onRetry,
+    this.retryLabel = 'Thử kiểm tra lại',
   });
 
   final CheckoutSummary summary;
+  final String orderCode;
+  final String message;
   final VoidCallback onRetry;
+  final String retryLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -55,36 +60,13 @@ class PaymentFailureScreen extends StatelessWidget {
               style: CheckoutTypography.hero,
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Đừng lo, đơn hoa của bạn vẫn được giữ trong 14 phút nữa.',
+            Text(
+              message,
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: CheckoutPalette.charcoal500,
                 fontSize: 12,
                 height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: BoxDecoration(
-                color: CheckoutPalette.forest950,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: <Widget>[
-                  Icon(Icons.timer_outlined, color: Colors.white, size: 18),
-                  SizedBox(width: 8),
-                  Text(
-                    'Thời gian giữ đơn  13:42',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
               ),
             ),
             const SizedBox(height: 20),
@@ -94,7 +76,7 @@ class PaymentFailureScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  const Row(
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: <Widget>[
                       Text(
@@ -107,7 +89,7 @@ class PaymentFailureScreen extends StatelessWidget {
                         ),
                       ),
                       CheckoutStatusBadge(
-                        text: CheckoutMockData.orderCode,
+                        text: orderCode,
                         color: CheckoutPalette.cream100,
                         textColor: CheckoutPalette.charcoal700,
                       ),
@@ -185,14 +167,14 @@ class PaymentFailureScreen extends StatelessWidget {
               icon: Icons.spa_outlined,
               title: 'Hoa của bạn vẫn an toàn',
               message:
-                  'Giỏ hoa và khung giờ đã chọn chưa bị hủy. Bạn có thể thử lại ngay mà không cần nhập lại thông tin.',
+                  'Đơn hàng đã được tạo. Bạn có thể kiểm tra lại trạng thái mà không cần tạo đơn mới.',
               color: CheckoutPalette.forest50,
             ),
             const SizedBox(height: 22),
             FilledButton.icon(
               onPressed: onRetry,
               icon: const Icon(Icons.refresh_rounded),
-              label: const Text('Thử thanh toán lại'),
+              label: Text(retryLabel),
             ),
             const SizedBox(height: 10),
             OutlinedButton.icon(

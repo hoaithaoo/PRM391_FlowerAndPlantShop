@@ -34,7 +34,6 @@ class CheckoutRemoteDataSource {
     CheckoutRequest request, {
     required String idempotencyKey,
   }) async {
-    // TODO: Lấy Supabase access token từ auth module sau khi foundation được merge
     final accessToken = await _accessTokenProvider();
     if (accessToken == null || accessToken.trim().isEmpty) {
       throw const CheckoutFailure(code: CheckoutErrorCode.authTokenInvalid);
@@ -55,6 +54,7 @@ class CheckoutRemoteDataSource {
         throw CheckoutFailure(
           code: _readErrorCode(response.body),
           statusCode: response.statusCode,
+          message: _readErrorMessage(response.body),
         );
       }
 
@@ -70,8 +70,8 @@ class CheckoutRemoteDataSource {
       throw const CheckoutFailure(code: CheckoutErrorCode.malformedResponse);
     } on CheckoutFailure {
       rethrow;
-    } catch (_) {
-      throw const CheckoutFailure.network();
+    } catch (error) {
+      throw CheckoutFailure.network(message: error.toString());
     }
   }
 
@@ -84,5 +84,13 @@ class CheckoutRemoteDataSource {
       }
     }
     return CheckoutErrorCode.network;
+  }
+
+  String? _readErrorMessage(Map<String, dynamic> body) {
+    final error = body['error'];
+    if (error is Map && error['message'] is String) {
+      return error['message'] as String;
+    }
+    return null;
   }
 }

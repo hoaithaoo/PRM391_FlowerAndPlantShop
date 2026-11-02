@@ -45,7 +45,12 @@ class CheckoutAddress {
   final double? latitude;
   final double? longitude;
 
-  String get fullAddress => '$addressLine, $ward, $district, $city';
+  String get fullAddress => [
+    addressLine,
+    ward,
+    district,
+    city,
+  ].where((part) => part.trim().isNotEmpty).join(', ');
 
   CheckoutAddress copyWith({
     String? label,

@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 
 import '../data/notification_failure.dart';
@@ -10,46 +8,64 @@ import 'notification_state.dart';
 
 class NotificationController extends ChangeNotifier {
   NotificationController({required NotificationRepository repository})
-    : _repository = repository {
-    _subscribeRealtime();
-  }
+    : _repository = repository;
 
   final NotificationRepository _repository;
   NotificationState _state = const NotificationState();
-  StreamSubscription<NotificationItem>? _realtimeSubscription;
   int _requestGeneration = 0;
   bool _isDisposed = false;
 
   NotificationState get state => _state;
 
-  Future<void> loadInitial() => _load(showFullLoader: true);
+  Future<void> loadInitial() => _loadFirstPage(showFullLoader: true);
 
-  Future<void> refresh() => _load(showFullLoader: false);
+  Future<void> refresh() => _loadFirstPage(showFullLoader: false);
 
-  void setFilter(NotificationFilter filter) {
+  Future<void> setFilter(NotificationFilter filter) async {
     if (_state.currentFilter == filter) return;
-    _setState(_state.copyWith(currentFilter: filter));
+    _setState(
+      _state.copyWith(
+        currentFilter: filter,
+        items: const <NotificationItem>[],
+        page: 0,
+        total: 0,
+        totalPages: 0,
+        status: NotificationLoadStatus.loading,
+        errorMessage: null,
+        actionErrorMessage: null,
+        actionSuccessMessage: null,
+      ),
+    );
+    await _loadFirstPage(showFullLoader: true);
   }
 
-  Future<void> _load({required bool showFullLoader}) async {
+  Future<void> _loadFirstPage({required bool showFullLoader}) async {
     final generation = ++_requestGeneration;
     _setState(
       _state.copyWith(
         status: showFullLoader ? NotificationLoadStatus.loading : _state.status,
+        isLoadingMore: false,
         errorMessage: null,
         actionErrorMessage: null,
+        actionSuccessMessage: null,
       ),
     );
 
     try {
-      final result = await _repository.getNotifications();
+      final result = await _repository.getNotifications(
+        page: 1,
+        unreadOnly: _state.currentFilter.unreadOnly,
+      );
       if (generation != _requestGeneration) return;
       _setState(
         _state.copyWith(
           status: NotificationLoadStatus.loaded,
-          items: _mergeAndSort(result.items, _state.items),
+          items: result.items,
+          page: result.page,
+          total: result.total,
+          totalPages: result.totalPages,
+          unreadCount: result.unreadCount,
           errorMessage: null,
-          actionErrorMessage: null,
         ),
       );
     } on NotificationFailure catch (failure) {
@@ -61,6 +77,62 @@ class NotificationController extends ChangeNotifier {
     }
   }
 
+  Future<void> loadMore() async {
+    if (_state.status != NotificationLoadStatus.loaded ||
+        _state.isLoadingMore ||
+        !_state.hasMore) {
+      return;
+    }
+
+    final generation = _requestGeneration;
+    final nextPage = _state.page + 1;
+    _setState(
+      _state.copyWith(
+        isLoadingMore: true,
+        actionErrorMessage: null,
+        actionSuccessMessage: null,
+      ),
+    );
+
+    try {
+      final result = await _repository.getNotifications(
+        page: nextPage,
+        unreadOnly: _state.currentFilter.unreadOnly,
+      );
+      if (generation != _requestGeneration) return;
+      _setState(
+        _state.copyWith(
+          items: _appendUnique(_state.items, result.items),
+          page: result.page,
+          total: result.total,
+          totalPages: result.totalPages,
+          unreadCount: result.unreadCount,
+          isLoadingMore: false,
+        ),
+      );
+    } on NotificationFailure catch (failure) {
+      if (generation == _requestGeneration) {
+        _setState(
+          _state.copyWith(
+            isLoadingMore: false,
+            actionErrorMessage: _messageForFailure(failure),
+          ),
+        );
+      }
+    } catch (_) {
+      if (generation == _requestGeneration) {
+        _setState(
+          _state.copyWith(
+            isLoadingMore: false,
+            actionErrorMessage: _messageForFailure(
+              const NotificationFailure.network(),
+            ),
+          ),
+        );
+      }
+    }
+  }
+
   Future<void> markAsRead(NotificationItem notification) async {
     if (notification.isRead ||
         _state.isMarkingAll ||
@@ -68,38 +140,44 @@ class NotificationController extends ChangeNotifier {
       return;
     }
 
-    final before = notification;
-    final readAt = DateTime.now();
     _setState(
       _state.copyWith(
-        items: _replaceItem(
-          _state.items,
-          notification.copyWith(isRead: true, readAt: readAt),
-        ),
         markingReadIds: <String>{..._state.markingReadIds, notification.id},
         actionErrorMessage: null,
+        actionSuccessMessage: null,
       ),
     );
 
     try {
       final result = await _repository.markAsRead(notification.id);
-      final current = _state.items.firstWhere(
-        (item) => item.id == notification.id,
-        orElse: () => notification,
+      final updated = notification.copyWith(
+        isRead: result.isRead,
+        readAt: result.readAt,
       );
+      final unreadCount = result.isRead
+          ? (_state.unreadCount - 1).clamp(0, _state.unreadCount)
+          : _state.unreadCount;
+      final isUnreadFilter =
+          _state.currentFilter == NotificationFilter.unread && result.isRead;
       _setState(
         _state.copyWith(
-          items: _replaceItem(
-            _state.items,
-            current.copyWith(isRead: result.isRead, readAt: result.readAt),
-          ),
+          items: isUnreadFilter
+              ? _state.items
+                    .where((item) => item.id != notification.id)
+                    .toList(growable: false)
+              : _replaceItem(_state.items, updated),
+          total: isUnreadFilter
+              ? (_state.total - 1).clamp(0, _state.total)
+              : _state.total,
+          unreadCount: unreadCount,
           markingReadIds: _withoutPending(notification.id),
         ),
       );
+      if (isUnreadFilter) await refresh();
     } on NotificationFailure catch (failure) {
-      _rollbackRead(before, failure);
+      _setActionFailure(notification.id, failure);
     } catch (_) {
-      _rollbackRead(before, const NotificationFailure.network());
+      _setActionFailure(notification.id, const NotificationFailure.network());
     }
   }
 
@@ -110,29 +188,39 @@ class NotificationController extends ChangeNotifier {
       return;
     }
 
-    final before = _state.items;
-    final readAt = DateTime.now();
     _setState(
       _state.copyWith(
         isMarkingAll: true,
         actionErrorMessage: null,
-        items: _state.items
-            .map(
-              (item) => item.isRead
-                  ? item
-                  : item.copyWith(isRead: true, readAt: readAt),
-            )
-            .toList(growable: false),
+        actionSuccessMessage: null,
       ),
     );
 
     try {
       await _repository.markAllAsRead();
-      _setState(_state.copyWith(isMarkingAll: false));
+      final readAt = DateTime.now();
+      final isUnreadFilter = _state.currentFilter == NotificationFilter.unread;
+      _setState(
+        _state.copyWith(
+          items: isUnreadFilter
+              ? const <NotificationItem>[]
+              : _state.items
+                    .map(
+                      (item) => item.isRead
+                          ? item
+                          : item.copyWith(isRead: true, readAt: readAt),
+                    )
+                    .toList(growable: false),
+          total: isUnreadFilter ? 0 : _state.total,
+          totalPages: isUnreadFilter ? 0 : _state.totalPages,
+          unreadCount: 0,
+          isMarkingAll: false,
+          actionSuccessMessage: 'Đã đánh dấu tất cả thông báo là đã đọc.',
+        ),
+      );
     } on NotificationFailure catch (failure) {
       _setState(
         _state.copyWith(
-          items: _restoreReadStates(_state.items, before),
           isMarkingAll: false,
           actionErrorMessage: _messageForFailure(failure),
         ),
@@ -140,7 +228,6 @@ class NotificationController extends ChangeNotifier {
     } catch (_) {
       _setState(
         _state.copyWith(
-          items: _restoreReadStates(_state.items, before),
           isMarkingAll: false,
           actionErrorMessage: _messageForFailure(
             const NotificationFailure.network(),
@@ -150,42 +237,21 @@ class NotificationController extends ChangeNotifier {
     }
   }
 
-  void dismissActionError() {
-    _setState(_state.copyWith(actionErrorMessage: null));
-  }
-
-  void _subscribeRealtime() {
-    // Đồng bộ sự kiện realtime vào state mà không thay đổi bộ lọc hiện tại.
-    _realtimeSubscription = _repository.watchNotifications().listen(
-      (incoming) {
-        _setState(
-          _state.copyWith(
-            items: _mergeAndSort(_state.items, <NotificationItem>[incoming]),
-          ),
-        );
-      },
-      onError: (_) {
-        _setState(
-          _state.copyWith(
-            actionErrorMessage:
-                'Kết nối thông báo tạm gián đoạn. Danh sách hiện tại vẫn được giữ.',
-          ),
-        );
-      },
+  void dismissActionMessage() {
+    _setState(
+      _state.copyWith(actionErrorMessage: null, actionSuccessMessage: null),
     );
   }
 
-  List<NotificationItem> _mergeAndSort(
+  List<NotificationItem> _appendUnique(
     List<NotificationItem> current,
     List<NotificationItem> incoming,
   ) {
-    final byId = <String, NotificationItem>{
-      for (final item in current) item.id: item,
-      for (final item in incoming) item.id: item,
-    };
-    final result = byId.values.toList(growable: false);
-    result.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return result;
+    final seen = current.map((item) => item.id).toSet();
+    return <NotificationItem>[
+      ...current,
+      ...incoming.where((item) => seen.add(item.id)),
+    ];
   }
 
   List<NotificationItem> _replaceItem(
@@ -197,32 +263,14 @@ class NotificationController extends ChangeNotifier {
         .toList(growable: false);
   }
 
-  List<NotificationItem> _restoreReadStates(
-    List<NotificationItem> current,
-    List<NotificationItem> snapshot,
-  ) {
-    final previousById = <String, NotificationItem>{
-      for (final item in snapshot) item.id: item,
-    };
-    return current
-        .map((item) {
-          final previous = previousById[item.id];
-          return previous == null
-              ? item
-              : item.copyWith(isRead: previous.isRead, readAt: previous.readAt);
-        })
-        .toList(growable: false);
-  }
-
   Set<String> _withoutPending(String id) => <String>{
     ..._state.markingReadIds.where((pending) => pending != id),
   };
 
-  void _rollbackRead(NotificationItem before, NotificationFailure failure) {
+  void _setActionFailure(String id, NotificationFailure failure) {
     _setState(
       _state.copyWith(
-        items: _replaceItem(_state.items, before),
-        markingReadIds: _withoutPending(before.id),
+        markingReadIds: _withoutPending(id),
         actionErrorMessage: _messageForFailure(failure),
       ),
     );
@@ -237,6 +285,7 @@ class NotificationController extends ChangeNotifier {
             : _isAuthenticationFailure(failure)
             ? NotificationLoadStatus.authenticationRequired
             : NotificationLoadStatus.error,
+        isLoadingMore: false,
         errorMessage: hasContent ? null : _messageForFailure(failure),
         actionErrorMessage: hasContent ? _messageForFailure(failure) : null,
       ),
@@ -244,18 +293,28 @@ class NotificationController extends ChangeNotifier {
   }
 
   bool _isAuthenticationFailure(NotificationFailure failure) {
-    return failure.code == NotificationErrorCode.authTokenInvalid ||
+    return failure.statusCode == 401 ||
+        failure.code == NotificationErrorCode.authTokenInvalid ||
         failure.code == NotificationErrorCode.authTokenMissing;
   }
 
   String _messageForFailure(NotificationFailure failure) {
-    return switch (failure.code) {
-      NotificationErrorCode.authTokenInvalid ||
-      NotificationErrorCode.authTokenMissing =>
-        'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-      NotificationErrorCode.notificationNotFound =>
-        'Thông báo này không còn tồn tại.',
-      _ => 'Chưa thể đồng bộ thông báo. Vui lòng thử lại.',
+    return switch (failure.statusCode) {
+      400 => 'Yêu cầu không hợp lệ.',
+      401 => 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+      403 => 'Bạn không có quyền thực hiện thao tác này.',
+      404 => 'Không tìm thấy thông báo.',
+      _ => switch (failure.code) {
+        NotificationErrorCode.authTokenInvalid ||
+        NotificationErrorCode.authTokenMissing =>
+          'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
+        NotificationErrorCode.notificationNotFound =>
+          'Không tìm thấy thông báo.',
+        NotificationErrorCode.malformedResponse =>
+          'Dữ liệu thông báo không hợp lệ. Vui lòng thử lại.',
+        NotificationErrorCode.network => 'Không thể kết nối đến máy chủ.',
+        _ => 'Đã xảy ra lỗi. Vui lòng thử lại.',
+      },
     };
   }
 
@@ -269,8 +328,6 @@ class NotificationController extends ChangeNotifier {
   void dispose() {
     _isDisposed = true;
     _requestGeneration++;
-    // Hủy subscription khi controller bị dispose để tránh memory leak.
-    unawaited(_realtimeSubscription?.cancel());
     super.dispose();
   }
 }

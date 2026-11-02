@@ -1,4 +1,5 @@
 export 'data/checkout_failure.dart';
+export 'data/checkout_api.dart';
 export 'data/checkout_mock_data.dart';
 export 'data/checkout_remote_data_source.dart';
 export 'data/checkout_repository.dart';
@@ -14,6 +15,7 @@ export 'models/checkout_summary.dart';
 export 'models/payment_method.dart';
 export 'screens/address_list_screen.dart';
 export 'screens/checkout_screen.dart';
+export 'screens/checkout_entry_screen.dart';
 export 'screens/checkout_success_screen.dart';
 export 'screens/edit_address_screen.dart';
 export 'screens/order_success_screen.dart';

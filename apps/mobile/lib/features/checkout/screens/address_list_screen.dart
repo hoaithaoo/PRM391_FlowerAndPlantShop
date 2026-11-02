@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../data/checkout_api.dart';
+import '../data/checkout_failure.dart';
 import '../models/checkout_flow_models.dart';
 import '../state/checkout_flow_controller.dart';
 import '../utils/checkout_assets.dart';
@@ -9,9 +11,16 @@ import '../widgets/checkout_common.dart';
 import 'edit_address_screen.dart';
 
 class AddressListScreen extends StatefulWidget {
-  const AddressListScreen({super.key, required this.controller});
+  const AddressListScreen({
+    super.key,
+    required this.controller,
+    required this.api,
+    this.profile,
+  });
 
   final CheckoutFlowController controller;
+  final CheckoutApi api;
+  final CheckoutUserProfile? profile;
 
   @override
   State<AddressListScreen> createState() => _AddressListScreenState();
@@ -20,30 +29,75 @@ class AddressListScreen extends StatefulWidget {
 class _AddressListScreenState extends State<AddressListScreen> {
   late CheckoutAddress? _selectedAddress = widget.controller.selectedAddress;
   bool _selectionTouched = false;
+  bool _saving = false;
+
+  Future<T?> _persist<T>(Future<T> Function() action) async {
+    if (_saving) return null;
+    setState(() => _saving = true);
+    try {
+      return await action();
+    } on CheckoutFailure catch (failure) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            failure.message ??
+                'Không thể cập nhật địa chỉ. Vui lòng thử lại.',
+          ),
+        ),
+      );
+      return null;
+    } catch (_) {
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể cập nhật địa chỉ. Vui lòng thử lại.'),
+        ),
+      );
+      return null;
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
 
   Future<void> _editAddress(CheckoutAddress address) async {
-    final edited = await Navigator.of(context).push<CheckoutAddress>(
-      MaterialPageRoute<CheckoutAddress>(
+    final result = await Navigator.of(context).push<AddressEditResult>(
+      MaterialPageRoute<AddressEditResult>(
         builder: (_) => EditAddressScreen(address: address),
       ),
     );
-    if (edited == null || !mounted) return;
-    widget.controller.updateAddress(edited);
+    if (result == null || !mounted) return;
+    if (result.deleted) {
+      final deleted = await _persist(() async {
+        await widget.api.deleteAddress(address.id);
+        return true;
+      });
+      if (deleted == true && mounted) {
+        widget.controller.removeAddress(address.id);
+        setState(() => _selectedAddress = widget.controller.selectedAddress);
+      }
+      return;
+    }
+    final edited = result.address;
+    if (edited == null) return;
+    final saved = await _persist(() => widget.api.updateAddress(edited));
+    if (saved == null || !mounted) return;
+    widget.controller.updateAddress(saved);
     setState(() {
-      _selectedAddress = edited;
+      _selectedAddress = saved;
       _selectionTouched = true;
     });
   }
 
   Future<void> _addAddress() async {
-    final created = await Navigator.of(context).push<CheckoutAddress>(
-      MaterialPageRoute<CheckoutAddress>(
-        builder: (_) => const EditAddressScreen(
+    final result = await Navigator.of(context).push<AddressEditResult>(
+      MaterialPageRoute<AddressEditResult>(
+        builder: (_) => EditAddressScreen(
           address: CheckoutAddress(
             id: 'new-address',
             label: 'Nhà riêng',
-            recipientName: '',
-            phone: '',
+            recipientName: widget.profile?.fullName ?? '',
+            phone: widget.profile?.phone ?? '',
             addressLine: '',
             ward: '',
             district: '',
@@ -53,10 +107,13 @@ class _AddressListScreenState extends State<AddressListScreen> {
         ),
       ),
     );
+    final created = result?.address;
     if (created == null || !mounted) return;
-    widget.controller.updateAddress(created);
+    final saved = await _persist(() => widget.api.createAddress(created));
+    if (saved == null || !mounted) return;
+    widget.controller.updateAddress(saved);
     setState(() {
-      _selectedAddress = created;
+      _selectedAddress = saved;
       _selectionTouched = true;
     });
   }
@@ -123,7 +180,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
                 ),
               ),
             OutlinedButton.icon(
-              onPressed: _addAddress,
+              onPressed: _saving ? null : _addAddress,
               icon: const Icon(Icons.add_rounded),
               label: const Text('Thêm địa chỉ mới'),
               style: OutlinedButton.styleFrom(
@@ -209,7 +266,7 @@ class _AddressListScreenState extends State<AddressListScreen> {
             padding: const EdgeInsets.fromLTRB(18, 12, 18, 12),
             color: CheckoutPalette.surface,
             child: FilledButton.icon(
-              onPressed: _confirm,
+              onPressed: _saving ? null : _confirm,
               icon: const Icon(Icons.check_rounded),
               label: const Text('Giao đến địa chỉ này'),
             ),

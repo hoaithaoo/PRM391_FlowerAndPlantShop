@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../data/checkout_mock_data.dart';
 import '../models/checkout_flow_models.dart';
+import '../models/checkout_result.dart';
 import '../models/checkout_summary.dart';
 import '../state/checkout_flow_controller.dart';
 import '../utils/checkout_assets.dart';
@@ -15,11 +15,13 @@ class OrderSuccessScreen extends StatelessWidget {
     required this.controller,
     required this.summary,
     required this.isPickup,
+    required this.result,
   });
 
   final CheckoutFlowController controller;
   final CheckoutSummary summary;
   final bool isPickup;
+  final CheckoutResult result;
 
   void _finish(BuildContext context) {
     Navigator.of(context).popUntil((route) => route.isFirst);
@@ -32,9 +34,7 @@ class OrderSuccessScreen extends StatelessWidget {
     final payment = isPickup
         ? controller.pickupPaymentMethod?.label ?? 'Thanh toán tại cửa hàng'
         : controller.deliveryPaymentMethod?.label ?? 'Thanh toán khi nhận hàng';
-    final total = isPickup
-        ? summary.grandTotal - summary.shippingFee
-        : summary.grandTotal;
+    final total = result.invoice.grandTotal;
     return CheckoutTheme(
       child: Scaffold(
         appBar: FleureAppBar(
@@ -88,10 +88,10 @@ class OrderSuccessScreen extends StatelessWidget {
                 children: <Widget>[
                   Row(
                     children: <Widget>[
-                      const Expanded(
+                      Expanded(
                         child: CheckoutDetailRow(
                           label: 'Mã đơn hàng',
-                          value: CheckoutMockData.orderCode,
+                          value: result.order.orderCode,
                           icon: Icons.receipt_long_outlined,
                         ),
                       ),
@@ -133,7 +133,7 @@ class OrderSuccessScreen extends StatelessWidget {
                     label: isPickup ? 'Studio nhận hoa' : 'Người nhận',
                     value: isPickup
                         ? branch.name
-                        : '${address.recipientName} · ${address.phone}',
+                        : '${address!.recipientName} · ${address.phone}',
                     icon: isPickup
                         ? Icons.storefront_outlined
                         : Icons.person_outline_rounded,
@@ -144,7 +144,7 @@ class OrderSuccessScreen extends StatelessWidget {
                   ),
                   CheckoutDetailRow(
                     label: 'Địa chỉ',
-                    value: isPickup ? branch.address : address.fullAddress,
+                    value: isPickup ? branch.address : address!.fullAddress,
                     icon: Icons.location_on_outlined,
                   ),
                   const Padding(

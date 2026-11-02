@@ -38,6 +38,9 @@ void main() {
     final requests = <http.Request>[];
     final client = MockClient((request) async {
       requests.add(request);
+      if (request.method == 'DELETE') {
+        return http.Response('', 204);
+      }
       return http.Response(
         jsonEncode(_envelope()),
         request.method == 'POST' ? 201 : 200,
@@ -63,16 +66,26 @@ void main() {
     expect(requests.map((request) => request.method), [
       'GET',
       'POST',
-      'PATCH',
+      'GET',
+      'PUT',
+      'GET',
       'DELETE',
+      'GET',
+      'GET',
       'DELETE',
+      'GET',
     ]);
     expect(requests.map((request) => request.url.path), [
       '/api/v1/cart',
       '/api/v1/cart/items',
+      '/api/v1/cart',
       '/api/v1/cart/items/$_itemId',
+      '/api/v1/cart',
       '/api/v1/cart/items/$_itemId',
-      '/api/v1/cart/items',
+      '/api/v1/cart',
+      '/api/v1/cart',
+      '/api/v1/cart/items/$_itemId',
+      '/api/v1/cart',
     ]);
     expect(
       requests.every(
@@ -84,7 +97,7 @@ void main() {
       'productId': _productId,
       'quantity': 2,
     });
-    expect(jsonDecode(requests[2].body), {'quantity': 3});
+    expect(jsonDecode(requests[3].body), {'quantity': 3});
   });
 
   test(

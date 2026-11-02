@@ -8,6 +8,14 @@ import '../utils/checkout_theme.dart';
 import '../utils/checkout_validators.dart';
 import '../widgets/checkout_common.dart';
 
+class AddressEditResult {
+  const AddressEditResult.saved(this.address) : deleted = false;
+  const AddressEditResult.deleted() : address = null, deleted = true;
+
+  final CheckoutAddress? address;
+  final bool deleted;
+}
+
 class EditAddressScreen extends StatefulWidget {
   const EditAddressScreen({
     super.key,
@@ -55,7 +63,10 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   late String _label;
   late bool _isDefault;
   late bool _hasLocation;
+  late double? _latitude;
+  late double? _longitude;
   bool _locationTouched = false;
+  bool _locating = false;
 
   @override
   void initState() {
@@ -86,6 +97,8 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     _isDefault = widget.address.isDefault;
     _hasLocation =
         widget.address.latitude != null && widget.address.longitude != null;
+    _latitude = widget.address.latitude;
+    _longitude = widget.address.longitude;
   }
 
   @override
@@ -108,16 +121,39 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   //   );
   // }
 
-  // Tạm thời: chỉ kiểm tra xin quyền + lấy tọa độ, in ra console.
-  // TODO(map): gán tọa độ vào địa chỉ và cập nhật UI.
   Future<void> _locate() async {
+    if (_locating) return;
+    setState(() {
+      _locating = true;
+      _locationTouched = true;
+    });
     try {
       final curLocation = await const LocationService().getCurrentLocation();
-      debugPrint(
-        'Current location: ${curLocation.latitude}, ${curLocation.longitude}',
+      if (!mounted) return;
+      setState(() {
+        _latitude = curLocation.latitude;
+        _longitude = curLocation.longitude;
+        _hasLocation = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã ghi nhận vị trí hiện tại của bạn.')),
       );
     } on LocationException catch (e) {
-      debugPrint('Location error: ${e.failure}');
+      if (!mounted) return;
+      final message = switch (e.failure) {
+        LocationFailure.serviceDisabled =>
+          'Vui lòng bật dịch vụ vị trí để tiếp tục.',
+        LocationFailure.denied => 'Bạn chưa cấp quyền truy cập vị trí.',
+        LocationFailure.deniedForever =>
+          'Quyền vị trí đã bị tắt. Vui lòng bật lại trong Cài đặt.',
+        LocationFailure.timeout =>
+          'Không thể xác định vị trí. Vui lòng thử lại.',
+      };
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) setState(() => _locating = false);
     }
   }
 
@@ -126,6 +162,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
       _city = value;
       _district = null;
       _ward = null;
+      _clearLocation();
     });
     _districtFieldKey.currentState?.didChange(null);
     _wardFieldKey.currentState?.didChange(null);
@@ -137,9 +174,16 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
     setState(() {
       _district = value;
       _ward = null;
+      _clearLocation();
     });
     _wardFieldKey.currentState?.didChange(null);
     _wardFieldKey.currentState?.validate();
+  }
+
+  void _clearLocation() {
+    _hasLocation = false;
+    _latitude = null;
+    _longitude = null;
   }
 
   void _save() {
@@ -165,10 +209,10 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
         _driverNoteController.text,
       ),
       isDefault: _isDefault,
-      latitude: widget.address.latitude ?? 10.7764,
-      longitude: widget.address.longitude ?? 106.7009,
+      latitude: _latitude,
+      longitude: _longitude,
     );
-    Navigator.of(context).pop(address);
+    Navigator.of(context).pop(AddressEditResult.saved(address));
   }
 
   void _revealFirstInvalid() {
@@ -220,7 +264,9 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
         ],
       ),
     );
-    if (confirmed == true && mounted) Navigator.of(context).pop();
+    if (confirmed == true && mounted) {
+      Navigator.of(context).pop(const AddressEditResult.deleted());
+    }
   }
 
   @override
@@ -311,7 +357,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                                 ),
                                 const SizedBox(height: 3),
                                 const Text(
-                                  'Vị trí được ghi nhận tự động từ bản đồ.',
+                                  'Vị trí chỉ được ghi nhận khi bạn chủ động chọn.',
                                   style: TextStyle(
                                     color: CheckoutPalette.charcoal500,
                                     fontSize: 10.5,
@@ -321,12 +367,23 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                             ),
                           ),
                           TextButton.icon(
-                            onPressed: _locate,
-                            icon: const Icon(
-                              Icons.my_location_rounded,
-                              size: 17,
+                            onPressed: _locating ? null : _locate,
+                            icon: _locating
+                                ? const SizedBox.square(
+                                    dimension: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.my_location_rounded,
+                                    size: 17,
+                                  ),
+                            label: Text(
+                              _hasLocation
+                                  ? 'Cập nhật vị trí'
+                                  : 'Dùng vị trí hiện tại',
                             ),
-                            label: Text(_hasLocation ? 'Cập nhật' : 'Định vị'),
                           ),
                         ],
                       ),
@@ -399,7 +456,10 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                 prefixIcon: Icons.place_outlined,
                 onChanged: _district == null
                     ? null
-                    : (value) => setState(() => _ward = value),
+                    : (value) => setState(() {
+                        _ward = value;
+                        _clearLocation();
+                      }),
                 validator: CheckoutValidators.ward,
               ),
               const SizedBox(height: 14),
@@ -410,6 +470,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
                 hint: 'Số nhà, tên đường, tòa nhà',
                 prefixIcon: Icons.location_on_outlined,
                 validator: CheckoutValidators.detailedAddress,
+                onChanged: (_) => setState(_clearLocation),
               ),
               const SizedBox(height: 14),
               LabeledCheckoutField(

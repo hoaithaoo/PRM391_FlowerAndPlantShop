@@ -1,4 +1,5 @@
 export 'data/mock_notification_repository.dart';
+export 'data/api_client_notification_transport.dart';
 export 'data/notification_failure.dart';
 export 'data/notification_remote_data_source.dart';
 export 'data/notification_realtime_data_source.dart';
@@ -11,4 +12,5 @@ export 'models/notification_read_result.dart';
 export 'models/notification_type.dart';
 export 'screens/notifications_screen.dart';
 export 'state/notification_controller.dart';
+export 'state/notification_scope.dart';
 export 'state/notification_state.dart';

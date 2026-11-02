@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../data/checkout_mock_data.dart';
+import '../data/checkout_api.dart';
 import '../models/checkout_flow_models.dart';
+import '../models/checkout_result.dart';
 import '../models/checkout_summary.dart';
 import '../state/checkout_flow_controller.dart';
 import '../utils/checkout_theme.dart';
@@ -13,12 +14,16 @@ class PaymentSuccessScreen extends StatelessWidget {
     super.key,
     required this.controller,
     required this.summary,
+    required this.result,
+    required this.paymentStatus,
     this.isPickup = false,
     this.onDone,
   });
 
   final CheckoutFlowController controller;
   final CheckoutSummary summary;
+  final CheckoutResult result;
+  final CheckoutPaymentStatusResult paymentStatus;
   final bool isPickup;
   final VoidCallback? onDone;
 
@@ -34,9 +39,11 @@ class PaymentSuccessScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final address = controller.selectedAddress;
     final branch = controller.selectedBranch;
-    final total = isPickup
-        ? summary.grandTotal - summary.shippingFee
-        : summary.grandTotal;
+    final total = result.invoice.grandTotal;
+    final paidAt = paymentStatus.paidAt?.toLocal();
+    final paidAtLabel = paidAt == null
+        ? 'Đã được xác nhận'
+        : '${paidAt.day.toString().padLeft(2, '0')}/${paidAt.month.toString().padLeft(2, '0')}/${paidAt.year} · ${paidAt.hour.toString().padLeft(2, '0')}:${paidAt.minute.toString().padLeft(2, '0')}';
     return CheckoutTheme(
       child: Scaffold(
         appBar: FleureAppBar(
@@ -107,24 +114,24 @@ class PaymentSuccessScreen extends StatelessWidget {
                     padding: EdgeInsets.symmetric(vertical: 15),
                     child: Divider(),
                   ),
-                  const Row(
+                  Row(
                     children: <Widget>[
                       Expanded(
                         child: CheckoutDetailRow(
                           label: 'Mã đơn hàng',
-                          value: CheckoutMockData.orderCode,
+                          value: result.order.orderCode,
                         ),
                       ),
                       Expanded(
                         child: CheckoutDetailRow(
                           label: 'Mã giao dịch',
-                          value: CheckoutMockData.transactionCode,
+                          value: paymentStatus.paymentCode ?? paymentStatus.id,
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 14),
-                  const Row(
+                  Row(
                     children: <Widget>[
                       Expanded(
                         child: CheckoutDetailRow(
@@ -135,7 +142,7 @@ class PaymentSuccessScreen extends StatelessWidget {
                       Expanded(
                         child: CheckoutDetailRow(
                           label: 'Thời gian',
-                          value: '05/10/2026 · 14:32',
+                          value: paidAtLabel,
                         ),
                       ),
                     ],
@@ -160,7 +167,7 @@ class PaymentSuccessScreen extends StatelessWidget {
                     label: isPickup ? 'Studio' : 'Người nhận',
                     value: isPickup
                         ? branch.name
-                        : '${address.recipientName} · ${address.phone}',
+                        : '${address!.recipientName} · ${address.phone}',
                     icon: isPickup
                         ? Icons.storefront_outlined
                         : Icons.person_outline_rounded,
@@ -171,7 +178,7 @@ class PaymentSuccessScreen extends StatelessWidget {
                   ),
                   CheckoutDetailRow(
                     label: isPickup ? 'Địa chỉ studio' : 'Địa chỉ giao hoa',
-                    value: isPickup ? branch.address : address.fullAddress,
+                    value: isPickup ? branch.address : address!.fullAddress,
                     icon: Icons.location_on_outlined,
                   ),
                   const Padding(

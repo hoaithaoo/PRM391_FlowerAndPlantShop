@@ -40,7 +40,10 @@ class ApiClientChatbotTransport implements ChatbotApiTransport {
   ) async {
     try {
       final response = await send();
-      return ChatbotApiResponse(statusCode: 200, body: {'data': response.data});
+      return ChatbotApiResponse(
+        statusCode: response.statusCode,
+        body: {'data': response.data},
+      );
     } on ApiException catch (error) {
       if (error.isNetworkError) rethrow;
       if (error.statusCode == 204) {

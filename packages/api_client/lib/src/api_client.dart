@@ -7,10 +7,15 @@ import 'api_exception.dart';
 
 /// Response thành công đã bóc envelope `{ success, data, meta }`.
 class ApiResponse {
-  const ApiResponse({required this.data, required this.meta});
+  const ApiResponse({
+    required this.data,
+    required this.meta,
+    this.statusCode = 200,
+  });
 
   final Object? data;
   final Map<String, dynamic> meta;
+  final int statusCode;
 }
 
 /// HTTP client tối giản cho REST API `/api/v1`.
@@ -40,6 +45,12 @@ class ApiClient {
     Map<String, String>? headers,
     Object? body,
   }) => _send('POST', path, headers: headers, body: body);
+
+  Future<ApiResponse> put(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) => _send('PUT', path, headers: headers, body: body);
 
   Future<ApiResponse> patch(
     String path, {
@@ -89,10 +100,16 @@ class ApiClient {
     }
 
     final ok = response.statusCode >= 200 && response.statusCode < 300;
+    // DELETE endpoints commonly return 204 without a JSON envelope.
+    if (response.statusCode == 204) {
+      return const ApiResponse(data: null, meta: {}, statusCode: 204);
+    }
+
     if (ok && body != null && body['success'] != false) {
       return ApiResponse(
         data: body['data'],
         meta: (body['meta'] as Map<String, dynamic>?) ?? const {},
+        statusCode: response.statusCode,
       );
     }
 

@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
@@ -22,6 +23,7 @@ class CheckoutController extends ChangeNotifier {
 
   CheckoutState _state = const CheckoutState();
   String? _activeIdempotencyKey;
+  String? _activeRequestFingerprint;
   bool _isDisposed = false;
 
   CheckoutState get state => _state;
@@ -31,7 +33,12 @@ class CheckoutController extends ChangeNotifier {
       return null;
     }
 
-    // Giữ nguyên khóa trong suốt một lần gửi để ngăn tạo đơn trùng lặp
+    final fingerprint = jsonEncode(request.toJson());
+    if (_activeRequestFingerprint != fingerprint) {
+      _activeRequestFingerprint = fingerprint;
+      _activeIdempotencyKey = _idempotencyKeyFactory();
+    }
+    // Giữ nguyên khóa khi retry một request có kết quả chưa chắc chắn.
     final idempotencyKey = _activeIdempotencyKey ??= _idempotencyKeyFactory();
     _setState(const CheckoutState(status: CheckoutStatus.submitting));
 
@@ -41,9 +48,11 @@ class CheckoutController extends ChangeNotifier {
         idempotencyKey: idempotencyKey,
       );
       _setState(CheckoutState(status: CheckoutStatus.success, result: result));
+      _clearAttempt();
       return result;
     } on CheckoutFailure catch (failure) {
       _setState(_stateForFailure(failure));
+      if (!_hasUncertainOutcome(failure)) _clearAttempt();
       return null;
     } catch (_) {
       _setState(
@@ -53,9 +62,18 @@ class CheckoutController extends ChangeNotifier {
         ),
       );
       return null;
-    } finally {
-      _activeIdempotencyKey = null;
     }
+  }
+
+  bool _hasUncertainOutcome(CheckoutFailure failure) {
+    return failure.code == CheckoutErrorCode.network ||
+        failure.code == CheckoutErrorCode.malformedResponse ||
+        (failure.statusCode != null && failure.statusCode! >= 500);
+  }
+
+  void _clearAttempt() {
+    _activeIdempotencyKey = null;
+    _activeRequestFingerprint = null;
   }
 
   void resetError() {
@@ -90,9 +108,26 @@ class CheckoutController extends ChangeNotifier {
         status: CheckoutStatus.authenticationRequired,
         errorMessage: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
       ),
-      _ => const CheckoutState(
+      _ when failure.statusCode == 403 => const CheckoutState(
         status: CheckoutStatus.error,
-        errorMessage: 'Không thể xử lý đơn hàng lúc này. Vui lòng thử lại.',
+        errorMessage:
+            'Tài khoản của bạn không có quyền thực hiện thao tác này.',
+      ),
+      _ when failure.statusCode == 409 => const CheckoutState(
+        status: CheckoutStatus.error,
+        errorMessage:
+            'Dữ liệu đơn hàng đã thay đổi. Vui lòng kiểm tra lại giỏ hàng.',
+      ),
+      _ when failure.statusCode == 422 => const CheckoutState(
+        status: CheckoutStatus.error,
+        errorMessage:
+            'Thông tin đặt hàng chưa hợp lệ. Vui lòng kiểm tra lại.',
+      ),
+      _ => CheckoutState(
+        status: CheckoutStatus.error,
+        errorMessage:
+            failure.message ??
+            'Không thể xử lý đơn hàng lúc này. Vui lòng thử lại.',
       ),
     };
   }

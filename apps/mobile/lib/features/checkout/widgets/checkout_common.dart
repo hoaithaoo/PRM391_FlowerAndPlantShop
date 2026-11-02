@@ -495,12 +495,28 @@ class CheckoutProductTile extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        CheckoutAssetImage(
-          asset: item.imageAsset ?? '',
-          width: 64,
-          height: 80,
-          borderRadius: BorderRadius.circular(12),
-        ),
+        if (item.imageUrl != null && item.imageUrl!.isNotEmpty)
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.network(
+              item.imageUrl!,
+              width: 64,
+              height: 80,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const CheckoutAssetImage(
+                asset: '',
+                width: 64,
+                height: 80,
+              ),
+            ),
+          )
+        else
+          CheckoutAssetImage(
+            asset: item.imageAsset ?? '',
+            width: 64,
+            height: 80,
+            borderRadius: BorderRadius.circular(12),
+          ),
         const SizedBox(width: 13),
         Expanded(
           child: Column(
@@ -574,6 +590,8 @@ class PriceSummaryCard extends StatelessWidget {
             pickup ? 'Miễn phí' : formatVnd(summary.shippingFee),
             valueColor: pickup ? CheckoutPalette.forest700 : null,
           ),
+          const SizedBox(height: 11),
+          _row('Thuế', formatVnd(summary.tax)),
           const SizedBox(height: 11),
           _row(
             'Ưu đãi thành viên',

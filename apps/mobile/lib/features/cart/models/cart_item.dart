@@ -40,10 +40,15 @@ class CartItem {
       id: json['id'] as String,
       productId: json['productId'] as String,
       name: json['name'] as String,
-      variant: json['variant'] as String,
-      unitPrice: _parseInteger(json['unitPrice'], 'unitPrice'),
-      stock: json['stock'] as int,
-      quantity: json['quantity'] as int,
+      variant: json['variant'] as String? ?? '',
+      unitPrice: _parseInteger(
+        json['unitPrice'] ?? json['price'],
+        'unitPrice',
+      ),
+      // The current cart API does not expose stock. The backend remains the
+      // authority and rejects quantities above the real inventory.
+      stock: (json['stock'] as num?)?.toInt() ?? 10,
+      quantity: (json['quantity'] as num).toInt(),
       imageUrl: json['imageUrl'] as String?,
     );
   }
@@ -72,7 +77,7 @@ class CartSnapshot {
           CartItem.fromJson(Map<String, dynamic>.from(item as Map)),
       ],
       subtotal: _parseInteger(json['subtotal'], 'subtotal'),
-      totalQuantity: json['totalQuantity'] as int,
+      totalQuantity: (json['totalQuantity'] as num).toInt(),
     );
   }
 }
