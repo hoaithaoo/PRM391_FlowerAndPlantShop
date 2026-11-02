@@ -137,6 +137,60 @@ class ChatbotAction {
   }
 }
 
+enum ChatbotCartActionType { add, update, remove, clear }
+
+/// Thao tác giỏ hàng do AI trả về. Chỉ có trong phản hồi mới, không có trong
+/// lịch sử, nên mở lại hội thoại không thực hiện lần nữa.
+class ChatbotCartAction {
+  const ChatbotCartAction({required this.type, this.productId, this.quantity});
+
+  final ChatbotCartActionType type;
+  final String? productId;
+  final int? quantity;
+
+  static ChatbotCartAction? tryParse(Object? value) {
+    if (value is! Map) return null;
+    final type = switch (value['type']) {
+      'ADD' => ChatbotCartActionType.add,
+      'UPDATE' => ChatbotCartActionType.update,
+      'REMOVE' => ChatbotCartActionType.remove,
+      'CLEAR' => ChatbotCartActionType.clear,
+      _ => null,
+    };
+    if (type == null) return null;
+    final quantity = value['quantity'];
+    return ChatbotCartAction(
+      type: type,
+      productId: _optionalString(value['productId']),
+      quantity: quantity is int ? quantity : null,
+    );
+  }
+}
+
+/// Một phiên chat trong danh sách lịch sử.
+class ChatbotConversationSummary {
+  const ChatbotConversationSummary({
+    required this.id,
+    required this.title,
+    required this.updatedAt,
+  });
+
+  final String id;
+  final String? title;
+  final DateTime? updatedAt;
+
+  static ChatbotConversationSummary? tryParse(Object? value) {
+    if (value is! Map) return null;
+    final id = value['id'];
+    if (id is! String || id.isEmpty) return null;
+    return ChatbotConversationSummary(
+      id: id,
+      title: _optionalString(value['title']),
+      updatedAt: _tryDate(value['updatedAt']),
+    );
+  }
+}
+
 class ChatMessage {
   const ChatMessage({
     required this.id,
@@ -196,6 +250,7 @@ class ChatbotReply {
     required this.products,
     required this.createdAt,
     this.action,
+    this.cartActions = const <ChatbotCartAction>[],
   });
 
   final String conversationId;
@@ -203,6 +258,7 @@ class ChatbotReply {
   final String reply;
   final List<SuggestedProduct> products;
   final ChatbotAction? action;
+  final List<ChatbotCartAction> cartActions;
   final DateTime? createdAt;
 
   factory ChatbotReply.fromJson(Map<String, dynamic> json) {
@@ -212,6 +268,7 @@ class ChatbotReply {
       reply: _requiredString(json, 'reply'),
       products: _parseProducts(json['suggestedProducts']),
       action: ChatbotAction.tryParse(json['action']),
+      cartActions: _parseCartActions(json['cartActions']),
       createdAt: _tryDate(json['createdAt']),
     );
   }
@@ -259,6 +316,13 @@ class ChatbotHistory {
       totalPages: _positiveInt(json['totalPages'], fallback: 1),
     );
   }
+}
+
+List<ChatbotCartAction> _parseCartActions(Object? value) {
+  if (value is! List) return const <ChatbotCartAction>[];
+  return List<ChatbotCartAction>.unmodifiable(
+    value.map(ChatbotCartAction.tryParse).whereType<ChatbotCartAction>(),
+  );
 }
 
 List<SuggestedProduct> _parseProducts(Object? value) {

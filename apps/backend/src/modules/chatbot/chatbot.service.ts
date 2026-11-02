@@ -5,7 +5,11 @@ import { AppError } from "../../common/errors/app-error";
 import { ErrorCodes } from "../../common/errors/error-codes";
 import { logger } from "../../lib/logger";
 import { SendChatbotMessageInput } from "./chatbot.schema";
-import { ChatbotProvider, VerifiedIncidentContext } from "./providers/chatbot.provider";
+import {
+  ChatbotCartItem,
+  ChatbotProvider,
+  VerifiedIncidentContext,
+} from "./providers/chatbot.provider";
 import { EmbeddingProvider } from "./providers/embedding.provider";
 import {
   ChatbotCatalogProduct,
@@ -15,6 +19,7 @@ import {
 } from "./repository/chatbot.repository";
 import {
   ChatbotAction,
+  ChatbotConversationListResult,
   ChatbotHistoryResult,
   ChatbotMessageMetadata,
   SendChatbotMessageResult,
@@ -58,6 +63,8 @@ interface ChatbotServiceOptions {
   minSemanticScore: number;
   rateLimitMs: number;
   sendLeaseMs: number;
+  /** Đọc giỏ hàng hiện tại của user để AI trả lời và thao tác trên giỏ. */
+  getCartItems?: (userId: string) => Promise<ChatbotCartItem[]>;
   newId?: () => string;
 }
 
@@ -150,7 +157,18 @@ export class ChatbotService {
         });
       }
 
+      let cartItems: ChatbotCartItem[] = [];
+      try {
+        cartItems = (await this.options.getCartItems?.(userId)) ?? [];
+      } catch (error) {
+        // Lỗi đọc giỏ không được chặn tư vấn sản phẩm; provider sẽ loại thao tác trên giỏ.
+        logger.warn("Chatbot could not load cart", {
+          reason: error instanceof Error ? error.message : "unknown",
+        });
+      }
+
       const providerResult = await this.options.provider.generate({
+        cartItems,
         message: input.message,
         history: history.map(({ role, content }) => ({ role, content })),
         catalogProducts: catalogProducts.map(({ id, name, description, price }) => ({
@@ -179,12 +197,15 @@ export class ChatbotService {
         (providerResult.responseType === "INCIDENT" && !allowIncidentArtifacts)
           ? noKnowledgeReply(input.message)
           : providerResult.reply;
-      const suggestedProducts = allowAnswerArtifacts
+      const allowCartArtifacts = providerResult.responseType === "CART";
+      const suggestedProducts = allowAnswerArtifacts || allowCartArtifacts
         ? this.resolveSuggestions(providerResult.suggestedProductIds, catalogProducts)
         : [];
       const action = allowIncidentArtifacts && providerResult.actionDraft
         ? this.buildIncidentAction(conversationId, providerResult.actionDraft, incidentContext)
         : null;
+      // Không lưu cartActions vào metadata: mở lại lịch sử không được thao tác giỏ lần nữa.
+      const cartActions = allowCartArtifacts ? providerResult.cartActions ?? [] : [];
       const assistantMetadata: ChatbotMessageMetadata = { suggestedProducts, action };
       const exchange = await repository.createExchange({
         conversationId,
@@ -202,6 +223,7 @@ export class ChatbotService {
         reply,
         suggestedProducts,
         action,
+        cartActions,
         createdAt: exchange.createdAt.toISOString(),
       };
     } finally {
@@ -211,6 +233,25 @@ export class ChatbotService {
         logger.error("Failed to release chatbot send slot", { userId, error });
       }
     }
+  }
+
+  async listConversations(userId: string, page: number): Promise<ChatbotConversationListResult> {
+    const { items, total } = await this.options.repository.listOwnedConversations(
+      userId,
+      page,
+      HISTORY_PAGE_SIZE
+    );
+    return {
+      items: items.map(({ id, title, updatedAt }) => ({
+        id,
+        title,
+        updatedAt: updatedAt.toISOString(),
+      })),
+      page,
+      pageSize: HISTORY_PAGE_SIZE,
+      total,
+      totalPages: Math.ceil(total / HISTORY_PAGE_SIZE),
+    };
   }
 
   async getHistory(userId: string, conversationId: string, page: number): Promise<ChatbotHistoryResult> {

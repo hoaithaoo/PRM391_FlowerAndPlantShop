@@ -20,6 +20,15 @@ const kLoginSuccessText = 'Đăng nhập thành công. Chào mừng bạn đến
 /// Repository giả bọc [MockAuthRepository]: đếm số lần gọi, ghi lại tham số,
 /// cho phép giữ request lại bằng [Completer] hoặc ép ném lỗi.
 class FakeAuthRepository implements AuthRepository {
+  @override
+  bool get canChangePassword => false;
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {}
+
   FakeAuthRepository({Duration delay = Duration.zero})
     : _inner = MockAuthRepository(delay: delay) {
     _innerSub = _inner.signedInChanges.listen(_signedIn.add);
@@ -175,6 +184,14 @@ class FakeAuthRepository implements AuthRepository {
     await _enter('cancelPasswordRecovery');
     return _inner.cancelPasswordRecovery();
   }
+
+  @override
+  String? get accessToken => _inner.accessToken;
+
+  @override
+  Future<bool> refreshSessionIfExpired() => _inner.refreshSessionIfExpired();
+
+  void simulateSessionExpired() => _inner.simulateSessionExpired();
 }
 
 /// Dựng app auth bọc [AuthScope]. Mặc định có màn nền [kHomeText] ở đáy stack

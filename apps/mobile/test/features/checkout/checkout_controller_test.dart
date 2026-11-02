@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_flower_mobile/features/checkout/data/checkout_failure.dart';
-import 'package:plant_flower_mobile/features/checkout/data/checkout_repository.dart';
+import 'package:plant_flower_mobile/features/checkout/data/mock_checkout_repository.dart';
 import 'package:plant_flower_mobile/features/checkout/models/checkout_invoice.dart';
 import 'package:plant_flower_mobile/features/checkout/models/checkout_order.dart';
 import 'package:plant_flower_mobile/features/checkout/models/checkout_request.dart';
@@ -92,7 +92,7 @@ void main() {
   });
 }
 
-class _RecordingRepository implements CheckoutRepository {
+class _RecordingRepository extends MockCheckoutRepository {
   _RecordingRepository(this.outcomes);
 
   final List<Object> outcomes;
@@ -110,7 +110,7 @@ class _RecordingRepository implements CheckoutRepository {
   }
 }
 
-class _CompletingRepository implements CheckoutRepository {
+class _CompletingRepository extends MockCheckoutRepository {
   _CompletingRepository(this.completer);
 
   final Completer<CheckoutResult> completer;

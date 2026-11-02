@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:plant_flower_mobile/features/checkout/data/checkout_api.dart';
+import 'package:plant_flower_mobile/features/checkout/models/checkout_payment.dart';
 
 void main() {
   test('parse đúng trạng thái thanh toán và dữ liệu backend', () {

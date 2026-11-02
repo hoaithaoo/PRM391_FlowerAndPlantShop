@@ -6,6 +6,7 @@ import '../../products/widgets/common/brand_header.dart';
 import '../models/cart_item.dart';
 import '../state/cart_controller.dart';
 import '../state/cart_scope.dart';
+import '../widgets/quantity_input.dart';
 
 class CartScreen extends StatelessWidget {
   const CartScreen({
@@ -47,7 +48,8 @@ class CartScreen extends StatelessWidget {
             _CheckoutBar(
               subtotal: controller.subtotal,
               isBusy: controller.isMutating,
-              onCheckout: onCheckout ??
+              onCheckout:
+                  onCheckout ??
                   () => ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
                       content: Text('Chưa thể mở thanh toán lúc này.'),
@@ -275,7 +277,11 @@ class _CartImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (item.imageAsset case final asset?) {
-      return Image.asset(asset, fit: BoxFit.cover);
+      return Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const _CartImagePlaceholder(),
+      );
     }
     if (item.imageUrl case final url?) {
       return Image.network(
@@ -327,17 +333,14 @@ class _QuantityStepper extends StatelessWidget {
                 ? () => controller.updateQuantity(item.id, item.quantity - 1)
                 : null,
           ),
-          SizedBox(
-            width: 28,
-            child: Text(
-              '${item.quantity}',
-              key: Key('cart-quantity-${item.productId}'),
-              textAlign: TextAlign.center,
-              style: AppTextStyles.body.copyWith(
-                color: AppColors.textHeading,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
+          QuantityInput(
+            key: Key('cart-quantity-${item.productId}'),
+            value: item.quantity,
+            max: max,
+            width: 34,
+            enabled: !controller.isMutating,
+            semanticLabel: 'Số lượng ${item.name}',
+            onChanged: (value) => controller.updateQuantity(item.id, value),
           ),
           _StepButton(
             key: Key('cart-increase-${item.productId}'),
@@ -469,7 +472,7 @@ class _CheckoutBar extends StatelessWidget {
 
   final int subtotal;
   final bool isBusy;
-  final VoidCallback onCheckout;
+  final VoidCallback? onCheckout;
 
   @override
   Widget build(BuildContext context) {

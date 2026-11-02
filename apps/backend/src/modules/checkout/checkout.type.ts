@@ -11,8 +11,10 @@ export interface CheckoutResponse {
     invoiceNumber: string;
     status: InvoiceStatus;
     subtotalAmount: number;
+    discountAmount: number;
     taxAmount: number;
     shippingFee: number;
+    shippingDiscountAmount: number;
     grandTotal: number;
   };
   payment: {

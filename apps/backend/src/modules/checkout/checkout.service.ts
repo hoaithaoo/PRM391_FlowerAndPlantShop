@@ -3,6 +3,8 @@ import {
   PaymentMethod,
   Prisma,
   PrismaClient,
+  type Voucher,
+  VoucherScope,
 } from "@prisma/client";
 import { AppError } from "../../common/errors/app-error";
 import { ErrorCodes } from "../../common/errors/error-codes";
@@ -11,6 +13,8 @@ import {
   calculateShippingFee,
 } from "../../common/utils/distance";
 import { prisma } from "../../lib/prisma";
+import { allocateDiscount } from "../vouchers/voucher-pricing";
+import { voucherService } from "../vouchers/voucher.service";
 import type { CheckoutInput } from "./checkout.schema";
 import type { CheckoutResponse } from "./checkout.type";
 
@@ -18,6 +22,8 @@ type CheckoutDatabase = Pick<PrismaClient, "$transaction">;
 
 const MAX_TRANSACTION_ATTEMPTS = 3;
 const PAYMENT_EXPIRY_MINUTES = 15;
+// App cho chọn ngày trong 30 ngày tới, cộng thêm khung giờ của ngày cuối.
+const MAX_PICKUP_DAYS = 31;
 
 const checkoutOrderInclude = {
   invoice: {
@@ -28,26 +34,46 @@ const checkoutOrderInclude = {
       },
     },
   },
+  voucherRedemptions: {
+    select: { code: true },
+  },
+  items: {
+    select: { productId: true, quantity: true },
+  },
 } satisfies Prisma.OrderInclude;
 
 type CheckoutOrder = Prisma.OrderGetPayload<{
   include: typeof checkoutOrderInclude;
 }>;
 
+const checkoutProductSelect = {
+  id: true,
+  name: true,
+  sku: true,
+  price: true,
+  taxRate: true,
+  stock: true,
+  isActive: true,
+} satisfies Prisma.ProductSelect;
+
 interface CheckoutLine {
-  cartItemId: string;
+  /** null khi mua ngay: dòng không đến từ giỏ hàng. */
+  cartItemId: string | null;
   productId: string;
   name: string;
   sku: string;
   quantity: number;
   unitPrice: Prisma.Decimal;
   subtotal: Prisma.Decimal;
+  discountAmount: Prisma.Decimal;
+  taxableAmount: Prisma.Decimal;
   taxRate: Prisma.Decimal;
   taxAmount: Prisma.Decimal;
   lineTotal: Prisma.Decimal;
 }
 
-const toNumber = (value: Prisma.Decimal): number => Number(value.toString());
+const toNumber = (value: Prisma.Decimal | null | undefined): number =>
+  value ? Number(value.toString()) : 0;
 
 const isRetryableTransactionError = (error: unknown): boolean =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -112,40 +138,9 @@ export class CheckoutService {
       return this.mapExistingCheckout(existingOrder);
     }
 
-    const cart = await tx.cart.findUnique({
-      where: { userId },
-      select: {
-        id: true,
-        items: {
-          orderBy: { productId: "asc" },
-          select: {
-            id: true,
-            quantity: true,
-            product: {
-              select: {
-                id: true,
-                name: true,
-                sku: true,
-                price: true,
-                taxRate: true,
-                stock: true,
-                isActive: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!cart || cart.items.length === 0) {
-      throw new AppError(
-        422,
-        ErrorCodes.CART_EMPTY,
-        "Giỏ hàng đang trống, không thể checkout."
-      );
-    }
-
-    const lines: CheckoutLine[] = cart.items.map((item) => {
+    // 1. Đọc giỏ (hoặc sản phẩm mua ngay) và kiểm tra tồn kho
+    const sourceItems = await this.loadCheckoutItems(tx, userId, input);
+    const rawLines = sourceItems.map((item) => {
       if (!item.product.isActive || item.product.stock < item.quantity) {
         throw new AppError(
           409,
@@ -156,11 +151,6 @@ export class CheckoutService {
       }
 
       const subtotal = item.product.price.mul(item.quantity);
-      const taxAmount = subtotal
-        .mul(item.product.taxRate)
-        .div(100)
-        .toDecimalPlaces(0);
-
       return {
         cartItemId: item.id,
         productId: item.product.id,
@@ -170,48 +160,94 @@ export class CheckoutService {
         unitPrice: item.product.price,
         subtotal,
         taxRate: item.product.taxRate,
-        taxAmount,
-        lineTotal: subtotal.add(taxAmount),
       };
     });
 
-    const stores = await tx.store.findMany({
-      where: { isActive: true },
-      select: { latitude: true, longitude: true },
-    });
-    if (stores.length === 0) {
-      throw new AppError(
-        404,
-        ErrorCodes.STORE_NOT_FOUND,
-        "Hiện tại không có cửa hàng nào có thể xử lý đơn hàng."
-      );
-    }
-
-    const nearestDistance = stores.reduce((nearest, store) => {
-      const distance = calculateDistanceKm(
-        input.latitude,
-        input.longitude,
-        Number(store.latitude.toString()),
-        Number(store.longitude.toString())
-      );
-      return Math.min(nearest, distance);
-    }, Number.POSITIVE_INFINITY);
-    const shippingFee = new Prisma.Decimal(
-      calculateShippingFee(nearestDistance)
-    );
-    const subtotalAmount = lines.reduce(
+    const subtotalAmount = rawLines.reduce(
       (total, line) => total.add(line.subtotal),
       new Prisma.Decimal(0)
     );
+
+    // 2. Xác định nơi nhận và phí ship: voucher SHIPPING tính trên phí này
+    const { address, latitude, longitude, shippingFee } = input.pickupStoreId
+      ? await this.resolvePickup(tx, input.pickupStoreId, input.pickupAt)
+      : await this.resolveDelivery(tx, input);
+
+    if (input.pickupStoreId && input.shippingVoucherCode) {
+      throw new AppError(
+        422,
+        ErrorCodes.VOUCHER_NOT_APPLICABLE,
+        "Nhận tại quán không dùng được voucher phí ship."
+      );
+    }
+
+    const orderVoucher = await this.applyVoucher(
+      tx,
+      input.voucherCode,
+      VoucherScope.ORDER,
+      userId,
+      subtotalAmount,
+      shippingFee
+    );
+    const shippingVoucher = await this.applyVoucher(
+      tx,
+      input.shippingVoucherCode,
+      VoucherScope.SHIPPING,
+      userId,
+      subtotalAmount,
+      shippingFee
+    );
+    const discountAmount = orderVoucher?.amount ?? new Prisma.Decimal(0);
+    const shippingDiscountAmount =
+      shippingVoucher?.amount ?? new Prisma.Decimal(0);
+    const appliedVouchers = [orderVoucher, shippingVoucher].filter(
+      (item) => item !== null
+    );
+
+    // 3. Tính giảm và chia cho từng dòng
+    const lineSubtotals = rawLines.map((l) => l.subtotal);
+    const lineDiscounts = allocateDiscount(discountAmount, lineSubtotals);
+
+    const lines: CheckoutLine[] = rawLines.map((line, idx) => {
+      const lineDiscount = lineDiscounts[idx] ?? new Prisma.Decimal(0);
+      const taxableAmount = line.subtotal.minus(lineDiscount);
+      const taxAmount = taxableAmount
+        .mul(line.taxRate)
+        .div(100)
+        .toDecimalPlaces(0);
+      const lineTotal = taxableAmount.add(taxAmount);
+
+      return {
+        ...line,
+        discountAmount: lineDiscount,
+        taxableAmount,
+        taxAmount,
+        lineTotal,
+      };
+    });
+
     const taxAmount = lines.reduce(
       (total, line) => total.add(line.taxAmount),
       new Prisma.Decimal(0)
     );
-    const grandTotal = subtotalAmount.add(taxAmount).add(shippingFee);
 
-    // Cart items are sorted by product ID, giving concurrent checkouts a stable
-    // lock order. Do all read-only pricing work before these updates so row locks
-    // are held for as little time as possible.
+    // 4. grandTotal = tiền hàng - giảm + thuế + phí ship - giảm phí ship
+    const grandTotal = subtotalAmount
+      .minus(discountAmount)
+      .add(taxAmount)
+      .add(shippingFee)
+      .minus(shippingDiscountAmount);
+
+    // 5. Nếu paymentMethod = SEPAY và grandTotal = 0: ném VOUCHER_NOT_APPLICABLE
+    if (input.paymentMethod === PaymentMethod.SEPAY && grandTotal.isZero()) {
+      throw new AppError(
+        422,
+        ErrorCodes.VOUCHER_NOT_APPLICABLE,
+        "Không thể thanh toán SePay cho đơn 0đ. Vui lòng chọn COD."
+      );
+    }
+
+    // 6. Trừ kho
     for (const line of lines) {
       const stockUpdate = await tx.product.updateMany({
         where: {
@@ -231,6 +267,29 @@ export class CheckoutService {
       }
     }
 
+    // 7. Sau khi trừ kho mới giữ lượt voucher
+    for (const { voucher } of appliedVouchers) {
+      const claimed = await tx.voucher.updateMany({
+        where: {
+          id: voucher.id,
+          isActive: true,
+          OR: [
+            { usageLimit: null },
+            { usedCount: { lt: voucher.usageLimit ?? 0 } },
+          ],
+        },
+        data: { usedCount: { increment: 1 } },
+      });
+      if (claimed.count !== 1) {
+        throw new AppError(
+          409,
+          ErrorCodes.VOUCHER_USAGE_EXCEEDED,
+          "Voucher đã hết lượt sử dụng."
+        );
+      }
+    }
+
+    // 8. Tạo order
     const order = await tx.order.create({
       data: {
         userId,
@@ -238,12 +297,14 @@ export class CheckoutService {
         idempotencyKey,
         paymentMethod: input.paymentMethod,
         totalAmount: grandTotal,
-        shippingAddress: input.address,
-        shippingLatitude: new Prisma.Decimal(input.latitude.toString()),
-        shippingLongitude: new Prisma.Decimal(input.longitude.toString()),
+        shippingAddress: address,
+        shippingLatitude: latitude,
+        shippingLongitude: longitude,
         recipientName: input.receiverName,
         recipientPhone: input.phone,
         note: input.note ?? null,
+        pickupStoreId: input.pickupStoreId ?? null,
+        pickupAt: input.pickupStoreId ? new Date(input.pickupAt!) : null,
         items: {
           create: lines.map((line) => ({
             productId: line.productId,
@@ -258,6 +319,20 @@ export class CheckoutService {
       select: { id: true, orderNumber: true, status: true },
     });
 
+    // Tạo VoucherRedemption nếu dùng voucher
+    for (const { voucher, amount } of appliedVouchers) {
+      await tx.voucherRedemption.create({
+        data: {
+          voucherId: voucher.id,
+          userId,
+          orderId: order.id,
+          code: voucher.code,
+          amount,
+        },
+      });
+    }
+
+    // 9. Tạo invoice
     const invoice = await tx.invoice.create({
       data: {
         orderId: order.id,
@@ -265,11 +340,12 @@ export class CheckoutService {
         invoiceNo: createReference("INV"),
         customerName: input.receiverName,
         customerPhone: input.phone,
-        customerAddress: input.address,
+        customerAddress: address,
         subtotalAmount,
-        discountAmount: new Prisma.Decimal(0),
+        discountAmount,
         taxAmount,
         shippingFee,
+        shippingDiscountAmount,
         grandTotal,
         items: {
           create: lines.map((line) => ({
@@ -278,8 +354,8 @@ export class CheckoutService {
             sku: line.sku,
             unitPrice: line.unitPrice,
             quantity: line.quantity,
-            discountAmount: new Prisma.Decimal(0),
-            taxableAmount: line.subtotal,
+            discountAmount: line.discountAmount,
+            taxableAmount: line.taxableAmount,
             taxRate: line.taxRate,
             taxAmount: line.taxAmount,
             lineTotal: line.lineTotal,
@@ -291,8 +367,10 @@ export class CheckoutService {
         invoiceNo: true,
         status: true,
         subtotalAmount: true,
+        discountAmount: true,
         taxAmount: true,
         shippingFee: true,
+        shippingDiscountAmount: true,
         grandTotal: true,
       },
     });
@@ -308,8 +386,6 @@ export class CheckoutService {
               expiresAt: new Date(
                 Date.now() + PAYMENT_EXPIRY_MINUTES * 60 * 1000
               ),
-              // A QR URL requires deployment-specific bank account settings.
-              // The payment code is sufficient for the SePay webhook matcher.
               qrUrl: null,
             },
             select: {
@@ -349,14 +425,15 @@ export class CheckoutService {
           },
     });
 
-    // Delete only the snapshot items. Items concurrently added after the cart
-    // read are not accidentally removed.
-    await tx.cartItem.deleteMany({
-      where: {
-        id: { in: lines.map((line) => line.cartItemId) },
-        cartId: cart.id,
-      },
-    });
+    // Delete only the snapshot items; mua ngay không đụng tới giỏ
+    const cartItemIds = lines.flatMap((line) =>
+      line.cartItemId ? [line.cartItemId] : []
+    );
+    if (cartItemIds.length > 0) {
+      await tx.cartItem.deleteMany({
+        where: { id: { in: cartItemIds }, cart: { userId } },
+      });
+    }
 
     return {
       order: {
@@ -369,11 +446,189 @@ export class CheckoutService {
         invoiceNumber: invoice.invoiceNo,
         status: invoice.status,
         subtotalAmount: toNumber(invoice.subtotalAmount),
+        discountAmount: toNumber(invoice.discountAmount),
         taxAmount: toNumber(invoice.taxAmount),
         shippingFee: toNumber(invoice.shippingFee),
+        shippingDiscountAmount: toNumber(invoice.shippingDiscountAmount),
         grandTotal: toNumber(invoice.grandTotal),
       },
       payment,
+    };
+  }
+
+  private async loadCheckoutItems(
+    tx: Prisma.TransactionClient,
+    userId: string,
+    input: CheckoutInput
+  ) {
+    if (input.buyNow) {
+      const product = await tx.product.findUnique({
+        where: { id: input.buyNow.productId },
+        select: checkoutProductSelect,
+      });
+      if (!product) {
+        throw new AppError(
+          404,
+          ErrorCodes.PRODUCT_NOT_FOUND,
+          "Sản phẩm không tồn tại hoặc đã ngừng bán."
+        );
+      }
+      return [{ id: null, quantity: input.buyNow.quantity, product }];
+    }
+
+    const cart = await tx.cart.findUnique({
+      where: { userId },
+      select: {
+        items: {
+          orderBy: { productId: "asc" },
+          select: {
+            id: true,
+            quantity: true,
+            product: { select: checkoutProductSelect },
+          },
+        },
+      },
+    });
+    if (!cart || cart.items.length === 0) {
+      throw new AppError(
+        422,
+        ErrorCodes.CART_EMPTY,
+        "Giỏ hàng đang trống, không thể checkout."
+      );
+    }
+    return cart.items;
+  }
+
+  /** Tìm và kiểm tra voucher. Sai loại cũng bị từ chối để mã không giảm nhầm khoản. */
+  private async applyVoucher(
+    tx: Prisma.TransactionClient,
+    code: string | null | undefined,
+    scope: VoucherScope,
+    userId: string,
+    subtotal: Prisma.Decimal,
+    shippingFee: Prisma.Decimal
+  ): Promise<{ voucher: Voucher; amount: Prisma.Decimal } | null> {
+    if (!code) return null;
+
+    const voucher = await tx.voucher.findUnique({ where: { code } });
+    if (!voucher) {
+      throw new AppError(
+        404,
+        ErrorCodes.VOUCHER_NOT_FOUND,
+        "Mã voucher không tồn tại."
+      );
+    }
+    if (voucher.scope !== scope) {
+      throw new AppError(
+        422,
+        ErrorCodes.VOUCHER_NOT_APPLICABLE,
+        "Mã voucher không đúng loại."
+      );
+    }
+
+    const evaluation = await voucherService.evaluateVoucher(
+      voucher,
+      userId,
+      subtotal,
+      new Date(),
+      tx,
+      shippingFee
+    );
+    if (!evaluation.eligible) {
+      const statusCode =
+        evaluation.reasonCode === ErrorCodes.VOUCHER_MIN_ORDER_NOT_MET
+          ? 422
+          : evaluation.reasonCode === ErrorCodes.VOUCHER_NOT_FOUND
+          ? 404
+          : 409;
+
+      throw new AppError(
+        statusCode,
+        evaluation.reasonCode ?? ErrorCodes.VOUCHER_NOT_FOUND,
+        evaluation.ineligibleReason ?? "Voucher không hợp lệ.",
+        evaluation.missingAmount > 0
+          ? { missingAmount: evaluation.missingAmount }
+          : undefined
+      );
+    }
+
+    return { voucher, amount: evaluation.discountAmount };
+  }
+
+  private async resolveDelivery(
+    tx: Prisma.TransactionClient,
+    input: CheckoutInput
+  ) {
+    // checkoutSchema bắt buộc 3 field này khi không nhận tại quán.
+    const address = input.address!;
+    const latitude = input.latitude!;
+    const longitude = input.longitude!;
+
+    const stores = await tx.store.findMany({
+      where: { isActive: true },
+      select: { latitude: true, longitude: true },
+    });
+    if (stores.length === 0) {
+      throw new AppError(
+        404,
+        ErrorCodes.STORE_NOT_FOUND,
+        "Hiện tại không có cửa hàng nào có thể xử lý đơn hàng."
+      );
+    }
+
+    const nearestDistance = stores.reduce((nearest, store) => {
+      const distance = calculateDistanceKm(
+        latitude,
+        longitude,
+        Number(store.latitude.toString()),
+        Number(store.longitude.toString())
+      );
+      return Math.min(nearest, distance);
+    }, Number.POSITIVE_INFINITY);
+
+    return {
+      address,
+      latitude: new Prisma.Decimal(latitude.toString()),
+      longitude: new Prisma.Decimal(longitude.toString()),
+      shippingFee: new Prisma.Decimal(calculateShippingFee(nearestDistance)),
+    };
+  }
+
+  private async resolvePickup(
+    tx: Prisma.TransactionClient,
+    storeId: string,
+    pickupAt: string | undefined
+  ) {
+    const store = await tx.store.findFirst({
+      where: { id: storeId, isActive: true },
+      select: { address: true, latitude: true, longitude: true },
+    });
+    if (!store) {
+      throw new AppError(
+        404,
+        ErrorCodes.STORE_NOT_FOUND,
+        "Cửa hàng được chọn không tồn tại hoặc đã tạm dừng hoạt động."
+      );
+    }
+
+    const pickupTime = new Date(pickupAt!).getTime();
+    const now = Date.now();
+    if (
+      pickupTime <= now ||
+      pickupTime > now + MAX_PICKUP_DAYS * 24 * 60 * 60 * 1000
+    ) {
+      throw new AppError(
+        422,
+        ErrorCodes.PICKUP_TIME_INVALID,
+        "Thời gian nhận hoa không hợp lệ, vui lòng chọn lại."
+      );
+    }
+
+    return {
+      address: store.address,
+      latitude: store.latitude,
+      longitude: store.longitude,
+      shippingFee: new Prisma.Decimal(0),
     };
   }
 
@@ -382,15 +637,38 @@ export class CheckoutService {
     userId: string,
     input: CheckoutInput
   ): void {
+    const usedCodes = order.voucherRedemptions.map((item) => item.code).sort();
+    const requestedCodes = [input.voucherCode, input.shippingVoucherCode]
+      .filter((code) => !!code)
+      .sort();
+    const isSameVoucher =
+      usedCodes.length === requestedCodes.length &&
+      usedCodes.every((code, index) => code === requestedCodes[index]);
+
+    // Mua ngay gửi lại phải đúng sản phẩm và số lượng đã đặt.
+    const isSameItems =
+      !input.buyNow ||
+      (order.items.length === 1 &&
+        order.items[0]!.productId === input.buyNow.productId &&
+        order.items[0]!.quantity === input.buyNow.quantity);
+
+    const isSameDestination = input.pickupStoreId
+      ? order.pickupStoreId === input.pickupStoreId &&
+        order.pickupAt?.getTime() === new Date(input.pickupAt!).getTime()
+      : !order.pickupStoreId &&
+        order.shippingAddress === input.address &&
+        order.shippingLatitude.equals(input.latitude!) &&
+        order.shippingLongitude.equals(input.longitude!);
+
     const isSameRequest =
       order.userId === userId &&
       order.paymentMethod === input.paymentMethod &&
-      order.shippingAddress === input.address &&
-      order.shippingLatitude.equals(input.latitude) &&
-      order.shippingLongitude.equals(input.longitude) &&
+      isSameDestination &&
       order.recipientName === input.receiverName &&
       order.recipientPhone === input.phone &&
-      (order.note ?? null) === (input.note ?? null);
+      (order.note ?? null) === (input.note ?? null) &&
+      isSameVoucher &&
+      isSameItems;
 
     if (!isSameRequest) {
       throw new AppError(
@@ -434,8 +712,10 @@ export class CheckoutService {
         invoiceNumber: order.invoice.invoiceNo,
         status: order.invoice.status,
         subtotalAmount: toNumber(order.invoice.subtotalAmount),
+        discountAmount: toNumber(order.invoice.discountAmount),
         taxAmount: toNumber(order.invoice.taxAmount),
         shippingFee: toNumber(order.invoice.shippingFee),
+        shippingDiscountAmount: toNumber(order.invoice.shippingDiscountAmount),
         grandTotal: toNumber(order.invoice.grandTotal),
       },
       payment: payment

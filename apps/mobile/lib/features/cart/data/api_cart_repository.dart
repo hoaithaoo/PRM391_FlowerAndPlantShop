@@ -6,85 +6,77 @@ import 'cart_repository.dart';
 
 typedef CartAccessTokenProvider = Future<String?> Function();
 
+/// POST/PUT chỉ trả dòng vừa đổi, DELETE trả 204, và backend không có endpoint
+/// xoá cả giỏ, nên sau mỗi thao tác đều GET lại snapshot đầy đủ từ server.
 class ApiCartRepository implements CartRepository {
   ApiCartRepository(
     this._client, {
     required CartAccessTokenProvider accessTokenProvider,
   }) : _accessTokenProvider = accessTokenProvider;
 
+  static const _cartPath = 'api/v1/cart';
   static const _itemsPath = 'api/v1/cart/items';
 
   final ApiClient _client;
   final CartAccessTokenProvider _accessTokenProvider;
 
   @override
-  Future<CartSnapshot> load() =>
-      _request((headers) => _client.get('api/v1/cart', headers: headers));
+  Future<CartSnapshot> load() => _request(_fetch);
 
   @override
   Future<CartSnapshot> add({
     required String productId,
     required int quantity,
-  }) async {
-    await _mutation(
-      (headers) => _client.post(
-        _itemsPath,
-        headers: headers,
-        body: {'productId': productId, 'quantity': quantity},
-      ),
+  }) => _request((headers) async {
+    await _client.post(
+      _itemsPath,
+      headers: headers,
+      body: {'productId': productId, 'quantity': quantity},
     );
-    return load();
-  }
+    return _fetch(headers);
+  });
 
   @override
   Future<CartSnapshot> update({
     required String itemId,
     required int quantity,
-  }) async {
-    await _mutation(
-      (headers) => _client.put(
-        '$_itemsPath/${Uri.encodeComponent(itemId)}',
-        headers: headers,
-        body: {'quantity': quantity},
-      ),
+  }) => _request((headers) async {
+    await _client.put(
+      _itemPath(itemId),
+      headers: headers,
+      body: {'quantity': quantity},
     );
-    return load();
-  }
+    return _fetch(headers);
+  });
 
   @override
-  Future<CartSnapshot> remove({required String itemId}) async {
-    await _mutation(
-      (headers) => _client.delete(
-        '$_itemsPath/${Uri.encodeComponent(itemId)}',
-        headers: headers,
-      ),
-    );
-    return load();
-  }
+  Future<CartSnapshot> remove({required String itemId}) =>
+      _request((headers) async {
+        await _client.delete(_itemPath(itemId), headers: headers);
+        return _fetch(headers);
+      });
 
   @override
-  Future<CartSnapshot> clear() async {
-    final snapshot = await load();
-    for (final item in snapshot.items) {
-      await _mutation(
-        (headers) => _client.delete(
-          '$_itemsPath/${Uri.encodeComponent(item.id)}',
-          headers: headers,
-        ),
-      );
+  Future<CartSnapshot> clear() => _request((headers) async {
+    final cart = await _fetch(headers);
+    for (final item in cart.items) {
+      await _client.delete(_itemPath(item.id), headers: headers);
     }
-    return load();
-  }
+    return _fetch(headers);
+  });
 
-  Future<void> _mutation(
-    Future<ApiResponse> Function(Map<String, String> headers) send,
-  ) async {
-    await _request(send, parseSnapshot: false);
+  String _itemPath(String itemId) =>
+      '$_itemsPath/${Uri.encodeComponent(itemId)}';
+
+  Future<CartSnapshot> _fetch(Map<String, String> headers) async {
+    final response = await _client.get(_cartPath, headers: headers);
+    final data = response.data;
+    if (data is! Map) throw const FormatException('Cart data invalid');
+    return CartSnapshot.fromJson(Map<String, dynamic>.from(data));
   }
 
   Future<CartSnapshot> _request(
-    Future<ApiResponse> Function(Map<String, String> headers) send,
-    {bool parseSnapshot = true}
+    Future<CartSnapshot> Function(Map<String, String> headers) send,
   ) async {
     final token = await _accessTokenProvider();
     if (token == null || token.trim().isEmpty) {
@@ -95,18 +87,7 @@ class ApiCartRepository implements CartRepository {
       );
     }
     try {
-      final response = await send({'Authorization': 'Bearer ${token.trim()}'});
-      if (!parseSnapshot) {
-        return const CartSnapshot(
-          id: null,
-          items: [],
-          subtotal: 0,
-          totalQuantity: 0,
-        );
-      }
-      final data = response.data;
-      if (data is! Map) throw const FormatException('Cart data invalid');
-      return CartSnapshot.fromJson(Map<String, dynamic>.from(data));
+      return await send({'Authorization': 'Bearer ${token.trim()}'});
     } on ApiException catch (error) {
       throw CartFailure(
         code: _mapError(error),

@@ -1,4 +1,14 @@
+import '../utils/checkout_assets.dart';
+
 enum FulfillmentMode { delivery, pickup }
+
+/// Khung giờ nhận tại quán; backend chỉ kiểm tra thời điểm ở tương lai.
+const pickupTimeSlots = <String>[
+  '10:00 – 11:00',
+  '13:00 – 14:00',
+  '15:00 – 16:00',
+  '18:00 – 19:00',
+];
 
 enum LocalPaymentMethod { sepay, cod, payAtStore }
 
@@ -15,6 +25,9 @@ extension LocalPaymentMethodLabel on LocalPaymentMethod {
     LocalPaymentMethod.payAtStore => 'Thanh toán khi đến nhận hoa tại studio',
   };
 }
+
+/// Id tạm của địa chỉ chưa lưu lên server.
+const newAddressId = 'new-address';
 
 class CheckoutAddress {
   const CheckoutAddress({
@@ -45,12 +58,53 @@ class CheckoutAddress {
   final double? latitude;
   final double? longitude;
 
-  String get fullAddress => [
+  /// Backend lưu địa chỉ một chuỗi: app ghi `số nhà, phường, quận, thành phố`
+  /// nên tách lại được khi đủ phần, còn lại giữ nguyên ở [addressLine].
+  factory CheckoutAddress.fromJson(Map<String, dynamic> json) {
+    final parts = (json['addressLine'] as String).split(', ');
+    final hasDivisions = parts.length >= 4;
+    final divisions = hasDivisions ? parts.length - 3 : parts.length;
+    return CheckoutAddress(
+      id: json['id'] as String,
+      label: json['label'] as String? ?? 'Nhà riêng',
+      recipientName: json['recipientName'] as String,
+      phone: json['recipientPhone'] as String,
+      addressLine: parts.take(divisions).join(', '),
+      ward: hasDivisions ? parts[divisions] : '',
+      district: hasDivisions ? parts[divisions + 1] : '',
+      city: hasDivisions ? parts[divisions + 2] : '',
+      driverNote: json['deliveryNote'] as String? ?? '',
+      isDefault: json['isDefault'] as bool? ?? false,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+    );
+  }
+
+  bool get isNew => id == newAddressId;
+
+  bool get hasCoordinates => latitude != null && longitude != null;
+
+  String get normalizedPhone => phone.replaceAll(RegExp(r'[^\d+]'), '');
+
+  String get fullAddress => <String>[
     addressLine,
     ward,
     district,
     city,
   ].where((part) => part.trim().isNotEmpty).join(', ');
+
+  Map<String, dynamic> toJson() {
+    return <String, dynamic>{
+      'recipientName': recipientName,
+      'recipientPhone': normalizedPhone,
+      'addressLine': fullAddress,
+      'label': label,
+      'deliveryNote': driverNote,
+      'isDefault': isDefault,
+      if (hasCoordinates) 'latitude': latitude,
+      if (hasCoordinates) 'longitude': longitude,
+    };
+  }
 
   CheckoutAddress copyWith({
     String? label,
@@ -93,6 +147,22 @@ class PickupBranch {
     required this.imageAsset,
     this.isOpen = true,
   });
+
+  /// Một phần tử của `GET /stores`.
+  factory PickupBranch.fromJson(Map<String, dynamic> json) {
+    final distanceKm = (json['distanceKm'] as num?)?.toDouble();
+    return PickupBranch(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      address: json['address'] as String,
+      distance: distanceKm == null
+          ? 'Chưa rõ khoảng cách'
+          : '${distanceKm.toStringAsFixed(1).replaceAll('.', ',')} km',
+      readyTime: 'Hoa được chuẩn bị trước giờ bạn ghé',
+      openingHours: json['openingHours'] as String? ?? 'Liên hệ cửa hàng',
+      imageAsset: CheckoutAssets.pickupBouquet,
+    );
+  }
 
   final String id;
   final String name;

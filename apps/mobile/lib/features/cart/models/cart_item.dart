@@ -41,13 +41,10 @@ class CartItem {
       productId: json['productId'] as String,
       name: json['name'] as String,
       variant: json['variant'] as String? ?? '',
-      unitPrice: _parseInteger(
-        json['unitPrice'] ?? json['price'],
-        'unitPrice',
-      ),
-      // The current cart API does not expose stock. The backend remains the
-      // authority and rejects quantities above the real inventory.
-      stock: (json['stock'] as num?)?.toInt() ?? 10,
+      unitPrice: _parseInteger(json['unitPrice'] ?? json['price'], 'price'),
+      // GET /cart chưa trả tồn kho; backend vẫn là nguồn xác thực và sẽ trả
+      // PRODUCT_OUT_OF_STOCK khi số lượng vượt tồn kho thực tế.
+      stock: (json['stock'] as num?)?.toInt() ?? _unknownStock,
       quantity: (json['quantity'] as num).toInt(),
       imageUrl: json['imageUrl'] as String?,
     );
@@ -82,8 +79,10 @@ class CartSnapshot {
   }
 }
 
+const _unknownStock = 10;
+
 int _parseInteger(Object? value, String field) {
-  if (value is int) return value;
+  if (value is num) return value.round();
   if (value is String) {
     final parsed = int.tryParse(value);
     if (parsed != null) return parsed;

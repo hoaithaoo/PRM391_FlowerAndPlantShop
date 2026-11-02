@@ -12,7 +12,6 @@ import '../features/notifications/state/notification_scope.dart';
 enum MainTab {
   home('Trang chủ', Icons.home_outlined, Icons.home),
   products('Sản phẩm', Icons.storefront_outlined, Icons.storefront),
-  chatbot('Chatbot', Icons.auto_awesome_outlined, Icons.auto_awesome),
   cart('Giỏ hàng', Icons.shopping_bag_outlined, Icons.shopping_bag),
   account('Tài khoản', Icons.person_outline, Icons.person);
 
@@ -28,15 +27,25 @@ class MainShell extends StatefulWidget {
   const MainShell({
     super.key,
     this.initialTab = MainTab.home,
-    this.onCheckout,
     this.notificationController,
     this.onNotifications,
+    this.onSignOut,
+    this.onCheckout,
+    this.accountBuilder,
   });
 
   final MainTab initialTab;
-  final VoidCallback? onCheckout;
   final NotificationController? notificationController;
   final VoidCallback? onNotifications;
+
+  /// Hiện nút đăng xuất ở tab Tài khoản khi được truyền vào.
+  final VoidCallback? onSignOut;
+
+  /// Mở màn thanh toán từ giỏ hàng.
+  final VoidCallback? onCheckout;
+
+  /// Nội dung tab Tài khoản. Không truyền thì hiện màn tạm có nút đăng xuất.
+  final WidgetBuilder? accountBuilder;
 
   /// Chuyển sang tab Sản phẩm, chọn sẵn [categoryId] (null là "Tất cả").
   ///
@@ -85,7 +94,12 @@ class _MainShellState extends State<MainShell> {
         onContinueShopping: () => _openCatalog(null),
         onCheckout: widget.onCheckout,
       ),
-      _ => _ComingSoon(tab: tab),
+      MainTab.account when widget.accountBuilder != null =>
+        widget.accountBuilder!(context),
+      _ => _ComingSoon(
+        tab: tab,
+        onSignOut: tab == MainTab.account ? widget.onSignOut : null,
+      ),
     };
   }
 
@@ -245,9 +259,10 @@ class _NavItem extends StatelessWidget {
 }
 
 class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.tab});
+  const _ComingSoon({required this.tab, this.onSignOut});
 
   final MainTab tab;
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) {
@@ -265,6 +280,14 @@ class _ComingSoon extends StatelessWidget {
               'Tính năng đang được phát triển.',
               style: AppTextStyles.body.copyWith(color: AppColors.textMuted),
             ),
+            if (onSignOut != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton(
+                key: const Key('account_sign_out'),
+                onPressed: onSignOut,
+                child: const Text('Đăng xuất'),
+              ),
+            ],
           ],
         ),
       ),

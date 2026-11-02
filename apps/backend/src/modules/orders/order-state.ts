@@ -96,7 +96,12 @@ export const paymentStatusWhere = (
 export const cancelOrderInTransaction = async (
   tx: Prisma.TransactionClient,
   orderId: string,
-  options: { cancelledAt: Date; reason?: string | null; byAdmin: boolean }
+  options: {
+    cancelledAt: Date;
+    reason?: string | null;
+    byAdmin: boolean;
+    bySystem?: boolean;
+  }
 ) => {
   const order = await tx.order.findUnique({
     where: { id: orderId },
@@ -147,6 +152,25 @@ export const cancelOrderInTransaction = async (
     });
   }
 
+  // Hoàn lượt voucher nếu đơn hàng có áp dụng voucher
+  const redemptions = await tx.voucherRedemption.findMany({
+    where: { orderId, releasedAt: null },
+    select: { voucherId: true },
+  });
+  if (redemptions.length > 0) {
+    await tx.voucherRedemption.updateMany({
+      where: { orderId, releasedAt: null },
+      data: { releasedAt: options.cancelledAt },
+    });
+    await tx.voucher.updateMany({
+      where: {
+        id: { in: redemptions.map((item) => item.voucherId) },
+        usedCount: { gt: 0 },
+      },
+      data: { usedCount: { decrement: 1 } },
+    });
+  }
+
   if (order.invoice) {
     await tx.invoice.updateMany({
       where: { id: order.invoice.id, status: InvoiceStatus.ISSUED },
@@ -163,9 +187,11 @@ export const cancelOrderInTransaction = async (
       userId: order.userId,
       type: "ORDER",
       title: "Đơn hàng đã hủy",
-      message: options.byAdmin
-        ? `Đơn hàng ${order.orderNumber} đã được cửa hàng hủy.`
-        : `Bạn đã hủy đơn hàng ${order.orderNumber}.`,
+      message: options.bySystem
+        ? `Đơn hàng ${order.orderNumber} đã tự hủy vì quá hạn thanh toán.`
+        : options.byAdmin
+          ? `Đơn hàng ${order.orderNumber} đã được cửa hàng hủy.`
+          : `Bạn đã hủy đơn hàng ${order.orderNumber}.`,
       data: {
         orderId: order.id,
         status: OrderStatus.CANCELLED,

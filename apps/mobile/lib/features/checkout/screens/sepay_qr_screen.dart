@@ -3,31 +3,25 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../data/checkout_api.dart';
-import '../data/checkout_failure.dart';
-import '../models/checkout_result.dart';
-import '../models/checkout_summary.dart';
-import '../state/checkout_flow_controller.dart';
+import '../data/checkout_repository.dart';
+import '../models/placed_order.dart';
 import '../utils/checkout_theme.dart';
 import '../utils/currency_formatter.dart';
 import '../widgets/checkout_common.dart';
 import 'payment_failure_screen.dart';
 import 'payment_success_screen.dart';
 
+/// Hiển thị QR SePay thật và hỏi trạng thái mỗi 3 giây cho tới khi có kết quả.
 class SepayQrScreen extends StatefulWidget {
   const SepayQrScreen({
     super.key,
-    required this.controller,
-    required this.summary,
-    required this.result,
-    required this.api,
-    this.pollInterval = const Duration(seconds: 5),
+    required this.order,
+    required this.repository,
+    this.pollInterval = const Duration(seconds: 3),
   });
 
-  final CheckoutFlowController controller;
-  final CheckoutSummary summary;
-  final CheckoutResult result;
-  final CheckoutApi api;
+  final PlacedOrder order;
+  final CheckoutRepository repository;
   final Duration pollInterval;
 
   @override
@@ -36,16 +30,26 @@ class SepayQrScreen extends StatefulWidget {
 
 class _SepayQrScreenState extends State<SepayQrScreen>
     with WidgetsBindingObserver {
-  Timer? _pollTimer;
-  bool _pollInFlight = false;
-  bool _terminalHandled = false;
+  static const _initialSeconds = 15 * 60;
+
+  late final Timer _countdown;
+  Timer? _poll;
+  int _remainingSeconds = _initialSeconds;
+  bool _checking = false;
+  bool _underReview = false;
   bool _appActive = true;
-  String? _statusMessage;
+  bool _terminalHandled = false;
+
+  String get _paymentId => widget.order.result.payment!.id;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _countdown = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted || _remainingSeconds == 0) return;
+      setState(() => _remainingSeconds--);
+    });
     _startPolling();
   }
 
@@ -55,185 +59,223 @@ class _SepayQrScreenState extends State<SepayQrScreen>
     if (_appActive) {
       _startPolling(checkImmediately: true);
     } else {
-      _pollTimer?.cancel();
-      _pollTimer = null;
+      _poll?.cancel();
+      _poll = null;
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _pollTimer?.cancel();
+    _countdown.cancel();
+    _poll?.cancel();
     super.dispose();
   }
 
-  void _startPolling({bool checkImmediately = true}) {
-    if (!_appActive || _terminalHandled || widget.result.payment == null) return;
-    _pollTimer?.cancel();
+  void _startPolling({bool checkImmediately = false}) {
+    if (!_appActive || _terminalHandled || _underReview) return;
+    _poll?.cancel();
     if (checkImmediately) unawaited(_checkStatus());
-    _pollTimer = Timer.periodic(widget.pollInterval, (_) => _checkStatus());
+    _poll = Timer.periodic(widget.pollInterval, (_) => _checkStatus());
   }
 
-  Future<void> _checkStatus() async {
-    final payment = widget.result.payment;
-    if (payment == null || _pollInFlight || _terminalHandled || !_appActive) {
-      return;
-    }
-    _pollInFlight = true;
-    if (mounted) setState(() {});
+  /// Trả về trạng thái server, `null` nếu lần gọi lỗi hoặc đang có lần gọi khác.
+  Future<String?> _checkStatus() async {
+    if (_checking || !_appActive || _terminalHandled) return null;
+    _checking = true;
     try {
-      final status = await widget.api.getPaymentStatus(payment.id);
-      if (!mounted || _terminalHandled) return;
-      switch (status.status) {
-        case CheckoutPaymentStatus.pending:
-          setState(() => _statusMessage = null);
-        case CheckoutPaymentStatus.paid:
-          _terminalHandled = true;
-          _pollTimer?.cancel();
-          await Navigator.of(context).pushReplacement<void, void>(
-            MaterialPageRoute<void>(
-              builder: (_) => PaymentSuccessScreen(
-                controller: widget.controller,
-                summary: widget.summary,
-                result: widget.result,
-                paymentStatus: status,
-              ),
-            ),
-          );
-        case CheckoutPaymentStatus.failed:
-        case CheckoutPaymentStatus.expired:
-          _terminalHandled = true;
-          _pollTimer?.cancel();
-          await Navigator.of(context).pushReplacement<void, void>(
-            MaterialPageRoute<void>(
-              builder: (_) => PaymentFailureScreen(
-                summary: widget.summary,
-                orderCode: widget.result.order.orderCode,
-                message: status.status == CheckoutPaymentStatus.expired
-                    ? 'Giao dịch đã hết hạn. Vui lòng kiểm tra đơn hàng hoặc liên hệ hỗ trợ.'
-                    : 'Thanh toán chưa thành công. Vui lòng kiểm tra lại giao dịch.',
-                retryLabel: 'Quay về giỏ hàng',
-                onRetry: () => Navigator.of(
-                  context,
-                ).popUntil((route) => route.isFirst),
-              ),
-            ),
-          );
-        case CheckoutPaymentStatus.review:
-          _terminalHandled = true;
-          _pollTimer?.cancel();
-          setState(() {
-            _statusMessage =
-                'Giao dịch đang cần đối soát thủ công. Vui lòng chờ hệ thống xác nhận.';
-          });
-      }
-    } on CheckoutFailure catch (error) {
-      if (!mounted || _terminalHandled) return;
-      setState(() => _statusMessage = _failureMessage(error));
+      final status = await widget.repository.getPaymentStatus(_paymentId);
+      if (mounted) _applyStatus(status);
+      return status;
     } catch (_) {
-      if (!mounted || _terminalHandled) return;
-      setState(() {
-        _statusMessage =
-            'Chưa thể kiểm tra giao dịch. Hệ thống sẽ tự động thử lại.';
-      });
+      // Lỗi mạng tạm thời: lần poll sau thử lại.
+      return null;
     } finally {
-      _pollInFlight = false;
-      if (mounted && !_terminalHandled) setState(() {});
+      _checking = false;
     }
   }
 
-  String _failureMessage(CheckoutFailure failure) {
-    return switch (failure.statusCode) {
-      401 => 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
-      403 => 'Tài khoản của bạn không có quyền thực hiện thao tác này.',
-      404 => 'Không tìm thấy thông tin thanh toán.',
-      _ => 'Chưa thể kiểm tra giao dịch. Hệ thống sẽ tự động thử lại.',
-    };
+  void _applyStatus(String status) {
+    switch (status) {
+      case 'PAID':
+        _terminalHandled = true;
+        _poll?.cancel();
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => PaymentSuccessScreen(order: widget.order),
+          ),
+        );
+      case 'EXPIRED' || 'FAILED':
+        _terminalHandled = true;
+        _poll?.cancel();
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => PaymentFailureScreen(
+              order: widget.order,
+              repository: widget.repository,
+              // Đơn đã tự hủy phía server, gọi hủy nữa sẽ nhận ORDER_CANNOT_CANCEL.
+              canCancel: false,
+              isExpired: status == 'EXPIRED',
+            ),
+          ),
+        );
+      case 'REVIEW':
+        _poll?.cancel();
+        setState(() => _underReview = true);
+    }
   }
 
-  Future<void> _copyPaymentCode() async {
-    final code = widget.result.payment?.paymentCode;
-    if (code == null || code.isEmpty) return;
-    await Clipboard.setData(ClipboardData(text: code));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã sao chép nội dung chuyển khoản.')),
+  Future<void> _confirmTransfer() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final status = await _checkStatus();
+    if (!mounted || (status != 'PENDING' && status != null)) return;
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('Chưa nhận được giao dịch. Vui lòng chờ thêm ít phút.'),
+      ),
     );
+  }
+
+  Future<void> _showFailure() async {
+    // Dừng poll để PAID không thay route của màn đang nằm trên.
+    _poll?.cancel();
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => PaymentFailureScreen(
+          order: widget.order,
+          repository: widget.repository,
+          canCancel: true,
+          canRetry: true,
+        ),
+      ),
+    );
+    if (mounted) _startPolling(checkImmediately: true);
+  }
+
+  Future<void> _copy(String value, String label) async {
+    await Clipboard.setData(ClipboardData(text: value));
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Đã sao chép $label.')));
+  }
+
+  String get _timeLabel {
+    final minutes = _remainingSeconds ~/ 60;
+    final seconds = _remainingSeconds % 60;
+    return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
-    final payment = widget.result.payment;
-    final qrUrl = payment?.qrUrl;
-    final paymentCode = payment?.paymentCode;
-    final invoice = widget.result.invoice;
+    final result = widget.order.result;
+    final payment = result.payment!;
+    final total = result.invoice.grandTotal;
+    final paymentCode = payment.paymentCode;
+    final qrUrl = payment.qrUrl;
+    final expired = _remainingSeconds == 0;
     return CheckoutTheme(
       child: Scaffold(
         appBar: const FleureAppBar(title: 'Thanh toán SePay QR'),
         body: CheckoutContent(
           children: <Widget>[
             CheckoutInfoBanner(
-              icon: Icons.wifi_rounded,
-              title: 'Đang chờ ngân hàng xác nhận',
-              message: _statusMessage ??
-                  'Giữ màn hình này mở. Fleuré sẽ cập nhật ngay khi giao dịch được xác nhận.',
-              color: _statusMessage == null
-                  ? CheckoutPalette.forest50
-                  : CheckoutPalette.cream100,
+              key: const Key('sepay-status-banner'),
+              icon: _underReview
+                  ? Icons.manage_search_rounded
+                  : expired
+                  ? Icons.timer_off_outlined
+                  : Icons.wifi_rounded,
+              title: _underReview
+                  ? 'Thanh toán đang được cửa hàng kiểm tra'
+                  : expired
+                  ? 'Phiên thanh toán đã hết hạn'
+                  : 'Đang chờ xác nhận tự động',
+              message: _underReview
+                  ? 'Đã nhận giao dịch nhưng số tiền hoặc thời gian chưa khớp. Cửa hàng sẽ liên hệ với bạn.'
+                  : expired
+                  ? 'Đang cập nhật trạng thái từ máy chủ.'
+                  : 'Giữ màn hình này mở. Fleuré sẽ nhận tín hiệu ngay khi giao dịch hoàn tất.',
+              color: expired || _underReview
+                  ? CheckoutPalette.errorSurface
+                  : CheckoutPalette.forest50,
+              iconColor: expired || _underReview
+                  ? CheckoutPalette.error
+                  : CheckoutPalette.forest700,
             ),
             const SizedBox(height: 18),
-            const Center(
-              child: Text(
-                'SỐ TIỀN CẦN THANH TOÁN',
-                style: TextStyle(
-                  color: CheckoutPalette.charcoal500,
-                  fontSize: 9.5,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.25,
-                ),
-              ),
-            ),
-            const SizedBox(height: 7),
-            Text(
-              formatVnd(invoice.grandTotal),
-              textAlign: TextAlign.center,
-              style: CheckoutTypography.hero.copyWith(
-                color: CheckoutPalette.forest900,
-              ),
-            ),
-            const SizedBox(height: 7),
-            Text(
-              'Mã đơn ${widget.result.order.orderCode}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: CheckoutPalette.charcoal500,
-                fontSize: 11,
+            Center(
+              child: Column(
+                children: <Widget>[
+                  const Text(
+                    'SỐ TIỀN CẦN THANH TOÁN',
+                    style: TextStyle(
+                      color: CheckoutPalette.charcoal500,
+                      fontSize: 9.5,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.25,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    formatVnd(total),
+                    style: CheckoutTypography.hero.copyWith(
+                      color: CheckoutPalette.forest900,
+                    ),
+                  ),
+                  const SizedBox(height: 7),
+                  Text(
+                    'Mã đơn ${result.order.orderCode}',
+                    style: const TextStyle(
+                      color: CheckoutPalette.charcoal500,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 20),
             CheckoutSurfaceCard(
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
               borderColor: CheckoutPalette.forest100,
               child: Column(
                 children: <Widget>[
-                  if (qrUrl != null && qrUrl.isNotEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: CheckoutPalette.forest950,
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: Text(
+                      'MÃ CÒN HIỆU LỰC TRONG  $_timeLabel',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.7,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (qrUrl != null)
                     Image.network(
                       qrUrl,
+                      key: const Key('sepay-qr-image'),
                       width: 240,
-                      height: 240,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, _, _) => const _QrUnavailable(),
+                      errorBuilder: (_, _, _) => const _NoQrNotice(),
                     )
                   else
-                    const _QrUnavailable(),
-                  const SizedBox(height: 14),
+                    const _NoQrNotice(),
+                  const SizedBox(height: 6),
                   const Text(
-                    'Vui lòng quét mã QR bằng ứng dụng ngân hàng để thanh toán.',
+                    'Mở ứng dụng ngân hàng và quét mã QR phía trên',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      color: CheckoutPalette.charcoal700,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+                      color: CheckoutPalette.charcoal500,
+                      fontSize: 10.5,
                     ),
                   ),
                 ],
@@ -243,53 +285,65 @@ class _SepayQrScreenState extends State<SepayQrScreen>
             const CheckoutSectionHeader(
               title: 'Thông tin chuyển khoản',
               subtitle:
-                  'Vui lòng giữ nguyên nội dung để hệ thống xác nhận tự động.',
+                  'Chuyển đúng số tiền và ghi đúng nội dung để được xác nhận tự động.',
             ),
             const SizedBox(height: 12),
             CheckoutSurfaceCard(
               child: Column(
                 children: <Widget>[
                   CheckoutDetailRow(
-                    label: 'Nội dung chuyển khoản',
-                    value: paymentCode ?? 'Backend chưa cung cấp',
-                    icon: Icons.tag_rounded,
-                    trailing: paymentCode == null
-                        ? null
-                        : IconButton(
-                            tooltip: 'Sao chép nội dung',
-                            onPressed: _copyPaymentCode,
-                            icon: const Icon(Icons.copy_rounded, size: 18),
-                          ),
+                    label: 'Số tiền',
+                    value: formatVnd(total),
+                    icon: Icons.payments_outlined,
+                    trailing: IconButton(
+                      tooltip: 'Sao chép số tiền',
+                      onPressed: () => _copy('$total', 'số tiền'),
+                      icon: const Icon(Icons.copy_rounded, size: 18),
+                    ),
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 13),
-                    child: Divider(),
-                  ),
-                  CheckoutDetailRow(
-                    label: 'Mã hóa đơn',
-                    value: invoice.invoiceNumber,
-                    icon: Icons.receipt_long_outlined,
-                  ),
+                  if (paymentCode != null) ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 13),
+                      child: Divider(),
+                    ),
+                    CheckoutDetailRow(
+                      label: 'Nội dung chuyển khoản',
+                      value: paymentCode,
+                      icon: Icons.tag_rounded,
+                      trailing: IconButton(
+                        tooltip: 'Sao chép nội dung',
+                        onPressed: () =>
+                            _copy(paymentCode, 'nội dung chuyển khoản'),
+                        icon: const Icon(Icons.copy_rounded, size: 18),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 18),
-            FilledButton.icon(
-              onPressed: _pollInFlight || _terminalHandled
-                  ? null
-                  : _checkStatus,
-              icon: _pollInFlight
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Icon(Icons.refresh_rounded),
-              label: const Text('Kiểm tra trạng thái thanh toán'),
-            ),
-            const SizedBox(height: 14),
+            if (_underReview)
+              FilledButton.icon(
+                onPressed: () =>
+                    Navigator.of(context).popUntil((route) => route.isFirst),
+                icon: const Icon(Icons.home_outlined),
+                label: const Text('Về trang chủ'),
+              )
+            else ...[
+              FilledButton.icon(
+                key: const Key('sepay-confirm-transfer'),
+                onPressed: _confirmTransfer,
+                icon: const Icon(Icons.verified_outlined),
+                label: const Text('Tôi đã chuyển khoản'),
+              ),
+              const SizedBox(height: 8),
+              TextButton(
+                key: const Key('sepay-cannot-complete'),
+                onPressed: _showFailure,
+                child: const Text('Không thể hoàn tất thanh toán?'),
+              ),
+            ],
+            const SizedBox(height: 10),
             const CheckoutInfoBanner(
               icon: Icons.shield_outlined,
               title: 'Thanh toán được bảo vệ',
@@ -303,39 +357,17 @@ class _SepayQrScreenState extends State<SepayQrScreen>
   }
 }
 
-class _QrUnavailable extends StatelessWidget {
-  const _QrUnavailable();
+class _NoQrNotice extends StatelessWidget {
+  const _NoQrNotice();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 240,
-      height: 240,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: CheckoutPalette.cream100,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.all(24),
-      child: const Column(
-        mainAxisSize: MainAxisSize.min,
-        children: <Widget>[
-          Icon(
-            Icons.qr_code_2_rounded,
-            size: 56,
-            color: CheckoutPalette.charcoal400,
-          ),
-          SizedBox(height: 12),
-          Text(
-            'Mã QR chưa khả dụng. Vui lòng thử kiểm tra lại hoặc liên hệ hỗ trợ.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: CheckoutPalette.charcoal500,
-              fontSize: 11,
-              height: 1.4,
-            ),
-          ),
-        ],
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 24),
+      child: Text(
+        'Chưa tải được mã QR. Vui lòng chuyển khoản theo thông tin bên dưới.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: CheckoutPalette.charcoal500, fontSize: 12),
       ),
     );
   }

@@ -24,12 +24,24 @@ class ApiClient {
     required String baseUrl,
     http.Client? httpClient,
     this.timeout = const Duration(seconds: 15),
+    this.refreshAccessToken,
+    this.onSessionExpired,
   }) : _baseUri = Uri.parse(baseUrl.endsWith('/') ? baseUrl : '$baseUrl/'),
        _http = httpClient ?? http.Client();
 
   final Uri _baseUri;
   final http.Client _http;
   final Duration timeout;
+
+  /// Lấy token mới khi server trả 401. Trả `null` nếu phiên không cứu được;
+  /// ném lỗi nếu chưa biết (ví dụ mất mạng) để không đăng xuất nhầm.
+  final Future<String?> Function()? refreshAccessToken;
+
+  /// Gọi khi token mới cũng bị từ chối hoặc không lấy được token mới.
+  final void Function()? onSessionExpired;
+
+  /// Nhiều request cùng gặp 401 chỉ refresh một lần.
+  Future<String?>? _refreshing;
 
   /// [path] tương đối với base URL, ví dụ `api/v1/products`.
   Future<ApiResponse> get(
@@ -69,7 +81,38 @@ class ApiClient {
     Object? body,
   }) async {
     final uri = _baseUri.resolve(path).replace(queryParameters: query);
-    final http.Response response;
+    var response = await _execute(method, uri, headers, body);
+
+    // 401 do middleware chặn trước handler nên gửi lại POST là an toàn.
+    final refresh = refreshAccessToken;
+    if (response.statusCode == 401 &&
+        refresh != null &&
+        (headers?.containsKey('Authorization') ?? false)) {
+      final String? token;
+      try {
+        token = await (_refreshing ??= refresh().whenComplete(
+          () => _refreshing = null,
+        ));
+      } catch (_) {
+        return _decode(response);
+      }
+      if (token != null) {
+        response = await _execute(method, uri, {
+          ...?headers,
+          'Authorization': 'Bearer $token',
+        }, body);
+      }
+      if (response.statusCode == 401) onSessionExpired?.call();
+    }
+    return _decode(response);
+  }
+
+  Future<http.Response> _execute(
+    String method,
+    Uri uri,
+    Map<String, String>? headers,
+    Object? body,
+  ) async {
     try {
       final request = http.Request(method, uri)
         ..headers.addAll({'Accept': 'application/json', ...?headers});
@@ -77,7 +120,7 @@ class ApiClient {
         request.headers['Content-Type'] = 'application/json';
         request.body = jsonEncode(body);
       }
-      response = await (() async {
+      return await (() async {
         final streamed = await _http.send(request);
         return http.Response.fromStream(streamed);
       })().timeout(timeout);
@@ -87,10 +130,14 @@ class ApiClient {
       // IOClient bọc SocketException thành ClientException
       throw const ApiException.network();
     }
-    return _decode(response);
   }
 
   ApiResponse _decode(http.Response response) {
+    // 204 No Content không có envelope, ví dụ DELETE /cart/items/:id
+    if (response.statusCode == 204) {
+      return const ApiResponse(data: null, meta: {}, statusCode: 204);
+    }
+
     Map<String, dynamic>? body;
     try {
       final decoded = jsonDecode(utf8.decode(response.bodyBytes));
@@ -100,11 +147,6 @@ class ApiClient {
     }
 
     final ok = response.statusCode >= 200 && response.statusCode < 300;
-    // DELETE endpoints commonly return 204 without a JSON envelope.
-    if (response.statusCode == 204) {
-      return const ApiResponse(data: null, meta: {}, statusCode: 204);
-    }
-
     if (ok && body != null && body['success'] != false) {
       return ApiResponse(
         data: body['data'],

@@ -1,23 +1,47 @@
 import 'package:flutter/material.dart';
 
-import '../data/checkout_mock_data.dart';
+import '../data/checkout_repository.dart';
 import '../models/checkout_flow_models.dart';
+import '../models/checkout_request.dart';
 import '../models/checkout_summary.dart';
+import '../models/payment_method.dart';
+import '../models/voucher.dart';
 import '../state/checkout_flow_controller.dart';
 import '../utils/checkout_theme.dart';
 import '../utils/checkout_validators.dart';
 import '../widgets/checkout_common.dart';
 import 'pickup_branch_screen.dart';
+import 'voucher_list_screen.dart';
 
 class PickupCheckoutScreen extends StatefulWidget {
   const PickupCheckoutScreen({
     super.key,
     required this.controller,
     required this.summary,
+    required this.repository,
+    required this.onPlaceOrder,
+    required this.onVoucherChanged,
+    this.voucher,
+    this.buyNow,
   });
 
   final CheckoutFlowController controller;
   final CheckoutSummary summary;
+  final CheckoutRepository repository;
+  final Voucher? voucher;
+
+  /// Giữ voucher đồng bộ với màn giao hàng nằm bên dưới.
+  final ValueChanged<Voucher?> onVoucherChanged;
+  final CheckoutBuyNow? buyNow;
+
+  /// Màn checkout gửi đơn và điều hướng. [branch] là cửa hàng dưới dạng địa chỉ
+  /// để các màn kết quả dùng chung; [pickupTime] là chuỗi hiển thị cho khách.
+  final Future<void> Function(
+    CheckoutRequest request,
+    CheckoutAddress branch,
+    String pickupTime,
+  )
+  onPlaceOrder;
 
   @override
   State<PickupCheckoutScreen> createState() => _PickupCheckoutScreenState();
@@ -26,22 +50,93 @@ class PickupCheckoutScreen extends StatefulWidget {
 class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _noteController;
+  late final TextEditingController _nameController;
+  late final TextEditingController _phoneController;
+  bool _submitting = false;
+  bool _loadingBranches = true;
+  bool _branchLoadFailed = false;
   bool _scheduleTouched = false;
   bool _paymentTouched = false;
   String? _dateError;
   String? _timeError;
   String? _branchError;
+  late Voucher? _voucher = widget.voucher;
+
+  /// Nhận tại quán không có phí ship nên không dùng voucher phí ship.
+  CheckoutSummary get _summary {
+    final summary = widget.summary;
+    final discount = _voucher?.discountAmount ?? 0;
+    final grandTotal = summary.subtotal - discount + summary.tax;
+    return CheckoutSummary(
+      items: summary.items,
+      subtotal: summary.subtotal,
+      discount: discount,
+      tax: summary.tax,
+      shippingFee: 0,
+      grandTotal: grandTotal < 0 ? 0 : grandTotal,
+    );
+  }
 
   @override
   void initState() {
     super.initState();
     _noteController = TextEditingController(text: widget.controller.pickupNote);
+    final address = widget.controller.selectedAddress;
+    _nameController = TextEditingController(text: address?.recipientName);
+    _phoneController = TextEditingController(text: address?.normalizedPhone);
+    _loadBranches();
   }
 
   @override
   void dispose() {
     _noteController.dispose();
+    _nameController.dispose();
+    _phoneController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadBranches() async {
+    setState(() {
+      _loadingBranches = true;
+      _branchLoadFailed = false;
+    });
+    final address = widget.controller.selectedAddress;
+    try {
+      final branches = await widget.repository.listStores(
+        latitude: address?.latitude,
+        longitude: address?.longitude,
+      );
+      if (!mounted) return;
+      widget.controller.setBranches(branches);
+      setState(() {
+        _loadingBranches = false;
+        _branchLoadFailed = branches.isEmpty;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loadingBranches = false;
+        _branchLoadFailed = true;
+      });
+    }
+  }
+
+  void _setVoucher(Voucher? voucher) {
+    setState(() => _voucher = voucher);
+    widget.onVoucherChanged(voucher);
+  }
+
+  Future<void> _openVoucherList() async {
+    final selected = await Navigator.of(context).push<Voucher>(
+      MaterialPageRoute<Voucher>(
+        builder: (_) => VoucherListScreen(
+          repository: widget.repository,
+          currentVoucher: _voucher,
+          subtotal: widget.summary.subtotal,
+        ),
+      ),
+    );
+    if (mounted && selected != null) _setVoucher(selected);
   }
 
   Future<void> _selectBranch() async {
@@ -93,7 +188,7 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
                 style: CheckoutTypography.section,
               ),
               const SizedBox(height: 14),
-              for (final time in CheckoutMockData.pickupTimeSlots)
+              for (final time in pickupTimeSlots)
                 ListTile(
                   title: Text(time),
                   trailing: time == widget.controller.pickupTime
@@ -113,14 +208,28 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
     widget.controller.setPickupSchedule(widget.controller.pickupDate, selected);
     setState(() {
       _scheduleTouched = true;
-      _timeError = CheckoutValidators.pickupTime(
-        selected,
-        CheckoutMockData.pickupTimeSlots,
-      );
+      _timeError = CheckoutValidators.pickupTime(selected, pickupTimeSlots);
     });
   }
 
+  /// Giờ bắt đầu của khung đã chọn, ví dụ `15:00 – 16:00` là 15:00.
+  DateTime get _pickupAt {
+    final date = widget.controller.pickupDate;
+    final start = widget.controller.pickupTime.substring(0, 5).split(':');
+    return DateTime(
+      date.year,
+      date.month,
+      date.day,
+      int.parse(start[0]),
+      int.parse(start[1]),
+    );
+  }
+
+  String _formatDate(DateTime date) =>
+      '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+
   Future<void> _submit() async {
+    if (_submitting) return;
     final valid = _formKey.currentState?.validate() ?? false;
     setState(() {
       _scheduleTouched = true;
@@ -129,10 +238,14 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
         widget.controller.selectedBranch,
       );
       _dateError = CheckoutValidators.pickupDate(widget.controller.pickupDate);
-      _timeError = CheckoutValidators.pickupTime(
-        widget.controller.pickupTime,
-        CheckoutMockData.pickupTimeSlots,
-      );
+      _timeError =
+          CheckoutValidators.pickupTime(
+            widget.controller.pickupTime,
+            pickupTimeSlots,
+          ) ??
+          (_pickupAt.isAfter(DateTime.now())
+              ? null
+              : 'Khung giờ này đã qua. Vui lòng chọn giờ khác.');
     });
     if (!valid ||
         _branchError != null ||
@@ -148,20 +261,111 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
     widget.controller.pickupNote = CheckoutValidators.normalizeOptionalText(
       _noteController.text,
     );
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
-          'Hình thức lấy tại quán chưa được backend hỗ trợ. Vui lòng chọn giao tận nơi.',
+    final branch = widget.controller.selectedBranch!;
+    final destination = CheckoutAddress(
+      id: branch.id,
+      label: 'Nhận tại quán',
+      recipientName: _nameController.text.trim(),
+      phone: _phoneController.text.trim(),
+      addressLine: '${branch.name}, ${branch.address}',
+      ward: '',
+      district: '',
+      city: '',
+    );
+    setState(() => _submitting = true);
+    await widget.onPlaceOrder(
+      CheckoutRequest(
+        receiverName: destination.recipientName,
+        phone: destination.normalizedPhone,
+        paymentMethod:
+            widget.controller.pickupPaymentMethod == LocalPaymentMethod.sepay
+            ? PaymentMethod.sepay
+            : PaymentMethod.cod,
+        note: widget.controller.pickupNote,
+        voucherCode: _voucher?.code,
+        buyNow: widget.buyNow,
+        pickupStoreId: branch.id,
+        pickupAt: _pickupAt,
+      ),
+      destination,
+      '${widget.controller.pickupTime}, ${_formatDate(widget.controller.pickupDate)}',
+    );
+    if (mounted) setState(() => _submitting = false);
+  }
+
+  Widget _buildBranchCard() {
+    final branch = widget.controller.selectedBranch;
+    if (_loadingBranches) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_branchLoadFailed || branch == null) {
+      return CheckoutSurfaceCard(
+        key: const Key('pickup-branch-retry'),
+        onTap: _loadBranches,
+        child: const Text(
+          'Không tải được danh sách cửa hàng. Chạm để thử lại.',
         ),
+      );
+    }
+    return CheckoutSurfaceCard(
+      onTap: _selectBranch,
+      borderColor: CheckoutPalette.forest100,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          CheckoutAssetImage(
+            asset: branch.imageAsset,
+            width: 78,
+            height: 92,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                Text(
+                  branch.name,
+                  style: const TextStyle(
+                    color: CheckoutPalette.charcoal900,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  branch.address,
+                  style: const TextStyle(
+                    color: CheckoutPalette.charcoal500,
+                    fontSize: 10.5,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  branch.readyTime,
+                  style: const TextStyle(
+                    color: CheckoutPalette.forest700,
+                    fontSize: 10.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(Icons.chevron_right_rounded),
+        ],
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final branch = widget.controller.selectedBranch;
     final date = widget.controller.pickupDate;
-    final pickupTotal = widget.summary.grandTotal - widget.summary.shippingFee;
+    final summary = _summary;
     return CheckoutTheme(
       child: Scaffold(
         appBar: const FleureAppBar(title: 'Thanh toán · Lấy tại quán'),
@@ -183,61 +387,12 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
                 title: 'Studio nhận hoa',
                 subtitle: 'Ghé nhận tác phẩm khi đã được hoàn thiện.',
                 trailing: TextButton(
-                  onPressed: _selectBranch,
+                  onPressed: _loadingBranches ? null : _selectBranch,
                   child: const Text('Thay đổi'),
                 ),
               ),
               const SizedBox(height: 12),
-              CheckoutSurfaceCard(
-                onTap: _selectBranch,
-                borderColor: CheckoutPalette.forest100,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    CheckoutAssetImage(
-                      asset: branch.imageAsset,
-                      width: 78,
-                      height: 92,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Text(
-                            branch.name,
-                            style: const TextStyle(
-                              color: CheckoutPalette.charcoal900,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            branch.address,
-                            style: const TextStyle(
-                              color: CheckoutPalette.charcoal500,
-                              fontSize: 10.5,
-                              height: 1.45,
-                            ),
-                          ),
-                          const SizedBox(height: 7),
-                          Text(
-                            branch.readyTime,
-                            style: const TextStyle(
-                              color: CheckoutPalette.forest700,
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Icon(Icons.chevron_right_rounded),
-                  ],
-                ),
-              ),
+              _buildBranchCard(),
               if (_branchError != null) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -257,6 +412,23 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
               ),
               const SizedBox(height: 26),
               const CheckoutSectionHeader(
+                title: 'Người nhận hoa',
+                subtitle: 'Fleuré liên hệ số này khi hoa đã sẵn sàng.',
+              ),
+              const SizedBox(height: 12),
+              LabeledCheckoutField(
+                label: 'Họ và tên',
+                controller: _nameController,
+                validator: CheckoutValidators.recipientName,
+              ),
+              const SizedBox(height: 14),
+              LabeledCheckoutField(
+                label: 'Số điện thoại',
+                controller: _phoneController,
+                validator: CheckoutValidators.vietnamesePhone,
+              ),
+              const SizedBox(height: 26),
+              const CheckoutSectionHeader(
                 title: 'Thời gian ghé nhận',
                 subtitle: 'Chọn khung giờ để Fleuré chuẩn bị chu đáo.',
               ),
@@ -268,8 +440,7 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
                       onTap: _selectDate,
                       child: CheckoutDetailRow(
                         label: 'Ngày nhận',
-                        value:
-                            '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}',
+                        value: _formatDate(date),
                         icon: Icons.calendar_today_outlined,
                       ),
                     ),
@@ -321,6 +492,19 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
                     ],
                   ],
                 ),
+              ),
+              const SizedBox(height: 26),
+              const CheckoutSectionHeader(
+                title: 'Ưu đãi',
+                subtitle: 'Áp dụng mã giảm giá cho đơn hoa.',
+              ),
+              const SizedBox(height: 12),
+              CheckoutVoucherCard(
+                voucher: _voucher,
+                discount: summary.discount,
+                keyPrefix: 'pickup',
+                onTap: _openVoucherList,
+                onRemove: () => _setVoucher(null),
               ),
               const SizedBox(height: 26),
               const CheckoutSectionHeader(
@@ -379,15 +563,16 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
                 ),
               ],
               const SizedBox(height: 26),
-              PriceSummaryCard(summary: widget.summary, pickup: true),
+              PriceSummaryCard(summary: summary, pickup: true),
             ],
           ),
         ),
         bottomNavigationBar: CheckoutStickyBar(
-          total: pickupTotal,
+          total: summary.grandTotal,
+          key: const Key('pickup-place-order'),
           label: 'Đặt đơn và lấy tại quán',
-          onPressed: _submit,
-          loading: false,
+          onPressed: _loadingBranches ? null : _submit,
+          loading: _submitting,
         ),
       ),
     );

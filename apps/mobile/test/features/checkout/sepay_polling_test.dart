@@ -1,64 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:plant_flower_api_client/plant_flower_api_client.dart';
-import 'package:plant_flower_mobile/features/checkout/data/checkout_api.dart';
+import 'package:plant_flower_mobile/features/checkout/data/mock_checkout_repository.dart';
 import 'package:plant_flower_mobile/features/checkout/models/checkout_flow_models.dart';
 import 'package:plant_flower_mobile/features/checkout/models/checkout_invoice.dart';
 import 'package:plant_flower_mobile/features/checkout/models/checkout_order.dart';
 import 'package:plant_flower_mobile/features/checkout/models/checkout_payment.dart';
 import 'package:plant_flower_mobile/features/checkout/models/checkout_result.dart';
 import 'package:plant_flower_mobile/features/checkout/models/checkout_summary.dart';
+import 'package:plant_flower_mobile/features/checkout/models/placed_order.dart';
 import 'package:plant_flower_mobile/features/checkout/screens/sepay_qr_screen.dart';
-import 'package:plant_flower_mobile/features/checkout/state/checkout_flow_controller.dart';
 
 void main() {
   testWidgets('polling không chạy chồng và dừng khi rời màn hình', (
     tester,
   ) async {
-    final api = _PendingPaymentApi();
-    final controller = CheckoutFlowController(
-      addresses: const [
-        CheckoutAddress(
-          id: 'address-id',
-          label: 'Nhà riêng',
-          recipientName: 'Nguyễn An',
-          phone: '0901234567',
-          addressLine: '1 Nguyễn Huệ',
-          ward: 'Bến Nghé',
-          district: 'Quận 1',
-          city: 'TP. Hồ Chí Minh',
-          driverNote: '',
-          isDefault: true,
-          latitude: 10.77,
-          longitude: 106.70,
-        ),
-      ],
-    );
-    addTearDown(controller.dispose);
+    final repository = _PendingPaymentRepository();
 
     await tester.pumpWidget(
       MaterialApp(
         home: SepayQrScreen(
-          controller: controller,
-          summary: _summary,
-          result: _result,
-          api: api,
+          order: _placedOrder,
+          repository: repository,
           pollInterval: const Duration(milliseconds: 10),
         ),
       ),
     );
     await tester.pump(const Duration(milliseconds: 120));
 
-    expect(api.calls, greaterThan(0));
-    expect(api.maxConcurrent, 1);
+    expect(repository.calls, greaterThan(0));
+    expect(repository.maxConcurrent, 1);
 
     await tester.pumpWidget(const MaterialApp(home: SizedBox()));
     await tester.pump(const Duration(milliseconds: 100));
-    final callsAfterDispose = api.calls;
+    final callsAfterDispose = repository.calls;
     await tester.pump(const Duration(milliseconds: 100));
-    expect(api.calls, callsAfterDispose);
+    expect(repository.calls, callsAfterDispose);
   });
 }
+
+const _address = CheckoutAddress(
+  id: 'address-id',
+  label: 'Nhà riêng',
+  recipientName: 'Nguyễn An',
+  phone: '0901234567',
+  addressLine: '1 Nguyễn Huệ',
+  ward: 'Bến Nghé',
+  district: 'Quận 1',
+  city: 'TP. Hồ Chí Minh',
+  driverNote: '',
+  isDefault: true,
+  latitude: 10.77,
+  longitude: 106.70,
+);
 
 const _summary = CheckoutSummary(
   items: [
@@ -93,30 +86,24 @@ const _result = CheckoutResult(
   ),
 );
 
-class _PendingPaymentApi extends CheckoutApi {
-  _PendingPaymentApi()
-    : super(
-        ApiClient(baseUrl: 'https://api.example.com'),
-        accessTokenProvider: () async => 'token',
-      );
+const _placedOrder = PlacedOrder(
+  result: _result,
+  summary: _summary,
+  address: _address,
+);
 
+class _PendingPaymentRepository extends MockCheckoutRepository {
   int calls = 0;
   int concurrent = 0;
   int maxConcurrent = 0;
 
   @override
-  Future<CheckoutPaymentStatusResult> getPaymentStatus(String paymentId) async {
+  Future<String> getPaymentStatus(String paymentId) async {
     calls++;
     concurrent++;
     if (concurrent > maxConcurrent) maxConcurrent = concurrent;
     await Future<void>.delayed(const Duration(milliseconds: 30));
     concurrent--;
-    return const CheckoutPaymentStatusResult(
-      id: 'payment-id',
-      invoiceId: 'invoice-id',
-      amount: 120000,
-      status: CheckoutPaymentStatus.pending,
-      paymentCode: 'PAY001',
-    );
+    return 'PENDING';
   }
 }

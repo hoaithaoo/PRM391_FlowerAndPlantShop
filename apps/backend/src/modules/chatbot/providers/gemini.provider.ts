@@ -7,10 +7,13 @@ import {
   ChatbotProviderInput,
   ChatbotProviderResult,
 } from "./chatbot.provider";
+import type { ChatbotCartAction } from "../chatbot.types";
+
+const MAX_CART_ACTIONS = 5;
 
 const providerResultSchema = z
   .object({
-    responseType: z.enum(["ANSWER", "INCIDENT", "IDENTITY", "TRANSLATION", "OFF_TOPIC", "NO_KNOWLEDGE"]),
+    responseType: z.enum(["ANSWER", "CART", "INCIDENT", "IDENTITY", "TRANSLATION", "OFF_TOPIC", "NO_KNOWLEDGE"]),
     reply: z.string().trim().min(1).max(4000),
     suggestedProductIds: z.array(z.string().uuid()).max(8),
     actionDraft: z
@@ -21,6 +24,18 @@ const providerResultSchema = z
       })
       .strict()
       .nullable(),
+    cartActions: z
+      .array(
+        z
+          .object({
+            type: z.enum(["ADD", "UPDATE", "REMOVE", "CLEAR"]),
+            productId: z.string().uuid().nullish(),
+            quantity: z.number().int().min(1).max(10).nullish(),
+          })
+          .strict()
+      )
+      .max(MAX_CART_ACTIONS)
+      .nullish(),
   })
   .strict();
 
@@ -34,12 +49,13 @@ interface GeminiProviderOptions {
 
 const SYSTEM_INSTRUCTION = `Bạn là trợ lý AI của dự án Plant & Flower Shop.
 Không bao giờ nêu tên mô hình, nhà cung cấp AI hoặc dịch vụ kỹ thuật đứng sau bạn. Khi được hỏi bạn là ai, chọn IDENTITY và chỉ tự giới thiệu là trợ lý AI của dự án/cửa hàng.
-Phạm vi hợp lệ gồm sản phẩm cây/hoa/phụ kiện, kiến thức chăm sóc có trong knowledgeChunks, chính sách cửa hàng, đơn hàng/thanh toán đã xác minh và hỗ trợ lập bản nháp báo sự cố. Chọn INCIDENT cho câu trả lời chỉ dựa trên incidentContext; chọn ANSWER cho tư vấn sản phẩm/catalog. Câu hỏi ngoài phạm vi phải chọn OFF_TOPIC và không trả lời nội dung ngoài lề.
-Chỉ sử dụng knowledgeChunks, catalogProducts, contextProduct, incidentContext và lịch sử được cung cấp. Không dùng kiến thức bên ngoài và không tự tạo tên, đặc tính, giá, tồn kho hoặc mã sản phẩm. Nếu câu hỏi thuộc phạm vi nhưng không có đủ dữ liệu đã xác minh, chọn NO_KNOWLEDGE.
+Cửa hàng chỉ bán hoa, không bán cây cảnh hay phụ kiện. Khi chào hỏi hoặc giới thiệu khả năng hỗ trợ, chỉ nhắc đến hoa, không bao giờ nhắc đến cây cảnh hay phụ kiện. Phạm vi hợp lệ gồm sản phẩm hoa, kiến thức chăm sóc hoa có trong knowledgeChunks, chính sách cửa hàng, giỏ hàng của người dùng, đơn hàng/thanh toán đã xác minh và hỗ trợ lập bản nháp báo sự cố. Chọn INCIDENT cho câu trả lời chỉ dựa trên incidentContext; chọn ANSWER cho tư vấn sản phẩm/catalog. Câu hỏi ngoài phạm vi, kể cả hỏi mua hoặc tư vấn cây cảnh và phụ kiện, phải chọn OFF_TOPIC và không trả lời nội dung ngoài lề. Không đề xuất và không dùng ADD cho sản phẩm không phải hoa, kể cả khi sản phẩm đó có trong catalogProducts.
+Chỉ sử dụng knowledgeChunks, catalogProducts, contextProduct, incidentContext, cartItems và lịch sử được cung cấp. Không dùng kiến thức bên ngoài và không tự tạo tên, đặc tính, giá, tồn kho hoặc mã sản phẩm. Nếu câu hỏi thuộc phạm vi nhưng không có đủ dữ liệu đã xác minh, chọn NO_KNOWLEDGE.
 Luôn trả lời bằng đúng ngôn ngữ người dùng viết tin nhắn hiện tại (tiếng Anh thì trả lời tiếng Anh, tiếng Nhật thì trả lời tiếng Nhật, v.v.), kể cả khi knowledgeChunks bằng tiếng Việt: diễn đạt lại thông tin sang ngôn ngữ đó nhưng giữ nguyên tên sản phẩm và giá. Quy tắc này áp dụng cho mọi responseType. Nếu người dùng yêu cầu dịch hoặc chuyển ngôn ngữ, chọn TRANSLATION và chỉ dịch câu trả lời gần nhất sang ngôn ngữ đích, không thêm thông tin mới.
 Chỉ suggestedProductIds có trong catalogProducts. Không hứa hoàn tiền và không nói rằng đơn hàng hoặc thanh toán đã được thay đổi. Nếu cần báo sự cố, actionDraft chỉ là bản nháp để người dùng xem lại và xác nhận. Chỉ đặt actionDraft khi responseType là INCIDENT.
-Chọn đúng một responseType: ANSWER, INCIDENT, IDENTITY, TRANSLATION, OFF_TOPIC hoặc NO_KNOWLEDGE.
-Chỉ trả JSON hợp lệ gồm responseType, reply, suggestedProductIds và actionDraft. actionDraft là null hoặc gồm category, title, description.`;
+Ứng dụng có thể thao tác giỏ hàng thay người dùng; cartItems là giỏ hiện tại. Mọi câu hỏi hoặc yêu cầu về giỏ hàng chọn CART; khi người dùng hỏi trong giỏ có gì thì liệt kê đúng theo cartItems. Chỉ khi người dùng yêu cầu rõ ràng thay đổi giỏ mới đặt cartActions, là danh sách tối đa 5 thao tác theo đúng thứ tự người dùng yêu cầu; phải có đủ mọi thao tác được yêu cầu trong cùng một lượt, không bỏ sót. Mỗi thao tác là một trong: ADD thêm sản phẩm (productId có trong catalogProducts, quantity 1-10, mặc định 1, đưa sản phẩm vào suggestedProductIds); UPDATE đặt số lượng mới (productId có trong cartItems, quantity 1-10); REMOVE xóa một sản phẩm (productId có trong cartItems); CLEAR xóa toàn bộ giỏ (productId và quantity là null). Sản phẩm đã có trong cartItems mà người dùng muốn thêm hoặc bớt N cái thì dùng UPDATE với số lượng mới bằng số hiện tại cộng hoặc trừ N; nếu số mới bằng 0 thì dùng REMOVE. Khi đặt cartActions, viết reply nêu đủ các thao tác đã thực hiện. Không đặt cartActions khi người dùng chỉ hỏi hoặc xin tư vấn. Nếu chưa rõ sản phẩm nào thì hỏi lại và để cartActions là danh sách rỗng.
+Chọn đúng một responseType: ANSWER, CART, INCIDENT, IDENTITY, TRANSLATION, OFF_TOPIC hoặc NO_KNOWLEDGE.
+Chỉ trả JSON hợp lệ gồm responseType, reply, suggestedProductIds, actionDraft và cartActions. actionDraft là null hoặc gồm category, title, description. cartActions là danh sách, mỗi phần tử gồm type, productId, quantity.`;
 
 /**
  * Cài đặt ChatbotProvider bằng Gemini: gửi system prompt + lịch sử + dữ liệu RAG,
@@ -92,6 +108,7 @@ export class GeminiChatbotProvider implements ChatbotProvider {
                     catalogProducts: input.catalogProducts,
                     knowledgeChunks: input.knowledgeChunks,
                     incidentContext: input.incidentContext,
+                    cartItems: input.cartItems ?? [],
                   }),
                 },
               ],
@@ -128,15 +145,26 @@ export class GeminiChatbotProvider implements ChatbotProvider {
           : parsed.responseType;
       const isAnswer = responseType === "ANSWER";
       const isIncident = responseType === "INCIDENT";
+      const isCart = responseType === "CART";
+      const resolvedActions = isCart
+        ? (parsed.cartActions ?? []).map((action) => resolveCartAction(action, input))
+        : [];
+      // Một thao tác sai thì bỏ cả lượt: làm dở dang còn tệ hơn hỏi lại.
+      const cartActions = resolvedActions.filter((action) => action !== null);
+      const allActionsValid = cartActions.length === resolvedActions.length;
       return {
         ...parsed,
         responseType,
-        reply: safeReply(responseType, responseType === parsed.responseType, parsed.reply, input.message),
+        // Thao tác bị loại thì không được giữ câu "đã thực hiện" của mô hình.
+        reply: !allActionsValid
+            ? rejectedCartReply(input.message)
+            : safeReply(responseType, responseType === parsed.responseType, parsed.reply, input.message),
         // Không chuyển tiếp mã sản phẩm do mô hình tự tạo hoặc gắn vào loại phản hồi không tư vấn.
-        suggestedProductIds: isAnswer
+        suggestedProductIds: isAnswer || isCart
           ? [...new Set(parsed.suggestedProductIds)].filter((id) => allowedProductIds.has(id))
           : [],
         actionDraft: isIncident ? parsed.actionDraft : null,
+        cartActions: allActionsValid ? cartActions : [],
       };
     } catch (error) {
       if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) {
@@ -159,6 +187,39 @@ export class GeminiChatbotProvider implements ChatbotProvider {
   private providerError(message: string): AppError {
     return new AppError(502, ErrorCodes.CHATBOT_PROVIDER_ERROR, message);
   }
+}
+
+/**
+ * Không tin mã sản phẩm do mô hình tự tạo: ADD chỉ nhận sản phẩm trong catalog đã truy hồi,
+ * UPDATE/REMOVE chỉ nhận sản phẩm đang có trong giỏ.
+ */
+function resolveCartAction(
+  action: NonNullable<z.infer<typeof providerResultSchema>["cartActions"]>[number],
+  input: ChatbotProviderInput
+): ChatbotCartAction | null {
+  const cartItems = input.cartItems ?? [];
+  const productId = action.productId ?? null;
+  const inCart = cartItems.some((item) => item.productId === productId);
+  switch (action.type) {
+    case "ADD":
+      return input.catalogProducts.some((product) => product.id === productId)
+        ? { type: "ADD", productId, quantity: action.quantity ?? 1 }
+        : null;
+    case "UPDATE":
+      return inCart && action.quantity
+        ? { type: "UPDATE", productId, quantity: action.quantity }
+        : null;
+    case "REMOVE":
+      return inCart ? { type: "REMOVE", productId, quantity: null } : null;
+    case "CLEAR":
+      return cartItems.length > 0 ? { type: "CLEAR", productId: null, quantity: null } : null;
+  }
+}
+
+function rejectedCartReply(message: string): string {
+  return isLikelyVietnamese(message)
+    ? "Mình chưa xác định được sản phẩm cần thao tác trong giỏ hàng. Bạn nói rõ tên sản phẩm giúp mình nhé."
+    : "I couldn't identify the product to change in your cart. Please tell me its exact name.";
 }
 
 const MAX_GENERATED_REFUSAL_LENGTH = 400;
@@ -186,8 +247,8 @@ function safeReply(
   }
   if (responseType === "OFF_TOPIC") {
     return vietnamese
-      ? "Xin lỗi, tôi chỉ có thể hỗ trợ về cây, hoa, sản phẩm và dịch vụ của cửa hàng."
-      : "Sorry, I can only help with plants, flowers, products, and services from the store.";
+      ? "Xin lỗi, cửa hàng chỉ bán hoa nên tôi chỉ có thể hỗ trợ về hoa và dịch vụ của cửa hàng."
+      : "Sorry, this store only sells flowers, so I can only help with flowers and store services.";
   }
   if (responseType === "NO_KNOWLEDGE") {
     return vietnamese

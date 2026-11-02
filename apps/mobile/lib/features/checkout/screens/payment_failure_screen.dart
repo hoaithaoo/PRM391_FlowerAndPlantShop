@@ -1,36 +1,96 @@
 import 'package:flutter/material.dart';
 
-import '../models/checkout_summary.dart';
-import '../utils/checkout_assets.dart';
+import '../data/checkout_repository.dart';
+import '../models/placed_order.dart';
 import '../utils/checkout_theme.dart';
 import '../utils/currency_formatter.dart';
 import '../widgets/checkout_common.dart';
 
-class PaymentFailureScreen extends StatelessWidget {
+/// Backend tự hủy đơn hết hạn và hoàn kho, nên không cần nút hủy khi hết hạn.
+class PaymentFailureScreen extends StatefulWidget {
   const PaymentFailureScreen({
     super.key,
-    required this.summary,
-    required this.orderCode,
-    required this.message,
-    required this.onRetry,
-    this.retryLabel = 'Thử kiểm tra lại',
+    required this.order,
+    required this.repository,
+    this.canCancel = false,
+    this.canRetry = false,
+    this.isExpired = false,
   });
 
-  final CheckoutSummary summary;
-  final String orderCode;
-  final String message;
-  final VoidCallback onRetry;
-  final String retryLabel;
+  final PlacedOrder order;
+  final CheckoutRepository repository;
+  final bool canCancel;
+
+  /// Mã thanh toán còn hiệu lực, có thể quay lại màn QR.
+  final bool canRetry;
+
+  /// Mã thanh toán đã hết hạn.
+  final bool isExpired;
+
+  @override
+  State<PaymentFailureScreen> createState() => _PaymentFailureScreenState();
+}
+
+class _PaymentFailureScreenState extends State<PaymentFailureScreen> {
+  bool _cancelling = false;
+
+  void _goHome() {
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  Future<void> _cancelOrder() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hủy đơn hàng này?'),
+        content: const Text('Đơn sẽ bị hủy và không khôi phục được.'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Giữ đơn'),
+          ),
+          FilledButton(
+            key: const Key('payment-confirm-cancel'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Hủy đơn'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() => _cancelling = true);
+    try {
+      await widget.repository.cancelOrder(
+        widget.order.result.order.id,
+        reason: 'Khách không hoàn tất thanh toán',
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(const SnackBar(content: Text('Đã hủy đơn hàng.')));
+      _goHome();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _cancelling = false);
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Không hủy được đơn hàng. Vui lòng thử lại.'),
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final result = widget.order.result;
     return CheckoutTheme(
       child: Scaffold(
         appBar: FleureAppBar(
           title: 'Thanh toán chưa hoàn tất',
           closeButton: true,
           showProfile: false,
-          onLeadingPressed: () => Navigator.of(context).maybePop(),
+          onLeadingPressed: () =>
+              widget.canRetry ? Navigator.of(context).maybePop() : _goHome(),
         ),
         body: CheckoutContent(
           children: <Widget>[
@@ -61,9 +121,13 @@ class PaymentFailureScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              message,
+              widget.canRetry
+                  ? 'Mã thanh toán vẫn còn hiệu lực, bạn có thể quay lại để chuyển khoản.'
+                  : (widget.isExpired || widget.canCancel)
+                  ? 'Mã thanh toán đã hết hạn. Đơn hàng đã tự hủy, hàng và voucher đã được trả lại.'
+                  : 'Đơn hàng này đã bị hủy.',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: CheckoutPalette.charcoal500,
                 fontSize: 12,
                 height: 1.5,
@@ -74,167 +138,48 @@ class PaymentFailureScreen extends StatelessWidget {
               color: CheckoutPalette.petal50,
               borderColor: CheckoutPalette.petal200,
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: <Widget>[
-                      Text(
-                        'ĐƠN HOA ĐANG ĐƯỢC GIỮ',
-                        style: TextStyle(
-                          color: CheckoutPalette.petal500,
-                          fontSize: 9.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 1,
-                        ),
-                      ),
-                      CheckoutStatusBadge(
-                        text: orderCode,
-                        color: CheckoutPalette.cream100,
-                        textColor: CheckoutPalette.charcoal700,
-                      ),
-                    ],
+                  CheckoutDetailRow(
+                    label: 'Mã đơn hàng',
+                    value: result.order.orderCode,
+                    icon: Icons.receipt_long_outlined,
                   ),
                   const SizedBox(height: 14),
-                  Row(
-                    children: <Widget>[
-                      const CheckoutAssetImage(
-                        asset: CheckoutAssets.paymentFailureProduct,
-                        width: 92,
-                        height: 92,
-                        borderRadius: BorderRadius.all(Radius.circular(12)),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text(
-                              summary.items.first.name,
-                              style: const TextStyle(
-                                color: CheckoutPalette.charcoal900,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              summary.items.first.variant ?? '',
-                              style: const TextStyle(
-                                color: CheckoutPalette.charcoal500,
-                                fontSize: 10.5,
-                              ),
-                            ),
-                            const SizedBox(height: 9),
-                            Text(
-                              formatVnd(summary.grandTotal),
-                              style: const TextStyle(
-                                color: CheckoutPalette.forest900,
-                                fontSize: 14,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 14),
-                    child: Divider(),
-                  ),
-                  const Text(
-                    'Có thể giao dịch bị gián đoạn vì:',
-                    style: TextStyle(
-                      color: CheckoutPalette.charcoal900,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 9),
-                  const _Reason(
-                    text: 'Ứng dụng ngân hàng đóng trước khi xác nhận.',
-                  ),
-                  const _Reason(text: 'Số dư hoặc hạn mức giao dịch chưa đủ.'),
-                  const _Reason(
-                    text: 'Kết nối mạng bị gián đoạn trong lúc đối soát.',
+                  CheckoutDetailRow(
+                    label: 'Tổng thanh toán',
+                    value: formatVnd(result.invoice.grandTotal),
+                    icon: Icons.payments_outlined,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 14),
-            const CheckoutInfoBanner(
-              icon: Icons.spa_outlined,
-              title: 'Hoa của bạn vẫn an toàn',
-              message:
-                  'Đơn hàng đã được tạo. Bạn có thể kiểm tra lại trạng thái mà không cần tạo đơn mới.',
-              color: CheckoutPalette.forest50,
-            ),
             const SizedBox(height: 22),
-            FilledButton.icon(
-              onPressed: onRetry,
-              icon: const Icon(Icons.refresh_rounded),
-              label: Text(retryLabel),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
-              onPressed: () =>
-                  Navigator.of(context).popUntil((route) => route.isFirst),
-              icon: const Icon(Icons.account_balance_wallet_outlined),
-              label: const Text('Đổi phương thức thanh toán'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                foregroundColor: CheckoutPalette.forest800,
-                side: const BorderSide(color: CheckoutPalette.forest100),
+            if (widget.canRetry) ...[
+              FilledButton.icon(
+                key: const Key('payment-retry'),
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Quay lại thanh toán'),
               ),
-            ),
-            const SizedBox(height: 6),
-            TextButton(
-              onPressed: () => Navigator.of(context).maybePop(),
-              child: const Text('Quay lại'),
-            ),
-            const SizedBox(height: 16),
-            const CheckoutInfoBanner(
-              icon: Icons.support_agent_rounded,
-              title: 'Đội chăm sóc Fleuré luôn sẵn sàng',
-              message:
-                  'Gọi 1900 6868 hoặc trò chuyện với chúng tôi để được hỗ trợ.',
-            ),
+              const SizedBox(height: 10),
+            ],
+            if (widget.canCancel) ...[
+              OutlinedButton.icon(
+                key: const Key('payment-cancel-order'),
+                onPressed: _cancelling ? null : _cancelOrder,
+                icon: const Icon(Icons.cancel_outlined),
+                label: Text(_cancelling ? 'Đang hủy đơn...' : 'Hủy đơn'),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  foregroundColor: CheckoutPalette.error,
+                  side: const BorderSide(color: CheckoutPalette.petal200),
+                ),
+              ),
+              const SizedBox(height: 6),
+            ],
+            TextButton(onPressed: _goHome, child: const Text('Về trang chủ')),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _Reason extends StatelessWidget {
-  const _Reason({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          const Padding(
-            padding: EdgeInsets.only(top: 5),
-            child: Icon(Icons.circle, size: 5, color: CheckoutPalette.petal500),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                color: CheckoutPalette.charcoal500,
-                fontSize: 10.5,
-                height: 1.4,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
