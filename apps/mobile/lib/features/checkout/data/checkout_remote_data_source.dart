@@ -204,6 +204,7 @@ class CheckoutRemoteDataSource {
         throw CheckoutFailure(
           code: _readErrorCode(response.body),
           statusCode: response.statusCode,
+          message: _readErrorMessage(response.body),
         );
       }
 
@@ -213,8 +214,8 @@ class CheckoutRemoteDataSource {
           : const <String, dynamic>{};
     } on CheckoutFailure {
       rethrow;
-    } catch (_) {
-      throw const CheckoutFailure.network();
+    } catch (error) {
+      throw CheckoutFailure.network(message: error.toString());
     }
   }
 
@@ -227,5 +228,13 @@ class CheckoutRemoteDataSource {
       }
     }
     return CheckoutErrorCode.network;
+  }
+
+  String? _readErrorMessage(Map<String, dynamic> body) {
+    final error = body['error'];
+    if (error is Map && error['message'] is String) {
+      return error['message'] as String;
+    }
+    return null;
   }
 }

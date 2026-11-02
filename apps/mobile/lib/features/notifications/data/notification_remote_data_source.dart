@@ -73,7 +73,6 @@ class NotificationRemoteDataSource {
   }
 
   Future<Map<String, String>> _authenticatedHeaders() async {
-    // TODO: Lấy access token từ Supabase Auth sau khi auth foundation được merge
     final accessToken = await _accessTokenProvider();
     if (accessToken == null || accessToken.trim().isEmpty) {
       throw const NotificationFailure(
@@ -82,7 +81,7 @@ class NotificationRemoteDataSource {
     }
 
     return <String, String>{
-      'Authorization': 'Bearer $accessToken',
+      'Authorization': 'Bearer ${accessToken.trim()}',
       'Content-Type': 'application/json',
     };
   }

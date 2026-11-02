@@ -48,7 +48,13 @@ class CartScreen extends StatelessWidget {
             _CheckoutBar(
               subtotal: controller.subtotal,
               isBusy: controller.isMutating,
-              onCheckout: onCheckout,
+              onCheckout:
+                  onCheckout ??
+                  () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Chưa thể mở thanh toán lúc này.'),
+                    ),
+                  ),
             ),
         ],
       ),

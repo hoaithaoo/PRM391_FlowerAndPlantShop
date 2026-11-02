@@ -91,7 +91,7 @@ class CheckoutAddress {
     ward,
     district,
     city,
-  ].where((part) => part.isNotEmpty).join(', ');
+  ].where((part) => part.trim().isNotEmpty).join(', ');
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{

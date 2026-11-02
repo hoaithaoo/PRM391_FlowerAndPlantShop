@@ -5,6 +5,7 @@ import 'package:plant_flower_mobile/features/auth/data/mock_auth_repository.dart
 import 'package:plant_flower_mobile/features/chatbot/data/chatbot_repository.dart';
 import 'package:plant_flower_mobile/features/chatbot/models/chatbot_models.dart';
 import 'package:plant_flower_mobile/features/checkout/data/mock_checkout_repository.dart';
+import 'package:plant_flower_mobile/features/notifications/data/mock_notification_repository.dart';
 import 'package:plant_flower_mobile/features/products/data/mock_product_repository.dart';
 import 'package:plant_flower_mobile/features/products/screens/product_detail_screen.dart';
 
@@ -25,6 +26,7 @@ void main() {
       cartRepository: TestCartRepository(),
       chatbotRepository: _SuggestionRepository(product.id, product.name),
       checkoutRepository: const MockCheckoutRepository(),
+      notificationRepository: MockNotificationRepository(delay: Duration.zero),
     );
 
     await tester.pumpWidget(app);

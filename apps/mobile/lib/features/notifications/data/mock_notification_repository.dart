@@ -39,6 +39,11 @@ class MockNotificationRepository implements NotificationRepository {
 
     return NotificationListResult(
       items: pageItems,
+      page: page,
+      total: filteredItems.length,
+      totalPages: filteredItems.isEmpty
+          ? 0
+          : (filteredItems.length / pageSize).ceil(),
       unreadCount: _items.where((item) => !item.isRead).length,
     );
   }
