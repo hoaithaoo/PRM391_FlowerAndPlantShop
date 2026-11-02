@@ -16,6 +16,9 @@ class RemoteUsersService implements AdminUsersService {
     this.responseValidator,
   });
 
+  static List<dynamic> _listFrom(dynamic data) =>
+      data is List ? data : (data as Map<String, dynamic>)['items'] as List<dynamic>;
+
   @override
   Future<List<UserProfile>> getUsers({
     String? search,
@@ -34,7 +37,7 @@ class RemoteUsersService implements AdminUsersService {
     );
     final res = await httpClient.get(uri, headers: headersProvider());
     responseValidator?.call(res);
-    final data = jsonDecode(res.body)['data'] as List<dynamic>;
+    final data = _listFrom(jsonDecode(res.body)['data']);
     return data.map((e) => UserProfile.fromJson(e as Map<String, dynamic>)).toList();
   }
 
@@ -58,7 +61,7 @@ class RemoteUsersService implements AdminUsersService {
       if (status != null) 'status': status.toApiString(),
     };
     final uri = Uri.parse('$baseUrl/admin/users/$id');
-    final res = await httpClient.put(
+    final res = await httpClient.patch(
       uri,
       headers: headersProvider(),
       body: jsonEncode(body),

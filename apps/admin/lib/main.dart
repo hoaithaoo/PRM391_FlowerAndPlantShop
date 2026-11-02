@@ -24,12 +24,14 @@ void main() {
 }
 
 class PlantFlowerAdminApp extends StatelessWidget {
-  const PlantFlowerAdminApp({super.key});
+  final AdminApiClient? apiClient;
+
+  const PlantFlowerAdminApp({super.key, this.apiClient});
 
   @override
   Widget build(BuildContext context) {
     return RepositoryProvider<AdminApiClient>(
-      create: (context) => AdminApiClient(),
+      create: (context) => apiClient ?? AdminApiClient(),
       child: MultiBlocProvider(
         providers: [
           BlocProvider<AuthBloc>(

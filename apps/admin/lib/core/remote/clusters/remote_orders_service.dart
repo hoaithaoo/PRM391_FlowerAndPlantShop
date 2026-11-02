@@ -16,6 +16,9 @@ class RemoteOrdersService implements AdminOrdersService {
     this.responseValidator,
   });
 
+  static List<dynamic> _listFrom(dynamic data) =>
+      data is List ? data : (data as Map<String, dynamic>)['items'] as List<dynamic>;
+
   @override
   Future<List<OrderModel>> getOrders({
     OrderStatus? status,
@@ -31,16 +34,16 @@ class RemoteOrdersService implements AdminOrdersService {
     );
     final res = await httpClient.get(uri, headers: headersProvider());
     responseValidator?.call(res);
-    final data = jsonDecode(res.body)['data'] as List<dynamic>;
+    final data = _listFrom(jsonDecode(res.body)['data']);
     return data.map((e) => OrderModel.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   @override
   Future<OrderModel> updateOrderStatus(String id, OrderStatus newStatus) async {
-    final res = await httpClient.put(
+    final res = await httpClient.patch(
       Uri.parse('$baseUrl/admin/orders/$id/status'),
       headers: headersProvider(),
-      body: jsonEncode({'status': newStatus.name}),
+      body: jsonEncode({'status': newStatus.toApiString()}),
     );
     responseValidator?.call(res);
     final data = jsonDecode(res.body)['data'];
