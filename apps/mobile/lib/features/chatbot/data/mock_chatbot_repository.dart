@@ -57,6 +57,19 @@ class MockChatbotRepository implements ChatbotRepository {
   }
 
   @override
+  Future<List<ChatbotConversationSummary>> listConversations() async {
+    await Future<void>.delayed(responseDelay);
+    return <ChatbotConversationSummary>[
+      for (final entry in _conversations.entries)
+        ChatbotConversationSummary(
+          id: entry.key,
+          title: entry.value.first.content,
+          updatedAt: entry.value.last.createdAt,
+        ),
+    ];
+  }
+
+  @override
   Future<void> deleteConversation(String conversationId) async {
     await Future<void>.delayed(responseDelay);
     _conversations.remove(conversationId);

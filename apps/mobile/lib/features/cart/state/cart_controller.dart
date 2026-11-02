@@ -56,10 +56,29 @@ class CartController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Xoá giỏ đang giữ khi đăng xuất, tránh lộ sang tài khoản kế tiếp.
+  void reset() {
+    _operationGeneration++;
+    _items = const [];
+    _subtotal = 0;
+    _totalQuantity = 0;
+    _status = CartStatus.initial;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
   Future<bool> addProduct(ProductDetail product, {int quantity = 1}) {
     if (!product.inStock || quantity < 1) return Future.value(false);
     return _mutate(
       () => _repository.add(productId: product.id, quantity: quantity),
+    );
+  }
+
+  /// Dùng khi chỉ có mã sản phẩm (trợ lý AI); server kiểm tra tồn kho.
+  Future<bool> addProductById(String productId, {int quantity = 1}) {
+    if (quantity < 1) return Future.value(false);
+    return _mutate(
+      () => _repository.add(productId: productId, quantity: quantity),
     );
   }
 

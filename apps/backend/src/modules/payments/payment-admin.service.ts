@@ -11,6 +11,7 @@ import { ErrorCodes } from "../../common/errors/error-codes";
 import { toNumber } from "../../common/utils/decimal";
 import { toPageMeta, toSkipTake } from "../../common/utils/pagination";
 import { prisma } from "../../lib/prisma";
+import { expireOverduePayments } from "./payment-expiry.service";
 import type {
   AdminListPaymentsQuery,
   AdminListSepayTransactionsQuery,
@@ -126,10 +127,7 @@ export class PaymentAdminService {
 
   async listPayments(query: AdminListPaymentsQuery) {
     // Đồng bộ payment quá hạn trước khi liệt kê để admin không thấy PENDING giả.
-    await this.db.payment.updateMany({
-      where: { status: PaymentStatus.PENDING, expiresAt: { lte: this.now() } },
-      data: { status: PaymentStatus.EXPIRED },
-    });
+    await expireOverduePayments({}, this.db, this.now);
 
     const contains = query.search
       ? { contains: query.search, mode: "insensitive" as const }

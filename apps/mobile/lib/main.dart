@@ -1,6 +1,5 @@
-import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:plant_flower_api_client/plant_flower_api_client.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -8,58 +7,110 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/app.dart';
 import 'features/auth/auth.dart';
 import 'features/cart/data/api_cart_repository.dart';
-import 'features/cart/data/cart_repository.dart';
 import 'features/chatbot/data/api_client_chatbot_transport.dart';
 import 'features/chatbot/data/chatbot_remote_data_source.dart';
-import 'features/chatbot/data/chatbot_repository.dart';
 import 'features/chatbot/data/chatbot_repository_impl.dart';
+import 'features/checkout/data/api_client_checkout_transport.dart';
+import 'features/checkout/data/checkout_remote_data_source.dart';
+import 'features/checkout/data/checkout_repository_impl.dart';
 import 'features/products/data/api_product_repository.dart';
-import 'features/products/data/product_repository.dart';
+import 'features/profile/data/profile_repository.dart';
 
-// Biến môi trường truyền qua --dart-define hoặc --dart-define-from-file=.env
-const _envApiBaseUrl = String.fromEnvironment('API_BASE_URL');
+const _apiBaseUrl = String.fromEnvironment('API_BASE_URL');
 const _supabaseUrl = String.fromEnvironment('SUPABASE_URL');
-const _supabasePublishableKey =
-    String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
-
-String _resolveApiBaseUrl() {
-  if (_envApiBaseUrl.isNotEmpty) return _envApiBaseUrl;
-  if (!kIsWeb && Platform.isAndroid) {
-    return 'http://10.0.2.2:4000';
-  }
-  return 'http://localhost:4000';
-}
+const _supabasePublishableKey = String.fromEnvironment(
+  'SUPABASE_PUBLISHABLE_KEY',
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  if (_supabaseUrl.isEmpty || _supabasePublishableKey.isEmpty) {
+  if (_apiBaseUrl.isEmpty ||
+      _supabaseUrl.isEmpty ||
+      _supabasePublishableKey.isEmpty) {
     throw StateError('Thiếu thông tin cấu hình khởi chạy ứng dụng.');
   }
 
+  // Khởi tạo Supabase
   await Supabase.initialize(
     url: _supabaseUrl,
     publishableKey: _supabasePublishableKey,
   );
 
+  final auth = Supabase.instance.client.auth;
   final authRepository = SupabaseAuthRepository(
-    Supabase.instance.client.auth,
+    auth,
     geocoder: NominatimAddressGeocoder(),
   );
 
-  final apiBaseUrl = _resolveApiBaseUrl();
-  final apiClient = ApiClient(baseUrl: apiBaseUrl);
-  final ProductRepository productRepository =
-      ApiProductRepository(ProductsApi(apiClient));
-  final CartRepository cartRepository = ApiCartRepository(
-    apiClient,
-    accessTokenProvider: () async => authRepository.accessToken,
+  // Tự làm mới access token khi hết hạn
+  Future<String?> refresh() async {
+    try {
+      return (await auth.refreshSession()).session?.accessToken;
+    } on AuthRetryableFetchException {
+      rethrow;
+    } on AuthException {
+      return null;
+    }
+  }
+
+  void expire() => auth.signOut(scope: SignOutScope.local);
+
+  Future<String?> accessTokenProvider() async {
+    final session = auth.currentSession;
+    if (session == null || !session.isExpired) return session?.accessToken;
+    try {
+      final token = await refresh();
+      if (token == null) expire();
+      return token;
+    } on AuthException {
+      return null;
+    }
+  }
+
+  // Uploader ảnh đại diện lên Supabase Storage
+  Future<String> avatarUploader(Uint8List bytes, String contentType) async {
+    final path = '${auth.currentUser!.id}/avatar';
+    final bucket = Supabase.instance.client.storage.from('avatars');
+    await bucket.uploadBinary(
+      path,
+      bytes,
+      fileOptions: FileOptions(upsert: true, contentType: contentType),
+    );
+    final version = DateTime.now().millisecondsSinceEpoch;
+    return '${bucket.getPublicUrl(path)}?v=$version';
+  }
+
+  // Kết nối tới server Render duy nhất (timeout 60s cho gói free khi idle)
+  final apiClient = ApiClient(
+    baseUrl: _apiBaseUrl,
+    timeout: const Duration(seconds: 60),
+    refreshAccessToken: refresh,
+    onSessionExpired: expire,
   );
-  final ChatbotRepository chatbotRepository = ChatbotRepositoryImpl(
+
+  // 100% Repository kết nối Backend thật
+  final productRepository = ApiProductRepository(ProductsApi(apiClient));
+  final cartRepository = ApiCartRepository(
+    apiClient,
+    accessTokenProvider: accessTokenProvider,
+  );
+  final chatbotRepository = ChatbotRepositoryImpl(
     ChatbotRemoteDataSource(
       transport: ApiClientChatbotTransport(apiClient),
-      accessTokenProvider: () async => authRepository.accessToken,
+      accessTokenProvider: accessTokenProvider,
     ),
+  );
+  final checkoutRepository = CheckoutRepositoryImpl(
+    CheckoutRemoteDataSource(
+      transport: ApiClientCheckoutTransport(apiClient),
+      accessTokenProvider: accessTokenProvider,
+    ),
+  );
+  final profileRepository = ApiProfileRepository(
+    apiClient,
+    accessTokenProvider: accessTokenProvider,
+    avatarUploader: avatarUploader,
   );
 
   runApp(
@@ -68,6 +119,8 @@ Future<void> main() async {
       productRepository: productRepository,
       cartRepository: cartRepository,
       chatbotRepository: chatbotRepository,
+      checkoutRepository: checkoutRepository,
+      profileRepository: profileRepository,
     ),
   );
 }

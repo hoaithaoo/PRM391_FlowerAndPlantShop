@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
+import '../../../cart/widgets/quantity_input.dart';
+
 /// Số lượng tối đa mỗi đơn hàng.
 const detailMaxPerOrder = 10;
 
@@ -10,9 +12,9 @@ const detailMaxPerOrder = 10;
 int detailMaxQuantity(int stock) =>
     math.max(0, math.min(detailMaxPerOrder, stock));
 
-/// Thẻ số lượng (Penpot: "Quantity Selector Section").
+/// Hàng số lượng trong bảng mua hàng.
 ///
-/// Trái: "Số lượng" + dòng phụ. Phải: stepper tròn (−, số, +). Nút bị vô hiệu
+/// Trái: "Số lượng" + dòng phụ. Phải: stepper (−, ô nhập, +). Nút bị vô hiệu
 /// khi chạm biên 1 hoặc [detailMaxQuantity].
 class QuantitySelector extends StatelessWidget {
   const QuantitySelector({
@@ -35,15 +37,9 @@ class QuantitySelector extends StatelessWidget {
         : stock < detailMaxPerOrder
         ? 'Chỉ còn $stock sản phẩm'
         : 'Tối đa $detailMaxPerOrder sản phẩm / đơn hàng';
-    return Container(
+    return Padding(
       key: const Key('detail-quantity'),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.border),
-        boxShadow: AppColors.softShadow,
-      ),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         children: [
           Expanded(
@@ -68,10 +64,10 @@ class QuantitySelector extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             decoration: BoxDecoration(
-              color: AppColors.surfacePastel,
-              borderRadius: BorderRadius.circular(999),
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.border),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -84,19 +80,14 @@ class QuantitySelector extends StatelessWidget {
                       ? () => onChanged(quantity - 1)
                       : null,
                 ),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(minWidth: 40),
-                  child: Text(
-                    '$quantity',
-                    key: const Key('detail-qty-value'),
-                    textAlign: TextAlign.center,
-                    style: AppTextStyles.bodyLarge.copyWith(
-                      fontSize: 16,
-                      color: enabled
-                          ? AppColors.textHeading
-                          : AppColors.textMuted,
-                    ),
-                  ),
+                QuantityInput(
+                  key: const Key('detail-qty-value'),
+                  value: quantity,
+                  max: max,
+                  enabled: enabled,
+                  live: true,
+                  width: 44,
+                  onChanged: onChanged,
                 ),
                 _StepButton(
                   key: const Key('detail-qty-increase'),

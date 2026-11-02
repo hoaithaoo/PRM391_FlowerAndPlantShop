@@ -61,6 +61,15 @@ abstract interface class AuthRepository {
   /// Sau khi đổi mật khẩu thành công, phiên khôi phục tự động đăng xuất.
   Future<void> updatePassword({required String newPassword});
 
+  /// Tài khoản có đăng nhập bằng mật khẩu (tài khoản Google thì không).
+  bool get canChangePassword;
+
+  /// Xác nhận mật khẩu hiện tại rồi đổi sang mật khẩu mới, phiên vẫn giữ nguyên.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
+
   /// Huỷ phiên khôi phục mật khẩu (đăng xuất khỏi phiên tạm thời).
   Future<void> cancelPasswordRecovery();
 }

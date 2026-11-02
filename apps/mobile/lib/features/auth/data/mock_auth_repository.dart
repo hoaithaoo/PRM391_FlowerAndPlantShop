@@ -36,7 +36,7 @@ class MockAuthRepository implements AuthRepository {
     'admin@nhacohoa.vn': {'Admin@123'},
     'existing@fleure.vn': {'Password123!'},
     'name@example.com': {'Hoa@12345', 'a', 'x'},
-    'a@b.vn': {'Hoa@12345', 'x', ' pw ', 'p'},
+    'a@b.vn': {'Hoa@12345', 'x', ' pw ', 'p', 'secret'},
   };
 
   final Map<String, Set<String>> _accounts;
@@ -179,6 +179,15 @@ class MockAuthRepository implements AuthRepository {
     await Future<void>.delayed(delay);
     mockEmail = email.trim().toLowerCase();
   }
+
+  @override
+  bool get canChangePassword => true;
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) => Future<void>.delayed(delay);
 
   @override
   Future<void> updatePassword({required String newPassword}) async {

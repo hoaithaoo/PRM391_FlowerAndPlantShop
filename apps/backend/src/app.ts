@@ -17,6 +17,7 @@ import {
 } from "./modules/products/product.routes";
 import { storeRoutes } from "./modules/stores/store.routes";
 import { cartRoutes } from "./modules/carts/cart.routes";
+import { cartService } from "./modules/carts/cart.service";
 import { checkoutRoutes } from "./modules/checkout/checkout.routes";
 import { notificationRoutes } from "./modules/notifications/notification.routes";
 import { paymentRoutes } from "./modules/payments/payment.routes";
@@ -35,6 +36,10 @@ import {
   adminSepayTransactionRoutes,
 } from "./modules/payments/payment.routes";
 import { adminUserRoutes } from "./modules/users/user.routes";
+import {
+  adminVoucherRoutes,
+  voucherRoutes,
+} from "./modules/vouchers/voucher.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
 import { profileMiddleware } from "./middlewares/profile.middleware";
 import { accountStatusMiddleware } from "./middlewares/account-status.middleware";
@@ -67,6 +72,13 @@ const chatbotService = new ChatbotService({
   rateLimitMs: env.CHATBOT_RATE_LIMIT_MS,
   // Một lượt chat có tối đa hai network calls liên tiếp: embedding rồi generation.
   sendLeaseMs: env.GEMINI_TIMEOUT_MS * 2 + 10_000,
+  getCartItems: async (userId) =>
+    (await cartService.getCart(userId)).items.map(({ productId, name, price, quantity }) => ({
+      productId,
+      name,
+      price: String(price),
+      quantity,
+    })),
 });
 const chatbotRoutes = createChatbotRoutes(chatbotService, [
   authMiddleware,
@@ -120,6 +132,7 @@ export const createApp = (): Application => {
   app.use("/api/v1/stores", storeRoutes);
   app.use("/api/v1/cart", cartRoutes);
   app.use("/api/v1/checkout", checkoutRoutes);
+  app.use("/api/v1/vouchers", voucherRoutes);
   app.use("/api/v1/orders", orderRoutes);
   app.use("/api/v1/invoices", invoiceRoutes);
   app.use("/api/v1/payments", paymentRoutes);
@@ -132,6 +145,7 @@ export const createApp = (): Application => {
   // 3b. Admin API (spec mục 9)
   app.use("/api/v1/admin/dashboard", adminDashboardRoutes);
   app.use("/api/v1/admin/users", adminUserRoutes);
+  app.use("/api/v1/admin/vouchers", adminVoucherRoutes);
   app.use("/api/v1/admin/orders", adminOrderRoutes);
   app.use("/api/v1/admin/invoices", adminInvoiceRoutes);
   app.use("/api/v1/admin/payments", adminPaymentRoutes);

@@ -4,6 +4,7 @@ import 'package:plant_flower_mobile/app/app.dart';
 import 'package:plant_flower_mobile/app/main_shell.dart';
 import 'package:plant_flower_mobile/features/auth/auth.dart';
 import 'package:plant_flower_mobile/features/chatbot/data/mock_chatbot_repository.dart';
+import 'package:plant_flower_mobile/features/checkout/data/mock_checkout_repository.dart';
 import 'package:plant_flower_mobile/features/products/data/mock_product_repository.dart';
 import 'package:plant_flower_mobile/features/products/screens/home_screen.dart';
 
@@ -18,6 +19,7 @@ void main() {
       productRepository: MockProductRepository(latency: Duration.zero),
       cartRepository: TestCartRepository(),
       chatbotRepository: MockChatbotRepository(),
+      checkoutRepository: const MockCheckoutRepository(),
     );
   }
 

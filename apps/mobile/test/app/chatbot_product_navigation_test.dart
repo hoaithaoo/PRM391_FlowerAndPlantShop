@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_flower_mobile/app/app.dart';
+import 'package:plant_flower_mobile/features/auth/data/mock_auth_repository.dart';
 import 'package:plant_flower_mobile/features/chatbot/data/chatbot_repository.dart';
 import 'package:plant_flower_mobile/features/chatbot/models/chatbot_models.dart';
+import 'package:plant_flower_mobile/features/checkout/data/mock_checkout_repository.dart';
 import 'package:plant_flower_mobile/features/products/data/mock_product_repository.dart';
 import 'package:plant_flower_mobile/features/products/screens/product_detail_screen.dart';
 
@@ -13,10 +15,16 @@ void main() {
     tester,
   ) async {
     final product = MockProductRepository.defaultProducts.first;
+    final auth = MockAuthRepository(delay: Duration.zero);
+    final signIn = auth.signInWithPassword(email: 'a@b.vn', password: 'secret');
+    await tester.pump(Duration.zero);
+    await signIn;
     final app = PlantFlowerApp(
+      authRepository: auth,
       productRepository: MockProductRepository(latency: Duration.zero),
       cartRepository: TestCartRepository(),
       chatbotRepository: _SuggestionRepository(product.id, product.name),
+      checkoutRepository: const MockCheckoutRepository(),
     );
 
     await tester.pumpWidget(app);
@@ -72,6 +80,10 @@ class _SuggestionRepository implements ChatbotRepository {
     page: page,
     totalPages: 1,
   );
+
+  @override
+  Future<List<ChatbotConversationSummary>> listConversations() async =>
+      const [];
 
   @override
   Future<void> deleteConversation(String conversationId) async {}

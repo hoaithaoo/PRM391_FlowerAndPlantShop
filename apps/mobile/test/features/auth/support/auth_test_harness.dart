@@ -20,6 +20,15 @@ const kLoginSuccessText = 'Đăng nhập thành công. Chào mừng bạn đến
 /// Repository giả bọc [MockAuthRepository]: đếm số lần gọi, ghi lại tham số,
 /// cho phép giữ request lại bằng [Completer] hoặc ép ném lỗi.
 class FakeAuthRepository implements AuthRepository {
+  @override
+  bool get canChangePassword => false;
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {}
+
   FakeAuthRepository({Duration delay = Duration.zero})
     : _inner = MockAuthRepository(delay: delay) {
     _innerSub = _inner.signedInChanges.listen(_signedIn.add);
