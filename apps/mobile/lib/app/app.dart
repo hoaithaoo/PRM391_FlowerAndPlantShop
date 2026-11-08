@@ -18,6 +18,7 @@ import '../features/checkout/screens/checkout_screen.dart';
 import '../features/notifications/data/notification_repository.dart';
 import '../features/notifications/screens/notifications_screen.dart';
 import '../features/notifications/state/notification_controller.dart';
+import '../features/map/screens/store_map_screen.dart';
 import '../features/products/data/buy_now_scope.dart';
 import '../features/products/data/product_repository.dart';
 import '../features/products/data/product_scope.dart';
@@ -198,6 +199,7 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
               home: AuthSessionGate(
                 signedInBuilder: (_) => _SignedInShell(
                   notificationRepository: widget.notificationRepository,
+                  checkoutRepository: widget.checkoutRepository,
                   onOpenNotifications: _openNotifications,
                   onSignOut: auth.signOut,
                   onCheckout: _openCheckout,
@@ -236,6 +238,7 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
 class _SignedInShell extends StatefulWidget {
   const _SignedInShell({
     required this.notificationRepository,
+    required this.checkoutRepository,
     required this.onOpenNotifications,
     required this.onSignOut,
     required this.onCheckout,
@@ -243,6 +246,7 @@ class _SignedInShell extends StatefulWidget {
   });
 
   final NotificationRepository notificationRepository;
+  final CheckoutRepository checkoutRepository;
   final ValueChanged<NotificationController> onOpenNotifications;
   final VoidCallback onSignOut;
   final VoidCallback onCheckout;
@@ -268,6 +272,15 @@ class _SignedInShellState extends State<_SignedInShell> {
     return MainShell(
       onSignOut: widget.onSignOut,
       onCheckout: widget.onCheckout,
+      onOpenStores: () {
+        Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => StoreMapScreen(
+              repository: widget.checkoutRepository,
+            ),
+          ),
+        );
+      },
       accountBuilder: widget.accountBuilder,
       notificationController: _notificationController,
       onNotifications: () =>
