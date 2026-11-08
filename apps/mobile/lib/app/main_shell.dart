@@ -31,6 +31,7 @@ class MainShell extends StatefulWidget {
     this.onNotifications,
     this.onSignOut,
     this.onCheckout,
+    this.onOpenStores,
     this.accountBuilder,
   });
 
@@ -43,6 +44,9 @@ class MainShell extends StatefulWidget {
 
   /// Mở màn thanh toán từ giỏ hàng.
   final VoidCallback? onCheckout;
+
+  /// Mở màn bản đồ vị trí cửa hàng từ Trang chủ.
+  final VoidCallback? onOpenStores;
 
   /// Nội dung tab Tài khoản. Không truyền thì hiện màn tạm có nút đăng xuất.
   final WidgetBuilder? accountBuilder;
@@ -85,7 +89,7 @@ class _MainShellState extends State<MainShell> {
 
   Widget _buildTab(MainTab tab) {
     return switch (tab) {
-      MainTab.home => const HomeScreen(),
+      MainTab.home => HomeScreen(onOpenStores: widget.onOpenStores),
       MainTab.products => ProductCatalogScreen(
         key: ValueKey(_catalogVersion),
         initialCategoryId: _catalogCategoryId,
