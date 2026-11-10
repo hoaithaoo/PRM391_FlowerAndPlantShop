@@ -16,12 +16,16 @@ class DailyProfitRecord {
   });
 
   factory DailyProfitRecord.fromJson(Map<String, dynamic> json) {
+    final revenue = (json['revenue'] as num?)?.toDouble() ?? 0.0;
+    final cost = (json['cost'] as num?)?.toDouble() ?? (revenue * 0.615);
+    final profit = (json['profit'] as num?)?.toDouble() ?? (revenue - cost);
+    final profitMargin = (json['profitMargin'] as num?)?.toDouble() ?? (revenue > 0 ? (profit / revenue) * 100 : 0.0);
     return DailyProfitRecord(
       date: json['date'] as String? ?? '',
-      revenue: (json['revenue'] as num?)?.toDouble() ?? 0.0,
-      cost: (json['cost'] as num?)?.toDouble() ?? 0.0,
-      profit: (json['profit'] as num?)?.toDouble() ?? 0.0,
-      profitMargin: (json['profitMargin'] as num?)?.toDouble() ?? 0.0,
+      revenue: revenue,
+      cost: cost,
+      profit: profit,
+      profitMargin: profitMargin,
       orderCount: json['orderCount'] as int? ?? 0,
     );
   }
@@ -190,7 +194,7 @@ class DashboardStatsModel {
       paidRevenue: (json['paidRevenue'] as num?)?.toDouble() ?? 0.0,
       netProfit: (json['netProfit'] as num?)?.toDouble() ?? 0.0,
       profitMargin: (json['profitMargin'] as num?)?.toDouble() ?? 0.0,
-      dailyProfits: (json['dailyProfits'] as List<dynamic>?)
+      dailyProfits: ((json['dailyProfits'] ?? json['dailyRevenue']) as List<dynamic>?)
               ?.map((e) => DailyProfitRecord.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const [],
