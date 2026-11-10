@@ -14,7 +14,8 @@ import '../widgets/notifications_empty_state.dart';
 import '../widgets/notifications_error_state.dart';
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key, required this.repository});
+  const NotificationsScreen({super.key, this.repository, this.controller})
+    : assert(repository != null || controller != null);
 
   factory NotificationsScreen.withMockData({Key? key}) {
     return NotificationsScreen(
@@ -23,43 +24,73 @@ class NotificationsScreen extends StatefulWidget {
     );
   }
 
-  final NotificationRepository repository;
+  final NotificationRepository? repository;
+  final NotificationController? controller;
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
 
-class _NotificationsScreenState extends State<NotificationsScreen> {
+class _NotificationsScreenState extends State<NotificationsScreen>
+    with WidgetsBindingObserver {
   final ScrollController _scrollController = ScrollController();
   late NotificationController _controller;
+  late bool _ownsController;
 
   @override
   void initState() {
     super.initState();
-    _controller = NotificationController(repository: widget.repository);
-    _controller.loadInitial();
+    WidgetsBinding.instance.addObserver(this);
+    _scrollController.addListener(_onScroll);
+    _bindController();
   }
 
   @override
   void didUpdateWidget(covariant NotificationsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.repository, widget.repository)) {
-      _controller.dispose();
-      _controller = NotificationController(repository: widget.repository);
+    if (!identical(oldWidget.repository, widget.repository) ||
+        !identical(oldWidget.controller, widget.controller)) {
+      if (_ownsController) _controller.dispose();
+      _bindController();
+    }
+  }
+
+  void _bindController() {
+    _ownsController = widget.controller == null;
+    _controller =
+        widget.controller ??
+        NotificationController(repository: widget.repository!);
+    final status = _controller.state.status;
+    if (_ownsController || status == NotificationLoadStatus.initial) {
       _controller.loadInitial();
+    } else if (status != NotificationLoadStatus.loading) {
+      _controller.refresh();
+    }
+  }
+
+  void _onScroll() {
+    if (!_scrollController.hasClients) return;
+    if (_scrollController.position.extentAfter < 240) {
+      _controller.loadMore();
     }
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _controller.refresh();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
-    _controller.dispose();
+    if (_ownsController) _controller.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    // TODO: Đăng ký NotificationsScreen vào router sau khi app shell hoàn tất.
     return AnimatedBuilder(
       animation: _controller,
       builder: (context, _) {
@@ -79,14 +110,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
                 NotificationFilters(
                   selected: state.currentFilter,
-                  countFor: state.countFor,
                   onSelected: _controller.setFilter,
                 ),
                 const SizedBox(height: 10),
                 if (state.actionErrorMessage != null)
-                  _ActionErrorBanner(
+                  _ActionMessageBanner(
                     message: state.actionErrorMessage!,
-                    onDismiss: _controller.dismissActionError,
+                    isError: true,
+                    onDismiss: _controller.dismissActionMessage,
+                  ),
+                if (state.actionSuccessMessage != null)
+                  _ActionMessageBanner(
+                    message: state.actionSuccessMessage!,
+                    isError: false,
+                    onDismiss: _controller.dismissActionMessage,
                   ),
                 Expanded(child: _buildBody(state)),
               ],
@@ -109,7 +146,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         state.items.isEmpty) {
       return NotificationsErrorState(
         message:
-            state.errorMessage ?? 'Chưa thể tải thông báo. Vui lòng thử lại.',
+            state.errorMessage ?? 'Không thể tải thông báo. Vui lòng thử lại.',
         authenticationRequired:
             state.status == NotificationLoadStatus.authenticationRequired,
         onRetry: _controller.loadInitial,
@@ -145,11 +182,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        itemCount:
-            visibleItems.length +
-            (state.currentFilter == NotificationFilter.all ? 1 : 0),
+        itemCount: visibleItems.length + 1,
         itemBuilder: (context, index) {
           if (index == visibleItems.length) {
+            if (state.isLoadingMore) {
+              return const Padding(
+                padding: EdgeInsets.all(18),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: NotificationColors.forest700,
+                  ),
+                ),
+              );
+            }
+            if (state.hasMore) {
+              return Center(
+                child: TextButton(
+                  onPressed: _controller.loadMore,
+                  child: const Text('Tải thêm'),
+                ),
+              );
+            }
             return const NotificationEndSection();
           }
           final notification = visibleItems[index];
@@ -262,10 +316,15 @@ class _InboxToolbar extends StatelessWidget {
   }
 }
 
-class _ActionErrorBanner extends StatelessWidget {
-  const _ActionErrorBanner({required this.message, required this.onDismiss});
+class _ActionMessageBanner extends StatelessWidget {
+  const _ActionMessageBanner({
+    required this.message,
+    required this.isError,
+    required this.onDismiss,
+  });
 
   final String message;
+  final bool isError;
   final VoidCallback onDismiss;
 
   @override
@@ -273,16 +332,20 @@ class _ActionErrorBanner extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       child: Material(
-        color: NotificationColors.petal100,
+        color: isError
+            ? NotificationColors.petal100
+            : NotificationColors.forest100,
         borderRadius: BorderRadius.circular(10),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 6, 2, 6),
           child: Row(
             children: <Widget>[
-              const Icon(
-                Icons.info_outline,
+              Icon(
+                isError ? Icons.info_outline : Icons.check_circle_outline,
                 size: 17,
-                color: NotificationColors.petal500,
+                color: isError
+                    ? NotificationColors.petal500
+                    : NotificationColors.forest700,
               ),
               const SizedBox(width: 7),
               Expanded(
@@ -324,6 +387,8 @@ class _ElegantLoadingState extends StatelessWidget {
               backgroundColor: NotificationColors.forest100,
             ),
           ),
+          SizedBox(height: 12),
+          Text('Đang tải thông báo...', style: NotificationTextStyles.body),
         ],
       ),
     );

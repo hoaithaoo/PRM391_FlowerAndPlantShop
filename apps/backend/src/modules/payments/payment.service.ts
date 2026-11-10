@@ -2,9 +2,10 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import { AppError } from "../../common/errors/app-error";
 import { ErrorCodes } from "../../common/errors/error-codes";
 import { prisma } from "../../lib/prisma";
+import { expireOverduePayments } from "./payment-expiry.service";
 import type { PaymentStatusResponse } from "./payment.type";
 
-type PaymentDatabase = Pick<PrismaClient, "$transaction">;
+type PaymentDatabase = Pick<PrismaClient, "$transaction" | "payment">;
 type Clock = () => Date;
 
 const paymentStatusSelect = {
@@ -27,22 +28,12 @@ export class PaymentService {
     userId: string,
     paymentId: string
   ): Promise<PaymentStatusResponse> {
-    const currentTime = this.now();
-    const payment = await this.db.$transaction(async (tx) => {
-      await tx.payment.updateMany({
-        where: {
-          id: paymentId,
-          status: "PENDING",
-          expiresAt: { lte: currentTime },
-          invoice: { userId },
-        },
-        data: { status: "EXPIRED" },
-      });
+    const where = { id: paymentId, invoice: { userId } };
+    await expireOverduePayments(where, this.db, this.now);
 
-      return tx.payment.findFirst({
-        where: { id: paymentId, invoice: { userId } },
-        select: paymentStatusSelect,
-      });
+    const payment = await this.db.payment.findFirst({
+      where,
+      select: paymentStatusSelect,
     });
 
     if (!payment) {

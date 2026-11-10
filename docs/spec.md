@@ -1737,6 +1737,26 @@ Tất cả /api/v1/admin/\* yêu cầu Bearer token hợp lệ, profiles.role \=
 | RATE\_LIMITED | 429 | General rate limit. |
 | INTERNAL\_ERROR | 500 | Unhandled error. |
 | SERVICE\_UNAVAILABLE | 503 | DB/service unavailable. |
+| VOUCHER\_NOT\_FOUND | 404 | Voucher code does not exist or inactive. |
+| VOUCHER\_EXPIRED | 409 | Voucher is outside valid time window. |
+| VOUCHER\_USAGE\_EXCEEDED | 409 | Total usageLimit or perUserLimit reached. |
+| VOUCHER\_MIN_ORDER_NOT_MET | 422 | Cart subtotal < minOrderAmount. |
+| VOUCHER\_NOT_APPLICABLE | 422 | SePay cannot process 0 VND grandTotal. |
+| VOUCHER\_CODE_EXISTS | 409 | Duplicate voucher code created by admin. |
+| VOUCHER\_IN_USE | 409 | Cannot delete voucher with existing redemptions. |
+
+**12.1 Voucher Module**
+- Database tables: `vouchers`, `voucher_redemptions`
+- Endpoints:
+  - `GET /api/v1/vouchers/available`: List available public vouchers with eligibility calculation for current cart.
+  - `POST /api/v1/vouchers/validate`: Validate any active voucher code against current cart.
+  - `GET /api/v1/admin/vouchers`, `POST /api/v1/admin/vouchers`, `GET/PUT/DELETE /api/v1/admin/vouchers/:id`: Admin voucher management.
+- Checkout flow:
+  - Supports optional `voucherCode` in `POST /api/v1/checkout`.
+  - Discount is allocated across items proportionally; tax is computed on taxable amount (`subtotal - discount`).
+  - Voucher claim is updated atomically after stock decrement.
+  - Order cancellation or payment expiry releases redemption and returns voucher usage.
+
 
 **13\. Folder structure**
 

@@ -108,12 +108,13 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       backgroundColor: Colors.white,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 500),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
@@ -269,14 +270,15 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                   const SizedBox(height: 24),
 
                   // Action Buttons
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: [
                       OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(),
                         child: const Text('Hủy bỏ'),
                       ),
-                      const SizedBox(width: 12),
                       ElevatedButton(
                         onPressed: _save,
                         style: ElevatedButton.styleFrom(

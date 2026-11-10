@@ -265,6 +265,7 @@ class _CustomerDirectoryScreenState extends State<CustomerDirectoryScreen> {
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<AccountStatus?>(
+                            isExpanded: true,
                             initialValue: _selectedStatus,
                             decoration: const InputDecoration(
                               labelText: 'Trạng thái tài khoản',
@@ -358,6 +359,11 @@ class _CustomerDirectoryScreenState extends State<CustomerDirectoryScreen> {
 
   Widget _buildCustomerCard(UserProfile customer) {
     final isActive = customer.status == AccountStatus.active;
+    final hasValidName = customer.fullName != null && customer.fullName!.trim().isNotEmpty;
+    final displayName = hasValidName
+        ? customer.fullName!.trim()
+        : (customer.email.contains('@') ? customer.email.split('@').first : 'Khách Hàng');
+    final avatarLetter = displayName.isNotEmpty ? displayName[0].toUpperCase() : 'K';
 
     return Card(
       elevation: 0,
@@ -389,9 +395,7 @@ class _CustomerDirectoryScreenState extends State<CustomerDirectoryScreen> {
                   radius: 22,
                   backgroundColor: AppColors.primaryLight,
                   child: Text(
-                    (customer.fullName?.isNotEmpty == true)
-                        ? customer.fullName![0].toUpperCase()
-                        : 'K',
+                    avatarLetter,
                     style: GoogleFonts.cormorantGaramond(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
@@ -410,7 +414,7 @@ class _CustomerDirectoryScreenState extends State<CustomerDirectoryScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              customer.fullName ?? 'Khách Hàng',
+                              displayName,
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
@@ -458,61 +462,78 @@ class _CustomerDirectoryScreenState extends State<CustomerDirectoryScreen> {
             const SizedBox(height: 12),
 
             // Contact Info & Actions
-            Row(
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                if (customer.phone?.isNotEmpty == true) ...[
-                  const Icon(Icons.phone_outlined, size: 14, color: AppColors.primary),
-                  const SizedBox(width: 4),
-                  Text(
-                    customer.phone!,
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textHeading,
-                    ),
-                  ),
-                ] else ...[
-                  const Icon(Icons.phone_missed_outlined, size: 14, color: AppColors.textMuted),
-                  const SizedBox(width: 4),
-                  Text(
-                    'Chưa có SĐT',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-                const Spacer(),
-
-                // Nút Liên Hệ Trực Tiếp
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.phone, size: 14),
-                  label: const Text('Liên hệ'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    visualDensity: VisualDensity.compact,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                  onPressed: () => _showContactBottomSheet(customer),
-                ),
-                const SizedBox(width: 8),
-
-                // Nút Chi tiết
-                IconButton(
-                  icon: const Icon(Icons.info_outline, color: AppColors.textMuted, size: 20),
-                  tooltip: 'Xem chi tiết',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => BlocProvider.value(
-                        value: context.read<UserBloc>(),
-                        child: UserDetailDialog(user: customer),
+                if (customer.phone?.isNotEmpty == true)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.phone_outlined, size: 14, color: AppColors.primary),
+                      const SizedBox(width: 4),
+                      Text(
+                        customer.phone!,
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textHeading,
+                        ),
                       ),
-                    );
-                  },
+                    ],
+                  )
+                else
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.phone_missed_outlined, size: 14, color: AppColors.textMuted),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Chưa có SĐT',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  ),
+
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Nút Liên Hệ Trực Tiếp
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.phone, size: 14),
+                      label: const Text('Liên hệ'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        visualDensity: VisualDensity.compact,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: () => _showContactBottomSheet(customer),
+                    ),
+                    const SizedBox(width: 8),
+
+                    // Nút Chi tiết
+                    IconButton(
+                      icon: const Icon(Icons.info_outline, color: AppColors.textMuted, size: 20),
+                      tooltip: 'Xem chi tiết',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => BlocProvider.value(
+                            value: context.read<UserBloc>(),
+                            child: UserDetailDialog(user: customer),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ],
             ),

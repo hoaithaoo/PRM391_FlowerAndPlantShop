@@ -1,21 +1,23 @@
 import 'package:flutter/foundation.dart';
 
-import '../data/checkout_mock_data.dart';
 import '../models/checkout_flow_models.dart';
 
 class CheckoutFlowController extends ChangeNotifier {
   CheckoutFlowController({
-    List<CheckoutAddress> addresses = CheckoutMockData.addresses,
-    List<PickupBranch> branches = CheckoutMockData.branches,
+    List<CheckoutAddress> addresses = const <CheckoutAddress>[],
+    List<PickupBranch> branches = const <PickupBranch>[],
   }) : _addresses = List<CheckoutAddress>.of(addresses),
        _branches = List<PickupBranch>.of(branches),
-       _selectedAddressId = addresses.first.id,
-       _selectedBranchId = branches.first.id;
+       _selectedAddressId =
+           (addresses.where((item) => item.isDefault).firstOrNull ??
+                   addresses.firstOrNull)
+               ?.id,
+       _selectedBranchId = branches.firstOrNull?.id;
 
   final List<CheckoutAddress> _addresses;
   final List<PickupBranch> _branches;
-  String _selectedAddressId;
-  String _selectedBranchId;
+  String? _selectedAddressId;
+  String? _selectedBranchId;
   FulfillmentMode fulfillmentMode = FulfillmentMode.delivery;
   LocalPaymentMethod? deliveryPaymentMethod = LocalPaymentMethod.sepay;
   LocalPaymentMethod? pickupPaymentMethod = LocalPaymentMethod.payAtStore;
@@ -27,13 +29,34 @@ class CheckoutFlowController extends ChangeNotifier {
 
   List<CheckoutAddress> get addresses => List.unmodifiable(_addresses);
   List<PickupBranch> get branches => List.unmodifiable(_branches);
-  CheckoutAddress get selectedAddress =>
-      _addresses.firstWhere((item) => item.id == _selectedAddressId);
-  PickupBranch get selectedBranch =>
-      _branches.firstWhere((item) => item.id == _selectedBranchId);
+  CheckoutAddress? get selectedAddress =>
+      _addresses.where((item) => item.id == _selectedAddressId).firstOrNull;
+  PickupBranch? get selectedBranch =>
+      _branches.where((item) => item.id == _selectedBranchId).firstOrNull;
+
+  /// Nạp cửa hàng từ server, giữ lựa chọn cũ nếu cửa hàng đó vẫn còn.
+  void setBranches(List<PickupBranch> branches) {
+    _branches
+      ..clear()
+      ..addAll(branches);
+    _selectedBranchId = (selectedBranch ?? branches.firstOrNull)?.id;
+    notifyListeners();
+  }
 
   void setFulfillmentMode(FulfillmentMode value) {
     fulfillmentMode = value;
+    notifyListeners();
+  }
+
+  /// Nạp sổ địa chỉ từ server, ưu tiên chọn địa chỉ mặc định.
+  void setAddresses(List<CheckoutAddress> addresses) {
+    _addresses
+      ..clear()
+      ..addAll(addresses);
+    _selectedAddressId =
+        (addresses.where((item) => item.isDefault).firstOrNull ??
+                addresses.firstOrNull)
+            ?.id;
     notifyListeners();
   }
 
@@ -50,6 +73,14 @@ class CheckoutFlowController extends ChangeNotifier {
       _addresses[index] = address;
     }
     _selectedAddressId = address.id;
+    notifyListeners();
+  }
+
+  void removeAddress(String id) {
+    _addresses.removeWhere((item) => item.id == id);
+    if (_selectedAddressId == id) {
+      _selectedAddressId = _addresses.isEmpty ? null : _addresses.first.id;
+    }
     notifyListeners();
   }
 

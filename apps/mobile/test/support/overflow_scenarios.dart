@@ -352,7 +352,8 @@ void defineOverflowScenarios(
         label: 'detail dài',
       );
       // Tăng số lượng tối đa để tổng tiền dài nhất
-      await tester.ensureVisible(find.byKey(const Key('detail-qty-increase')));
+      await tester.tap(find.byKey(const Key('detail-add-to-cart')));
+      await tester.pumpAndSettle();
       for (var i = 0; i < 9; i++) {
         await tester.tap(find.byKey(const Key('detail-qty-increase')));
         await tester.pump();

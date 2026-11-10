@@ -1,42 +1,23 @@
 import 'package:flutter/material.dart';
 
-import '../data/checkout_mock_data.dart';
-import '../models/checkout_flow_models.dart';
-import '../models/checkout_summary.dart';
-import '../state/checkout_flow_controller.dart';
+import '../models/placed_order.dart';
 import '../utils/checkout_theme.dart';
 import '../utils/currency_formatter.dart';
 import '../widgets/checkout_common.dart';
 
 class PaymentSuccessScreen extends StatelessWidget {
-  const PaymentSuccessScreen({
-    super.key,
-    required this.controller,
-    required this.summary,
-    this.isPickup = false,
-    this.onDone,
-  });
+  const PaymentSuccessScreen({super.key, required this.order});
 
-  final CheckoutFlowController controller;
-  final CheckoutSummary summary;
-  final bool isPickup;
-  final VoidCallback? onDone;
+  final PlacedOrder order;
 
   void _finish(BuildContext context) {
-    if (onDone != null) {
-      onDone!();
-      return;
-    }
     Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   @override
   Widget build(BuildContext context) {
-    final address = controller.selectedAddress;
-    final branch = controller.selectedBranch;
-    final total = isPickup
-        ? summary.grandTotal - summary.shippingFee
-        : summary.grandTotal;
+    final address = order.address;
+    final result = order.result;
     return CheckoutTheme(
       child: Scaffold(
         appBar: FleureAppBar(
@@ -73,7 +54,7 @@ class PaymentSuccessScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Cảm ơn bạn đã để Fleuré gửi thay một lời yêu thương.',
+              'Cảm ơn bạn đã để Nhà Có Hoa gửi thay một lời yêu thương.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: CheckoutPalette.charcoal500,
@@ -86,126 +67,76 @@ class PaymentSuccessScreen extends StatelessWidget {
               borderColor: CheckoutPalette.forest100,
               child: Column(
                 children: <Widget>[
-                  const Text(
-                    'TỔNG THANH TOÁN',
-                    style: TextStyle(
-                      color: CheckoutPalette.charcoal400,
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 7),
-                  Text(
-                    formatVnd(total),
-                    style: CheckoutTypography.heading.copyWith(
-                      color: CheckoutPalette.forest900,
-                      fontFamily: 'Plus Jakarta Sans',
-                    ),
-                  ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 15),
-                    child: Divider(),
-                  ),
-                  const Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: CheckoutDetailRow(
-                          label: 'Mã đơn hàng',
-                          value: CheckoutMockData.orderCode,
-                        ),
-                      ),
-                      Expanded(
-                        child: CheckoutDetailRow(
-                          label: 'Mã giao dịch',
-                          value: CheckoutMockData.transactionCode,
-                        ),
-                      ),
-                    ],
+                  CheckoutDetailRow(
+                    label: 'Tổng thanh toán',
+                    value: formatVnd(result.invoice.grandTotal),
+                    icon: Icons.payments_outlined,
                   ),
                   const SizedBox(height: 14),
-                  const Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: CheckoutDetailRow(
-                          label: 'Phương thức',
-                          value: 'SePay · QR ngân hàng',
-                        ),
-                      ),
-                      Expanded(
-                        child: CheckoutDetailRow(
-                          label: 'Thời gian',
-                          value: '05/10/2026 · 14:32',
-                        ),
-                      ),
-                    ],
+                  CheckoutDetailRow(
+                    label: 'Mã đơn hàng',
+                    value: result.order.orderCode,
+                    icon: Icons.receipt_long_outlined,
                   ),
+                  if (result.payment?.paymentCode case final code?) ...[
+                    const SizedBox(height: 14),
+                    CheckoutDetailRow(
+                      label: 'Mã thanh toán',
+                      value: code,
+                      icon: Icons.tag_rounded,
+                    ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(height: 22),
             CheckoutSectionHeader(
-              title: isPickup
-                  ? 'Thông tin nhận tại quán'
-                  : 'Thông tin giao hoa',
-              subtitle: isPickup
-                  ? 'Studio đã nhận lịch hẹn của bạn.'
-                  : 'Tài xế sẽ liên hệ trước khi giao.',
+              title: order.pickupTime == null
+                  ? 'Thông tin giao hoa'
+                  : 'Thông tin nhận hoa',
+              subtitle: order.pickupTime == null
+                  ? 'Tài xế sẽ liên hệ trước khi giao.'
+                  : 'Nhà Có Hoa sẽ chuẩn bị hoa trước giờ bạn ghé nhận.',
             ),
             const SizedBox(height: 12),
             CheckoutSurfaceCard(
               child: Column(
                 children: <Widget>[
                   CheckoutDetailRow(
-                    label: isPickup ? 'Studio' : 'Người nhận',
-                    value: isPickup
-                        ? branch.name
-                        : '${address.recipientName} · ${address.phone}',
-                    icon: isPickup
-                        ? Icons.storefront_outlined
-                        : Icons.person_outline_rounded,
+                    label: 'Người nhận',
+                    value: '${address.recipientName} · ${address.phone}',
+                    icon: Icons.person_outline_rounded,
                   ),
                   const Padding(
                     padding: EdgeInsets.symmetric(vertical: 13),
                     child: Divider(),
                   ),
                   CheckoutDetailRow(
-                    label: isPickup ? 'Địa chỉ studio' : 'Địa chỉ giao hoa',
-                    value: isPickup ? branch.address : address.fullAddress,
+                    label: order.pickupTime == null
+                        ? 'Địa chỉ giao hoa'
+                        : 'Nhận tại',
+                    value: address.fullAddress,
                     icon: Icons.location_on_outlined,
                   ),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 13),
-                    child: Divider(),
-                  ),
-                  CheckoutDetailRow(
-                    label: isPickup ? 'Giờ hẹn nhận' : 'Khung giờ dự kiến',
-                    value: isPickup
-                        ? controller.pickupTime
-                        : 'Hôm nay · 16:00 – 18:00',
-                    icon: Icons.schedule_outlined,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 22),
-            const CheckoutSectionHeader(
-              title: 'Tác phẩm đã đặt',
-              subtitle: 'Nghệ nhân bắt đầu chuẩn bị ngay sau xác nhận.',
-            ),
-            const SizedBox(height: 12),
-            CheckoutSurfaceCard(
-              child: Column(
-                children: <Widget>[
-                  CheckoutProductTile(item: summary.items.first),
-                  if (controller.cardMessage.isNotEmpty) ...[
+                  if (order.pickupTime != null) ...[
                     const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 14),
+                      padding: EdgeInsets.symmetric(vertical: 13),
+                      child: Divider(),
+                    ),
+                    CheckoutDetailRow(
+                      label: 'Thời gian nhận',
+                      value: order.pickupTime!,
+                      icon: Icons.schedule_outlined,
+                    ),
+                  ],
+                  if (order.cardMessage.isNotEmpty) ...[
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 13),
                       child: Divider(),
                     ),
                     CheckoutDetailRow(
                       label: 'Lời nhắn viết tay',
-                      value: '“${controller.cardMessage}”',
+                      value: '“${order.cardMessage}”',
                       icon: Icons.edit_note_rounded,
                     ),
                   ],
@@ -213,53 +144,11 @@ class PaymentSuccessScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 22),
-            const CheckoutSectionHeader(
-              title: 'Quy trình xưởng hoa',
-              subtitle: 'Theo dõi từng bước tác phẩm được hoàn thiện.',
-            ),
-            const SizedBox(height: 12),
-            const CheckoutSurfaceCard(
-              child: CheckoutTimeline(
-                steps: <CheckoutTimelineStep>[
-                  CheckoutTimelineStep(
-                    title: 'Đã xác nhận thanh toán',
-                    description: 'Giao dịch được đối soát thành công.',
-                    isActive: true,
-                  ),
-                  CheckoutTimelineStep(
-                    title: 'Nghệ nhân chọn hoa',
-                    description:
-                        'Từng cành hoa tươi được tuyển chọn trong ngày.',
-                  ),
-                  CheckoutTimelineStep(
-                    title: 'Hoàn thiện tác phẩm',
-                    description: 'Phối hoa, viết thiệp và kiểm tra lần cuối.',
-                  ),
-                  CheckoutTimelineStep(
-                    title: 'Sẵn sàng trao tay',
-                    description: 'Thông báo sẽ được gửi khi đơn hoa lên đường.',
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 22),
             FilledButton.icon(
-              onPressed: () => _finish(context),
-              icon: const Icon(Icons.route_outlined),
-              label: Text(
-                isPickup ? 'Theo dõi chuẩn bị hoa' : 'Theo dõi giao hoa',
-              ),
-            ),
-            const SizedBox(height: 10),
-            OutlinedButton.icon(
+              key: const Key('checkout-finish'),
               onPressed: () => _finish(context),
               icon: const Icon(Icons.local_florist_outlined),
-              label: const Text('Tiếp tục khám phá Fleuré'),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size.fromHeight(52),
-                foregroundColor: CheckoutPalette.forest800,
-                side: const BorderSide(color: CheckoutPalette.forest100),
-              ),
+              label: const Text('Tiếp tục khám phá Nhà Có Hoa'),
             ),
           ],
         ),

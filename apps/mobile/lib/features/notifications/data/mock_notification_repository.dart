@@ -39,6 +39,11 @@ class MockNotificationRepository implements NotificationRepository {
 
     return NotificationListResult(
       items: pageItems,
+      page: page,
+      total: filteredItems.length,
+      totalPages: filteredItems.isEmpty
+          ? 0
+          : (filteredItems.length / pageSize).ceil(),
       unreadCount: _items.where((item) => !item.isRead).length,
     );
   }
@@ -100,7 +105,7 @@ class MockNotificationRepository implements NotificationRepository {
         type: NotificationType.order,
         title: 'Đơn hàng #ORD-9281',
         message:
-            'Nghệ nhân xưởng hoa Fleuré đang chăm sóc từng nhánh hoa cho tác phẩm của bạn.',
+            'Nghệ nhân xưởng hoa Nhà Có Hoa đang chăm sóc từng nhánh hoa cho tác phẩm của bạn.',
         isRead: true,
         createdAt: now.subtract(const Duration(minutes: 15)),
         readAt: now.subtract(const Duration(minutes: 4)),
