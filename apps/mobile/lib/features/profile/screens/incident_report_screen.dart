@@ -54,6 +54,7 @@ class _IncidentReportFormScreenState extends State<IncidentReportFormScreen> {
     super.dispose();
   }
 
+  /// Tải đơn của khách để chọn gắn vào phiếu (tùy chọn).
   Future<void> _loadOrders() async {
     try {
       final page = await widget.repository.listOrders();
@@ -63,6 +64,7 @@ class _IncidentReportFormScreenState extends State<IncidentReportFormScreen> {
     }
   }
 
+  /// Gửi phiếu lên API; thành công thì báo mã phiếu SC-... và đóng form.
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final navigator = Navigator.of(context);
@@ -88,6 +90,7 @@ class _IncidentReportFormScreenState extends State<IncidentReportFormScreen> {
     }
   }
 
+  /// Kiểm tra độ dài, khớp giới hạn của backend (tiêu đề 3–120, mô tả 10–2000).
   String? _length(String? value, int min, int max) {
     final length = value?.trim().length ?? 0;
     if (length < min) return 'Nhập ít nhất $min ký tự.';
@@ -209,6 +212,7 @@ class _IncidentListScreenState extends State<IncidentListScreen> {
     }
   }
 
+  /// Mở form tạo phiếu; form trả true (đã gửi) thì tải lại danh sách.
   Future<void> _create() async {
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(

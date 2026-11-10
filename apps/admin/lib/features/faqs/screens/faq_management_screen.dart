@@ -14,7 +14,7 @@ class FaqManagementScreen extends StatefulWidget {
 }
 
 class _FaqManagementScreenState extends State<FaqManagementScreen> {
-  List<AdminFaq>? _items;
+  List<AdminFaq>? _items; // null = đang tải lần đầu
   String? _error;
 
   AdminFaqsService get _service => context.read<AdminApiClient>().faqs;
@@ -35,6 +35,7 @@ class _FaqManagementScreenState extends State<FaqManagementScreen> {
     }
   }
 
+  /// Chạy một thao tác (thêm/sửa/xóa/bật tắt), xong thì tải lại danh sách; lỗi hiện SnackBar.
   Future<void> _run(Future<void> Function() action) async {
     try {
       await action();
@@ -46,6 +47,7 @@ class _FaqManagementScreenState extends State<FaqManagementScreen> {
     }
   }
 
+  /// Mở dialog thêm (faq == null) hoặc sửa. Câu mới mặc định thứ tự = lớn nhất + 10 để nằm cuối.
   Future<void> _edit([AdminFaq? faq]) async {
     final maxOrder = (_items ?? const <AdminFaq>[])
         .fold<int>(0, (max, e) => e.sortOrder > max ? e.sortOrder : max);
@@ -75,6 +77,7 @@ class _FaqManagementScreenState extends State<FaqManagementScreen> {
     if (ok == true) await _run(() => _service.deleteFaq(faq.id));
   }
 
+  /// Bật/tắt nhanh: câu đang tắt thì chatbot không dùng nhưng vẫn giữ để bật lại.
   Future<void> _toggle(AdminFaq faq, bool isActive) => _run(() => _service.updateFaq(AdminFaq(
         id: faq.id,
         topic: faq.topic,
@@ -149,6 +152,7 @@ class _FaqManagementScreenState extends State<FaqManagementScreen> {
   }
 }
 
+/// Một thẻ FAQ: chủ đề + công tắc bật/tắt + nút xóa; chạm vào thẻ để sửa.
 class _FaqCard extends StatelessWidget {
   const _FaqCard({
     required this.faq,
@@ -211,6 +215,8 @@ class _FaqCard extends StatelessWidget {
   }
 }
 
+/// Form thêm/sửa FAQ. Trả về AdminFaq qua Navigator.pop; bấm Hủy thì trả null.
+/// Câu mới có id rỗng; _edit() dựa vào faq == null để gọi createFaq thay vì updateFaq.
 class _FaqDialog extends StatefulWidget {
   const _FaqDialog({this.faq, required this.defaultSortOrder});
 

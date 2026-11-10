@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'package:plant_flower_shared/plant_flower_shared.dart';
 import '../../services/contracts/admin_reviews_service.dart';
 
+/// Gọi API thật /admin/reviews: danh sách đánh giá (20 bài/trang) và ẩn/hiện đánh giá.
 class RemoteReviewsService implements AdminReviewsService {
   final http.Client httpClient;
   final String baseUrl;
@@ -35,6 +36,7 @@ class RemoteReviewsService implements AdminReviewsService {
     final res = await httpClient.get(uri, headers: headersProvider());
     responseValidator?.call(res);
     final body = jsonDecode(res.body) as Map<String, dynamic>;
+    // meta gồm phân trang + điểm trung bình/số bài đang hiện (tính trên toàn bộ, không theo bộ lọc).
     final meta = body['meta'] as Map<String, dynamic>? ?? const {};
     final items = (body['data']['items'] as List<dynamic>)
         .map((e) => ProductReview.fromJson(e as Map<String, dynamic>))

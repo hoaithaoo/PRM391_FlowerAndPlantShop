@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../services/contracts/admin_faqs_service.dart';
 
+/// Gọi API thật /admin/faqs (GET, POST, PATCH /:id, DELETE /:id).
+/// responseValidator ném lỗi khi status không phải 2xx (dùng chung với các service khác).
 class RemoteFaqsService implements AdminFaqsService {
   final http.Client httpClient;
   final String baseUrl;
@@ -15,6 +17,7 @@ class RemoteFaqsService implements AdminFaqsService {
     this.responseValidator,
   });
 
+  // Không có id -> /admin/faqs; có id -> /admin/faqs/{id}.
   Uri _uri([String? id]) => Uri.parse(
       '$baseUrl/admin/faqs${id == null ? '' : '/${Uri.encodeComponent(id)}'}');
 

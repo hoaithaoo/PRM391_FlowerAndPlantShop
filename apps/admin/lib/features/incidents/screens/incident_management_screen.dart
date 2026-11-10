@@ -17,9 +17,9 @@ class IncidentManagementScreen extends StatefulWidget {
 class _IncidentManagementScreenState extends State<IncidentManagementScreen> {
   final _searchController = TextEditingController();
   final _dateFormat = DateFormat('HH:mm - dd/MM/yyyy');
-  String? _status;
-  String? _category;
-  List<IncidentModel>? _items;
+  String? _status; // bộ lọc trạng thái, null = tất cả
+  String? _category; // bộ lọc loại sự cố, null = tất cả
+  List<IncidentModel>? _items; // null = đang tải lần đầu
   String? _error;
 
   AdminIncidentsService get _service =>
@@ -37,6 +37,7 @@ class _IncidentManagementScreenState extends State<IncidentManagementScreen> {
     super.dispose();
   }
 
+  /// Tải lại danh sách theo bộ lọc + ô tìm kiếm hiện tại.
   Future<void> _load() async {
     setState(() => _error = null);
     try {
@@ -51,6 +52,7 @@ class _IncidentManagementScreenState extends State<IncidentManagementScreen> {
     }
   }
 
+  /// Màu nhãn trạng thái: chờ = vàng, đang xử lý = xanh, đã giải quyết = xanh lá, từ chối = đỏ.
   static Color statusColor(String status) => switch (status) {
         'OPEN' => AppColors.statusPending,
         'IN_PROGRESS' => AppColors.statusProcessing,
@@ -58,6 +60,7 @@ class _IncidentManagementScreenState extends State<IncidentManagementScreen> {
         _ => AppColors.statusCancelled,
       };
 
+  /// Mở dialog chi tiết; dialog trả về phiếu đã lưu thì tải lại danh sách.
   Future<void> _openDetail(IncidentModel item) async {
     final updated = await showDialog<IncidentModel>(
       context: context,
@@ -186,6 +189,7 @@ class _FilterDropdown extends StatelessWidget {
   }
 }
 
+/// Một dòng phiếu trong danh sách: mã, tiêu đề, khách, trạng thái; chạm để mở chi tiết.
 class _IncidentTile extends StatelessWidget {
   const _IncidentTile({
     required this.item,
@@ -263,6 +267,8 @@ class _IncidentDialogState extends State<_IncidentDialog> {
     super.dispose();
   }
 
+  /// Lưu trạng thái + ghi chú. Backend gửi thông báo cho khách nếu trạng thái đổi.
+  /// Lấy navigator/messenger trước await để không dùng context sau khi async.
   Future<void> _save() async {
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);

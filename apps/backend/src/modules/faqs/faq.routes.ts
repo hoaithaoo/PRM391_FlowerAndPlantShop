@@ -24,6 +24,7 @@ const faqIdParams = z.object({ id: z.string().uuid("ID FAQ không hợp lệ") }
 
 const select = { id: true, topic: true, answer: true, sortOrder: true, isActive: true, updatedAt: true };
 
+// Bọc handler async: lỗi chuyển cho error middleware; P2025 (không tìm thấy bản ghi) đổi thành 404.
 type Handler = (req: Request, res: Response) => Promise<unknown>;
 const handle = (fn: Handler) => (req: Request, res: Response, next: NextFunction) => {
   fn(req, res).catch((error: unknown) =>
@@ -35,6 +36,8 @@ const handle = (fn: Handler) => (req: Request, res: Response, next: NextFunction
   );
 };
 
+// Mọi route bên dưới yêu cầu đăng nhập, tài khoản hoạt động và quyền ADMIN.
+// Chatbot đọc FAQ đang bật qua ChatbotRepository.listActiveFaqs(), không qua các route này.
 export const adminFaqRoutes = Router();
 adminFaqRoutes.use(authMiddleware, profileMiddleware, accountStatusMiddleware, requireRole(Role.ADMIN));
 
@@ -48,14 +51,14 @@ adminFaqRoutes.get(
   )
 );
 
-// POST /api/v1/admin/faqs
+// POST /api/v1/admin/faqs: thêm câu hỏi mới
 adminFaqRoutes.post(
   "/",
   validateRequest({ body: faqBody }),
   handle(async (req, res) => sendSuccess(req, res, await prisma.storeFaq.create({ data: req.body, select }), 201))
 );
 
-// PATCH /api/v1/admin/faqs/:id
+// PATCH /api/v1/admin/faqs/:id: sửa một phần (vd chỉ bật/tắt isActive)
 adminFaqRoutes.patch(
   "/:id",
   validateRequest({ params: faqIdParams, body: faqBody.partial() }),
@@ -64,7 +67,7 @@ adminFaqRoutes.patch(
   )
 );
 
-// DELETE /api/v1/admin/faqs/:id
+// DELETE /api/v1/admin/faqs/:id: xóa hẳn khỏi DB
 adminFaqRoutes.delete(
   "/:id",
   validateRequest({ params: faqIdParams }),

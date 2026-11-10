@@ -22,6 +22,7 @@ class AdminFaq {
         isActive: json['isActive'] as bool? ?? true,
       );
 
+  /// Body gửi lên POST/PATCH; không gửi id (id nằm trên URL).
   Map<String, dynamic> toBody() => {
         'topic': topic,
         'answer': answer,
@@ -30,6 +31,7 @@ class AdminFaq {
       };
 }
 
+/// Hợp đồng quản lý FAQ. Có 2 bản: Remote (gọi API) và Mock (dữ liệu giả để chạy thử UI).
 abstract class AdminFaqsService {
   Future<List<AdminFaq>> getFaqs();
 

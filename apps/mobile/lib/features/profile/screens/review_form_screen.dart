@@ -43,6 +43,7 @@ class _ReviewFormScreenState extends State<ReviewFormScreen> {
     super.dispose();
   }
 
+  /// Chọn ảnh từ thư viện, nén về tối đa 1280px để upload nhanh; không vượt số ảnh tối đa.
   Future<void> _pickImages() async {
     final picked = await ImagePicker().pickMultiImage(
       maxWidth: 1280,
@@ -61,6 +62,7 @@ class _ReviewFormScreenState extends State<ReviewFormScreen> {
     if (mounted) setState(() => _images.addAll(files));
   }
 
+  /// Gửi đánh giá: upload từng ảnh lên Storage lấy URL, rồi gọi API tạo đánh giá với các URL đó.
   Future<void> _submit() async {
     final navigator = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);

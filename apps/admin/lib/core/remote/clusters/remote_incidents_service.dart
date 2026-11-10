@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../services/contracts/admin_incidents_service.dart';
 
+/// Gọi API thật /admin/incidents: lấy danh sách phiếu sự cố và cập nhật trạng thái/ghi chú.
 class RemoteIncidentsService implements AdminIncidentsService {
   final http.Client httpClient;
   final String baseUrl;
@@ -44,6 +45,7 @@ class RemoteIncidentsService implements AdminIncidentsService {
     required String status,
     String? adminNote,
   }) async {
+    // Backend tự gửi thông báo cho khách nếu trạng thái thay đổi.
     final res = await httpClient.patch(
       Uri.parse('$baseUrl/admin/incidents/${Uri.encodeComponent(id)}'),
       headers: headersProvider(),

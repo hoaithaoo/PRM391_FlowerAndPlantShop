@@ -5,8 +5,10 @@ import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import type { AdminListReviewsQuery, CreateReviewInput, PageQuery } from "./review.schema";
 
+// Bucket Supabase Storage chứa ảnh đánh giá; mỗi khách có thư mục riêng theo userId.
 const REVIEW_BUCKET = "review-images";
 
+// Cột hiển thị công khai ở trang sản phẩm: chỉ tên + avatar người viết, không lộ email.
 const publicReviewSelect = {
   id: true,
   rating: true,
@@ -16,6 +18,7 @@ const publicReviewSelect = {
   user: { select: { fullName: true, avatarUrl: true } },
 } satisfies Prisma.ProductReviewSelect;
 
+// Cột trả cho chính khách (biết đã đánh giá món nào trong đơn).
 const myReviewSelect = {
   id: true,
   orderId: true,
@@ -26,6 +29,7 @@ const myReviewSelect = {
   createdAt: true,
 } satisfies Prisma.ProductReviewSelect;
 
+// Admin cần thêm sản phẩm, mã đơn, người viết và trạng thái ẩn.
 const adminReviewSelect = {
   ...myReviewSelect,
   isHidden: true,
@@ -34,6 +38,7 @@ const adminReviewSelect = {
   user: { select: { fullName: true, email: true } },
 } satisfies Prisma.ProductReviewSelect;
 
+// Làm tròn điểm trung bình 1 chữ số thập phân (vd 4.33 -> 4.3); chưa có đánh giá -> 0.
 const round1 = (value: number | null) => Math.round((value ?? 0) * 10) / 10;
 
 const pageMeta = (query: PageQuery, total: number) => ({
@@ -43,6 +48,7 @@ const pageMeta = (query: PageQuery, total: number) => ({
   totalPages: Math.ceil(total / query.limit),
 });
 
+/** Đánh giá sản phẩm: khách đánh giá món trong đơn đã hoàn tất, admin ẩn/hiện. */
 export class ReviewService {
   /** storageBaseUrl = `${SUPABASE_URL}/storage/v1/object/public`; tách ra để test không cần env thật. */
   constructor(
@@ -50,6 +56,13 @@ export class ReviewService {
     private readonly storageBaseUrl: string = `${env.SUPABASE_URL.replace(/\/$/, "")}/storage/v1/object/public`
   ) {}
 
+  /**
+   * Khách tạo đánh giá. Điều kiện:
+   * - ảnh nằm trong thư mục của chính khách;
+   * - đơn là của khách và đã COMPLETED;
+   * - sản phẩm có trong đơn;
+   * - mỗi sản phẩm trong đơn chỉ đánh giá 1 lần (unique trong DB, lỗi P2002).
+   */
   async create(userId: string, input: CreateReviewInput) {
     // Ảnh phải nằm trong thư mục của chính khách trên bucket review-images.
     const allowedPrefix = `${this.storageBaseUrl}/${REVIEW_BUCKET}/${userId}/`;
@@ -98,6 +111,7 @@ export class ReviewService {
     });
   }
 
+  /** Đánh giá công khai của 1 sản phẩm (bỏ bài bị ẩn) + điểm trung bình và tổng số. */
   async listForProduct(productId: string, query: PageQuery) {
     const where: Prisma.ProductReviewWhereInput = { productId, isHidden: false };
     const [stats, items] = await Promise.all([
@@ -118,6 +132,10 @@ export class ReviewService {
     };
   }
 
+  /**
+   * Admin xem tất cả đánh giá, có lọc/tìm kiếm.
+   * Điểm trung bình trong meta tính trên toàn bộ bài đang hiện, không phụ thuộc bộ lọc.
+   */
   async adminList(query: AdminListReviewsQuery) {
     const search = query.search;
     const where: Prisma.ProductReviewWhereInput = {
@@ -151,6 +169,7 @@ export class ReviewService {
     };
   }
 
+  /** Admin ẩn/hiện 1 đánh giá; id không tồn tại (P2025) trả 404. */
   async setHidden(id: string, isHidden: boolean) {
     try {
       return await this.db.productReview.update({ where: { id }, data: { isHidden }, select: adminReviewSelect });

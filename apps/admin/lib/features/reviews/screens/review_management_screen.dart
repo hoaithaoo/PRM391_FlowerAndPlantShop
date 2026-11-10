@@ -17,11 +17,11 @@ class ReviewManagementScreen extends StatefulWidget {
 class _ReviewManagementScreenState extends State<ReviewManagementScreen> {
   final _searchController = TextEditingController();
   final _dateFormat = DateFormat('HH:mm - dd/MM/yyyy');
-  int? _rating;
-  bool? _hidden;
-  AdminReviewList? _list;
+  int? _rating; // lọc số sao, null = tất cả
+  bool? _hidden; // lọc ẩn/hiện, null = tất cả
+  AdminReviewList? _list; // các trang đã tải, null = đang tải lần đầu
   String? _error;
-  final _busy = <String>{};
+  final _busy = <String>{}; // id đánh giá đang ẩn/hiện, để khóa nút tránh bấm 2 lần
   bool _loadingMore = false;
 
   AdminReviewsService get _service => context.read<AdminApiClient>().reviews;
@@ -38,6 +38,7 @@ class _ReviewManagementScreenState extends State<ReviewManagementScreen> {
     super.dispose();
   }
 
+  /// Gọi API 1 trang với bộ lọc hiện tại.
   Future<AdminReviewList> _fetch(int page) => _service.getReviews(
         rating: _rating,
         hidden: _hidden,
@@ -55,6 +56,7 @@ class _ReviewManagementScreenState extends State<ReviewManagementScreen> {
     }
   }
 
+  /// Cuộn tới cuối thì tải trang kế và nối vào danh sách hiện có.
   Future<void> _loadMore() async {
     final current = _list;
     if (current == null || !current.hasMore || _loadingMore) return;
@@ -81,6 +83,7 @@ class _ReviewManagementScreenState extends State<ReviewManagementScreen> {
     }
   }
 
+  /// Đảo trạng thái ẩn/hiện. Bài bị ẩn không hiện ở trang sản phẩm và không tính vào điểm trung bình.
   Future<void> _toggle(ProductReview review) async {
     setState(() => _busy.add(review.id));
     try {
@@ -245,6 +248,7 @@ class _ReviewManagementScreenState extends State<ReviewManagementScreen> {
   }
 }
 
+/// Thẻ một đánh giá: sản phẩm, sao, bình luận, ảnh, người viết + nút ẩn/hiện.
 class _ReviewCard extends StatelessWidget {
   const _ReviewCard({
     required this.review,

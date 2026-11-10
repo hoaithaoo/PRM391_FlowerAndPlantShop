@@ -1,6 +1,7 @@
 import { IncidentCategory, IncidentStatus } from "@prisma/client";
 import { z } from "zod";
 
+// Body khách gửi khi tạo phiếu. orderId tùy chọn: sự cố có thể không gắn đơn nào.
 export const createIncidentSchema = z
   .object({
     category: z.nativeEnum(IncidentCategory),
@@ -10,6 +11,7 @@ export const createIncidentSchema = z
   })
   .strict();
 
+// Query phân trang + lọc; dùng chung cho khách và admin (category/search chỉ admin dùng).
 export const listIncidentsQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
@@ -22,6 +24,7 @@ export const incidentIdParamsSchema = z.object({
   id: z.string().uuid("ID phiếu không hợp lệ"),
 });
 
+// Body admin cập nhật phiếu: trạng thái bắt buộc, ghi chú phản hồi tùy chọn.
 export const updateIncidentSchema = z
   .object({
     status: z.nativeEnum(IncidentStatus),
