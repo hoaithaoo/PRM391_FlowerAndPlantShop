@@ -26,6 +26,11 @@ class ApiProductRepository implements ProductRepository {
     return _guard(() => _api.getProduct(id));
   }
 
+  @override
+  Future<ProductReviewPage> listProductReviews(String productId) {
+    return _guard(() => _api.listProductReviews(productId));
+  }
+
   Future<T> _guard<T>(Future<T> Function() call) async {
     try {
       return await call();

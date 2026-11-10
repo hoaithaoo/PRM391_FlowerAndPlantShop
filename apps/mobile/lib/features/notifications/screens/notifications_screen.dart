@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../data/mock_notification_repository.dart';
 import '../data/notification_repository.dart';
 import '../models/notification_filter.dart';
+import '../models/notification_item.dart';
 import '../state/notification_controller.dart';
 import '../state/notification_state.dart';
 import '../utils/notification_theme.dart';
@@ -14,8 +15,13 @@ import '../widgets/notifications_empty_state.dart';
 import '../widgets/notifications_error_state.dart';
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key, this.repository, this.controller})
-    : assert(repository != null || controller != null);
+  const NotificationsScreen({
+    super.key,
+    this.repository,
+    this.controller,
+    this.onOpenOrder,
+    this.onOpenIncidents,
+  }) : assert(repository != null || controller != null);
 
   factory NotificationsScreen.withMockData({Key? key}) {
     return NotificationsScreen(
@@ -26,6 +32,12 @@ class NotificationsScreen extends StatefulWidget {
 
   final NotificationRepository? repository;
   final NotificationController? controller;
+
+  /// Mở chi tiết đơn khi thông báo gắn orderId.
+  final ValueChanged<String>? onOpenOrder;
+
+  /// Mở danh sách phiếu sự cố khi thông báo gắn incidentId.
+  final VoidCallback? onOpenIncidents;
 
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
@@ -66,6 +78,81 @@ class _NotificationsScreenState extends State<NotificationsScreen>
     } else if (status != NotificationLoadStatus.loading) {
       _controller.refresh();
     }
+  }
+
+  /// Đánh dấu đã đọc rồi mở sheet xem toàn bộ nội dung + nút tới đơn/phiếu.
+  void _openDetail(NotificationItem notification) {
+    if (!notification.isRead) _controller.markAsRead(notification);
+    final orderId = notification.orderId;
+    final onOpenOrder = widget.onOpenOrder;
+    final onOpenIncidents = widget.onOpenIncidents;
+    final VoidCallback? action;
+    final String? actionLabel;
+    if (orderId != null && onOpenOrder != null) {
+      action = () => onOpenOrder(orderId);
+      actionLabel = 'Xem đơn hàng';
+    } else if (notification.incidentId != null && onOpenIncidents != null) {
+      action = onOpenIncidents;
+      actionLabel = 'Xem phiếu sự cố';
+    } else {
+      action = null;
+      actionLabel = null;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              Text(
+                notification.title,
+                style: const TextStyle(
+                  fontFamily: NotificationTextStyles.serif,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: NotificationColors.charcoal900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _formatTime(notification.createdAt),
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                notification.message,
+                style: const TextStyle(fontSize: 15, height: 1.45),
+              ),
+              if (action != null) ...<Widget>[
+                const SizedBox(height: 20),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: NotificationColors.forest700,
+                  ),
+                  onPressed: () {
+                    Navigator.of(sheetContext).pop();
+                    action!();
+                  },
+                  child: Text(actionLabel!),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  static String _formatTime(DateTime time) {
+    final t = time.toLocal();
+    String two(int v) => v.toString().padLeft(2, '0');
+    return '${two(t.hour)}:${two(t.minute)} - '
+        '${two(t.day)}/${two(t.month)}/${t.year}';
   }
 
   void _onScroll() {
@@ -214,9 +301,7 @@ class _NotificationsScreenState extends State<NotificationsScreen>
               isUpdating:
                   state.isMarkingAll ||
                   state.markingReadIds.contains(notification.id),
-              onTap: notification.isRead
-                  ? null
-                  : () => _controller.markAsRead(notification),
+              onTap: () => _openDetail(notification),
             ),
           );
         },

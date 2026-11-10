@@ -1,4 +1,5 @@
 import type { ChatbotCartAction } from "../chatbot.types";
+import type { ChatbotStoreInfo, StoreFaqEntry } from "../repository/chatbot.repository";
 
 /**
  * Sản phẩm được phép đưa cho AI; AI chỉ được gợi ý các id trong danh sách này.
@@ -32,11 +33,14 @@ export interface ChatbotProviderKnowledgeChunk {
  * AI phân loại câu trả lời để server áp quy tắc an toàn:
  * ANSWER tư vấn sản phẩm, INCIDENT hỗ trợ báo sự cố, IDENTITY hỏi bot là ai,
  * TRANSLATION dịch câu trước, OFF_TOPIC ngoài phạm vi, NO_KNOWLEDGE thiếu dữ liệu,
- * CART xem hoặc thay đổi giỏ hàng của người dùng.
+ * CART xem hoặc thay đổi giỏ hàng của người dùng, ACCOUNT trả lời trạng thái đơn hàng/phiếu sự cố
+ * của chính người dùng, FAQ trả lời chính sách/thông tin cửa hàng từ storeFaq và stores.
  */
 export type ChatbotResponseType =
   | "ANSWER"
+  | "FAQ"
   | "CART"
+  | "ACCOUNT"
   | "INCIDENT"
   | "IDENTITY"
   | "TRANSLATION"
@@ -75,10 +79,46 @@ export interface ChatbotCartItem {
 }
 
 /**
+ * Đơn hàng của chính user (đơn gần đây + đơn user nhắc mã trong tin nhắn).
+ */
+export interface ChatbotProviderOrder {
+  orderNumber: string;
+  status: string;
+  paymentMethod: string;
+  invoiceStatus: string | null;
+  totalAmount: string;
+  isPickup: boolean;
+  items: Array<{ name: string; quantity: number }>;
+  createdAt: string;
+  completedAt: string | null;
+  cancelledAt: string | null;
+}
+
+/**
+ * Phiếu báo sự cố của chính user, kèm ghi chú xử lý của admin.
+ */
+export interface ChatbotProviderIncident {
+  code: string;
+  category: string;
+  title: string;
+  status: string;
+  adminNote: string | null;
+  orderNumber: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+/**
  * Toàn bộ dữ liệu gửi cho AI trong một lượt; chỉ gồm dữ liệu đã xác minh.
  */
 export interface ChatbotProviderInput {
   cartItems?: ChatbotCartItem[];
+  customerOrders?: ChatbotProviderOrder[];
+  incidentReports?: ChatbotProviderIncident[];
+  /** Chính sách cửa hàng (phí giao, thanh toán, hủy đơn...) admin nhập trong bảng store_faqs. */
+  storeFaq?: StoreFaqEntry[];
+  /** Cửa hàng đang hoạt động: tên, địa chỉ, điện thoại, giờ mở cửa. */
+  stores?: ChatbotStoreInfo[];
   message: string;
   history: ChatbotProviderMessage[];
   catalogProducts: ChatbotProviderProduct[];

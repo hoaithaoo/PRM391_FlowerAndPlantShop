@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:plant_flower_shared/plant_flower_shared.dart' show ProductReview;
 
+import '../../chatbot/models/chatbot_models.dart';
 import '../../checkout/utils/checkout_theme.dart';
 import '../../checkout/utils/currency_formatter.dart';
 import '../../checkout/widgets/checkout_common.dart';
 import '../data/profile_repository.dart';
 import '../models/profile_models.dart';
+import 'incident_report_screen.dart';
 import 'order_list_screen.dart';
+import 'review_form_screen.dart';
 
 /// Pop trả `true` khi đơn vừa bị hủy để danh sách tải lại.
 class OrderDetailScreen extends StatefulWidget {
@@ -27,10 +31,23 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool _loadFailed = false;
   bool _cancelling = false;
 
+  /// Đánh giá đã viết trong đơn này, theo productId.
+  Map<String, ProductReview> _myReviews = const {};
+
   @override
   void initState() {
     super.initState();
+    // Chatbot gửi kèm đơn đang xem để trả lời trạng thái / soạn phiếu sự cố đúng đơn.
+    ChatbotRequestContext.viewingOrderId = widget.orderId;
     _load();
+  }
+
+  @override
+  void dispose() {
+    if (ChatbotRequestContext.viewingOrderId == widget.orderId) {
+      ChatbotRequestContext.viewingOrderId = null;
+    }
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -38,8 +55,40 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     try {
       final order = await widget.repository.getOrder(widget.orderId);
       if (mounted) setState(() => _order = order);
+      if (order.status == 'COMPLETED') await _loadReviews();
     } catch (_) {
       if (mounted) setState(() => _loadFailed = true);
+    }
+  }
+
+  Future<void> _loadReviews() async {
+    try {
+      final reviews = await widget.repository.listMyReviews(widget.orderId);
+      if (!mounted) return;
+      setState(() {
+        _myReviews = {
+          for (final review in reviews)
+            if (review.productId != null) review.productId!: review,
+        };
+      });
+    } catch (_) {
+      // Không tải được thì vẫn hiện nút; backend chặn đánh giá trùng.
+    }
+  }
+
+  Future<void> _review(OrderDetail order, OrderLine item) async {
+    final review = await Navigator.of(context).push<ProductReview>(
+      MaterialPageRoute<ProductReview>(
+        builder: (_) => ReviewFormScreen(
+          repository: widget.repository,
+          orderId: order.id,
+          productId: item.productId!,
+          productName: item.name,
+        ),
+      ),
+    );
+    if (review != null && mounted) {
+      setState(() => _myReviews = {..._myReviews, item.productId!: review});
     }
   }
 
@@ -156,6 +205,27 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                     Text(formatVnd(item.subtotal)),
                   ],
                 ),
+                if (order.status == 'COMPLETED' && item.productId != null)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: _myReviews[item.productId] == null
+                        ? TextButton.icon(
+                            key: Key('order-review-${item.productId}'),
+                            onPressed: () => _review(order, item),
+                            icon: const Icon(Icons.star_outline_rounded),
+                            label: const Text('Đánh giá'),
+                          )
+                        : Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Text(
+                              'Đã đánh giá '
+                              '${_myReviews[item.productId]!.rating}★',
+                              style: const TextStyle(
+                                color: CheckoutPalette.petal500,
+                              ),
+                            ),
+                          ),
+                  ),
                 const SizedBox(height: 10),
               ],
               const Divider(),
@@ -174,6 +244,21 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             ],
           ),
+        ),
+        const SizedBox(height: 22),
+        TextButton.icon(
+          key: const Key('order-report-incident'),
+          onPressed: () => Navigator.of(context).push<bool>(
+            MaterialPageRoute<bool>(
+              builder: (_) => IncidentReportFormScreen(
+                repository: widget.repository,
+                orderId: order.id,
+                title: 'Sự cố đơn ${order.orderCode}',
+              ),
+            ),
+          ),
+          icon: const Icon(Icons.report_problem_outlined),
+          label: const Text('Báo sự cố với đơn này'),
         ),
         if (order.canCancel) ...[
           const SizedBox(height: 22),

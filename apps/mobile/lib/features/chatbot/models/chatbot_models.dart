@@ -30,6 +30,18 @@ class ChatbotRequestContext {
 
   static bool _hasValue(String? value) =>
       value != null && value.trim().isNotEmpty;
+
+  /// Id đơn của màn chi tiết đơn đang mở; null khi không xem đơn nào.
+  static String? viewingOrderId;
+}
+
+/// Ngữ cảnh gửi kèm tin nhắn chatbot. Hàm top-level nên tear-off luôn identical,
+/// ChatbotOverlayHost không tạo lại controller mỗi lần build.
+ChatbotRequestContext? currentChatbotContext() {
+  final orderId = ChatbotRequestContext.viewingOrderId;
+  return orderId == null
+      ? null
+      : ChatbotRequestContext(orderId: orderId, source: 'ORDER_DETAIL');
 }
 
 class SuggestedProduct {

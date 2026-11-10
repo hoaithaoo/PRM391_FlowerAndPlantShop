@@ -1,5 +1,7 @@
 import 'dart:typed_data';
 
+import 'package:plant_flower_shared/plant_flower_shared.dart' show ProductReview;
+
 import '../models/profile_models.dart';
 import 'profile_repository.dart';
 
@@ -45,4 +47,61 @@ class MockProfileRepository implements ProfileRepository {
 
   @override
   Future<void> cancelOrder(String id) async {}
+
+  final _incidents = <IncidentReport>[];
+
+  @override
+  Future<IncidentReport> createIncident({
+    required String category,
+    required String title,
+    required String description,
+    String? orderId,
+  }) async {
+    final report = IncidentReport(
+      id: 'demo-${_incidents.length}',
+      code: 'SC-DEMO-${_incidents.length + 1}',
+      category: category,
+      title: title,
+      description: description,
+      status: 'OPEN',
+      createdAt: DateTime.now(),
+    );
+    _incidents.insert(0, report);
+    return report;
+  }
+
+  @override
+  Future<List<IncidentReport>> listIncidents() async =>
+      List.unmodifiable(_incidents);
+
+  final _reviews = <ProductReview>[];
+
+  @override
+  Future<List<ProductReview>> listMyReviews(String orderId) async =>
+      _reviews.where((r) => r.orderId == orderId).toList(growable: false);
+
+  @override
+  Future<ProductReview> createReview({
+    required String orderId,
+    required String productId,
+    required int rating,
+    String? comment,
+    List<String> imageUrls = const [],
+  }) async {
+    final review = ProductReview(
+      id: 'demo-review-${_reviews.length}',
+      rating: rating,
+      comment: comment,
+      imageUrls: imageUrls,
+      createdAt: DateTime.now(),
+      orderId: orderId,
+      productId: productId,
+    );
+    _reviews.add(review);
+    return review;
+  }
+
+  @override
+  Future<String> uploadReviewImage(Uint8List bytes, String contentType) async =>
+      'https://picsum.photos/seed/${bytes.length}/300';
 }

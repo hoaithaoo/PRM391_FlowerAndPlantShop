@@ -73,6 +73,23 @@ enum VoucherScope {
   SHIPPING
 }
 
+enum IncidentCategory {
+  DAMAGED_PRODUCT
+  WRONG_ITEM
+  DELIVERY
+  PAYMENT
+  QUALITY
+  SERVICE
+  OTHER
+}
+
+enum IncidentStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  REJECTED
+}
+
 model Profile {
   id        String     @id @db.Uuid // Maps to Supabase auth.users.id
   email     String?
@@ -93,6 +110,8 @@ model Profile {
   chatbotRateLimit     ChatbotRateLimit?
   addresses            UserAddress[]
   voucherRedemptions   VoucherRedemption[]
+  incidentReports      IncidentReport[]
+  productReviews       ProductReview[]
 
   @@map("profiles")
 }
@@ -132,6 +151,7 @@ model Product {
   orderItems      OrderItem[]
   invoiceItems    InvoiceItem[]
   knowledgeChunks ProductKnowledgeChunk[]
+  reviews         ProductReview[]
 
   @@index([categoryId])
   @@index([isActive, createdAt])
@@ -206,11 +226,13 @@ model Order {
   createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  user              Profile            @relation(fields: [userId], references: [id])
-  pickupStore       Store?             @relation(fields: [pickupStoreId], references: [id])
-  items             OrderItem[]
-  invoice           Invoice?
+  user               Profile             @relation(fields: [userId], references: [id])
+  pickupStore        Store?              @relation(fields: [pickupStoreId], references: [id])
+  items              OrderItem[]
+  invoice            Invoice?
   voucherRedemptions VoucherRedemption[]
+  incidentReports    IncidentReport[]
+  reviews            ProductReview[]
 
   @@index([userId, createdAt])
   @@index([status, createdAt])
@@ -236,24 +258,24 @@ model OrderItem {
 }
 
 model Invoice {
-  id              String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  orderId         String        @unique @map("order_id") @db.Uuid
-  userId          String        @map("user_id") @db.Uuid
-  invoiceNo       String        @unique @map("invoice_no")
-  status          InvoiceStatus @default(ISSUED)
-  customerName    String        @map("customer_name")
-  customerPhone   String        @map("customer_phone")
-  customerAddress String        @map("customer_address")
-  subtotalAmount  Decimal       @map("subtotal_amount") @db.Decimal(18, 0)
-  discountAmount  Decimal       @default(0) @map("discount_amount") @db.Decimal(18, 0)
-  taxAmount       Decimal       @map("tax_amount") @db.Decimal(18, 0)
-  shippingFee     Decimal       @default(0) @map("shipping_fee") @db.Decimal(18, 0)
-  shippingDiscountAmount Decimal @default(0) @map("shipping_discount_amount") @db.Decimal(18, 0)
-  grandTotal     Decimal       @map("grand_total") @db.Decimal(18, 0)
-  issuedAt        DateTime      @default(now()) @map("issued_at") @db.Timestamptz(3)
-  paidAt          DateTime?     @map("paid_at") @db.Timestamptz(3)
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id                     String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  orderId                String        @unique @map("order_id") @db.Uuid
+  userId                 String        @map("user_id") @db.Uuid
+  invoiceNo              String        @unique @map("invoice_no")
+  status                 InvoiceStatus @default(ISSUED)
+  customerName           String        @map("customer_name")
+  customerPhone          String        @map("customer_phone")
+  customerAddress        String        @map("customer_address")
+  subtotalAmount         Decimal       @map("subtotal_amount") @db.Decimal(18, 0)
+  discountAmount         Decimal       @default(0) @map("discount_amount") @db.Decimal(18, 0)
+  taxAmount              Decimal       @map("tax_amount") @db.Decimal(18, 0)
+  shippingFee            Decimal       @default(0) @map("shipping_fee") @db.Decimal(18, 0)
+  shippingDiscountAmount Decimal       @default(0) @map("shipping_discount_amount") @db.Decimal(18, 0)
+  grandTotal             Decimal       @map("grand_total") @db.Decimal(18, 0)
+  issuedAt               DateTime      @default(now()) @map("issued_at") @db.Timestamptz(3)
+  paidAt                 DateTime?     @map("paid_at") @db.Timestamptz(3)
+  createdAt              DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt              DateTime      @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   order    Order         @relation(fields: [orderId], references: [id])
   user     Profile       @relation(fields: [userId], references: [id])
@@ -403,19 +425,19 @@ model ChatbotRateLimit {
 }
 
 model UserAddress {
-  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  userId         String    @map("user_id") @db.Uuid
-  recipientName  String    @map("recipient_name")
-  recipientPhone String    @map("recipient_phone")
-  addressLine    String    @map("address_line")
-  label          String?   @default("Nhà riêng")
-  deliveryNote   String?   @map("delivery_note")
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  recipientName  String   @map("recipient_name")
+  recipientPhone String   @map("recipient_phone")
+  addressLine    String   @map("address_line")
+  label          String?  @default("Nhà riêng")
+  deliveryNote   String?  @map("delivery_note")
   latitude       Float?
   longitude      Float?
-  isDefault      Boolean   @default(true) @map("is_default")
-  isDelete       Boolean?  @default(false) @map("is_delete")
-  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  isDefault      Boolean  @default(true) @map("is_default")
+  isDelete       Boolean? @default(false) @map("is_delete")
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   user Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -426,23 +448,23 @@ model UserAddress {
 }
 
 model Voucher {
-  id             String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  code           String      @unique
+  id             String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code           String       @unique
   type           VoucherType
   /// ORDER giảm tiền hàng, SHIPPING giảm phí ship. Mỗi đơn dùng tối đa 1 mã mỗi loại.
   scope          VoucherScope @default(ORDER)
-  value          Decimal     @db.Decimal(18, 0)
-  maxDiscount    Decimal?    @map("max_discount") @db.Decimal(18, 0)
-  minOrderAmount Decimal     @default(0) @map("min_order_amount") @db.Decimal(18, 0)
-  startsAt       DateTime    @map("starts_at") @db.Timestamptz(3)
-  endsAt         DateTime    @map("ends_at") @db.Timestamptz(3)
-  usageLimit     Int?        @map("usage_limit")
-  perUserLimit   Int         @default(1) @map("per_user_limit")
-  usedCount      Int         @default(0) @map("used_count")
-  isPublic       Boolean     @default(true) @map("is_public")
-  isActive       Boolean     @default(true) @map("is_active")
-  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt      DateTime    @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+  value          Decimal      @db.Decimal(18, 0)
+  maxDiscount    Decimal?     @map("max_discount") @db.Decimal(18, 0)
+  minOrderAmount Decimal      @default(0) @map("min_order_amount") @db.Decimal(18, 0)
+  startsAt       DateTime     @map("starts_at") @db.Timestamptz(3)
+  endsAt         DateTime     @map("ends_at") @db.Timestamptz(3)
+  usageLimit     Int?         @map("usage_limit")
+  perUserLimit   Int          @default(1) @map("per_user_limit")
+  usedCount      Int          @default(0) @map("used_count")
+  isPublic       Boolean      @default(true) @map("is_public")
+  isActive       Boolean      @default(true) @map("is_active")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   redemptions VoucherRedemption[]
 
@@ -468,4 +490,63 @@ model VoucherRedemption {
   @@index([voucherId, userId])
   @@index([userId])
   @@map("voucher_redemptions")
+}
+
+/// Phiếu báo sự cố khách gửi (tự tạo hoặc từ bản nháp chatbot); admin xử lý và phản hồi.
+model IncidentReport {
+  id          String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code        String           @unique
+  userId      String           @map("user_id") @db.Uuid
+  orderId     String?          @map("order_id") @db.Uuid
+  category    IncidentCategory
+  title       String
+  description String
+  status      IncidentStatus   @default(OPEN)
+  adminNote   String?          @map("admin_note")
+  resolvedAt  DateTime?        @map("resolved_at") @db.Timestamptz(3)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime         @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user  Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([status, createdAt])
+  @@map("incident_reports")
+}
+
+/// Đánh giá sản phẩm; chỉ tạo được từ đơn COMPLETED, mỗi sản phẩm trong đơn một lần.
+model ProductReview {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  orderId   String   @map("order_id") @db.Uuid
+  rating    Int
+  comment   String?
+  imageUrls String[] @default([]) @map("image_urls")
+  isHidden  Boolean  @default(false) @map("is_hidden")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    Profile @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, productId])
+  @@index([productId, isHidden, createdAt])
+  @@index([userId])
+  @@map("product_reviews")
+}
+
+model StoreFaq {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  topic     String
+  answer    String
+  sortOrder Int      @default(0) @map("sort_order")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@index([isActive, sortOrder])
+  @@map("store_faqs")
 }

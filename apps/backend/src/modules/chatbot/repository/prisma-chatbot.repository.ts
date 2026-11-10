@@ -8,8 +8,11 @@ import {
   ChatbotExchangeResult,
   ChatbotConversationPage,
   ChatbotHistoryPage,
+  ChatbotIncidentSummary,
   ChatbotKnowledgeChunk,
+  ChatbotOrderSummary,
   ChatbotRepository,
+  ChatbotStoreInfo,
   OwnedOrderContext,
   OwnedPaymentContext,
   StoredChatbotMessage,
@@ -214,6 +217,73 @@ export class PrismaChatbotRepository implements ChatbotRepository {
       orderNumber: row.invoice.order.orderNumber,
       orderStatus: row.invoice.order.status,
     };
+  }
+
+  async listOwnedOrders(userId: string, orderNumbers: string[], limit: number): Promise<ChatbotOrderSummary[]> {
+    const select = {
+      id: true,
+      orderNumber: true,
+      status: true,
+      paymentMethod: true,
+      totalAmount: true,
+      pickupStoreId: true,
+      createdAt: true,
+      completedAt: true,
+      cancelledAt: true,
+      invoice: { select: { status: true } },
+      items: { select: { name: true, quantity: true } },
+    } satisfies Prisma.OrderSelect;
+    // Luôn lọc userId: mã đơn của người khác coi như không tồn tại.
+    const [recent, mentioned] = await Promise.all([
+      this.client.order.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: limit, select }),
+      orderNumbers.length
+        ? this.client.order.findMany({ where: { userId, orderNumber: { in: orderNumbers } }, select })
+        : [],
+    ]);
+    const unique = new Map([...mentioned, ...recent].map((row) => [row.id, row]));
+    return [...unique.values()].map(({ pickupStoreId, invoice, totalAmount, ...row }) => ({
+      ...row,
+      totalAmount: totalAmount.toString(),
+      isPickup: pickupStoreId !== null,
+      invoiceStatus: invoice?.status ?? null,
+    }));
+  }
+
+  async listOwnedIncidents(userId: string, codes: string[], limit: number): Promise<ChatbotIncidentSummary[]> {
+    const select = {
+      code: true,
+      category: true,
+      title: true,
+      status: true,
+      adminNote: true,
+      createdAt: true,
+      resolvedAt: true,
+      order: { select: { orderNumber: true } },
+    } satisfies Prisma.IncidentReportSelect;
+    const [recent, mentioned] = await Promise.all([
+      this.client.incidentReport.findMany({ where: { userId }, orderBy: { createdAt: "desc" }, take: limit, select }),
+      codes.length
+        ? this.client.incidentReport.findMany({ where: { userId, code: { in: codes } }, select })
+        : [],
+    ]);
+    const unique = new Map([...mentioned, ...recent].map((row) => [row.code, row]));
+    return [...unique.values()].map(({ order, ...row }) => ({ ...row, orderNumber: order?.orderNumber ?? null }));
+  }
+
+  listActiveStores(): Promise<ChatbotStoreInfo[]> {
+    return this.client.store.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: { name: true, address: true, phone: true, openingHours: true },
+    });
+  }
+
+  listActiveFaqs() {
+    return this.client.storeFaq.findMany({
+      where: { isActive: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      select: { topic: true, answer: true },
+    });
   }
 
   async tryAcquireSendSlot(userId: string, cooldownMs: number, leaseMs: number): Promise<boolean> {
