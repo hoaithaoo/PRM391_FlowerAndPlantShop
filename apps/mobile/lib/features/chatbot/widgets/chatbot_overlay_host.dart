@@ -12,17 +12,21 @@ class ChatbotOverlayHost extends StatefulWidget {
     required this.repository,
     required this.child,
     this.visible = true,
+    this.launcherBottomInset = 16,
     this.contextProvider,
     this.onProductTap,
     this.onOpenIncidentReport,
+    this.onCartAction,
   });
 
   final ChatbotRepository repository;
   final Widget child;
   final bool visible;
+  final double launcherBottomInset;
   final ChatbotContextProvider? contextProvider;
   final ValueChanged<String>? onProductTap;
   final ValueChanged<IncidentReportDraft>? onOpenIncidentReport;
+  final ChatbotCartHandler? onCartAction;
 
   @override
   State<ChatbotOverlayHost> createState() => _ChatbotOverlayHostState();
@@ -41,8 +45,10 @@ class _ChatbotOverlayHostState extends State<ChatbotOverlayHost> {
   @override
   void didUpdateWidget(covariant ChatbotOverlayHost oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Ẩn host (đăng xuất) cũng bỏ hội thoại cũ để không lộ sang tài khoản khác.
     if (!identical(oldWidget.repository, widget.repository) ||
-        !identical(oldWidget.contextProvider, widget.contextProvider)) {
+        !identical(oldWidget.contextProvider, widget.contextProvider) ||
+        (oldWidget.visible && !widget.visible)) {
       _controller.dispose();
       _controller = _createController();
     }
@@ -54,6 +60,7 @@ class _ChatbotOverlayHostState extends State<ChatbotOverlayHost> {
   ChatbotController _createController() => ChatbotController(
     repository: widget.repository,
     contextProvider: widget.contextProvider,
+    onCartAction: widget.onCartAction,
   );
 
   void _openPanel() => setState(() => _isPanelOpen = true);
@@ -114,7 +121,9 @@ class _ChatbotOverlayHostState extends State<ChatbotOverlayHost> {
         if (widget.visible && !_isPanelOpen)
           Positioned(
             right: 16,
-            bottom: MediaQuery.paddingOf(context).bottom + 16,
+            bottom:
+                MediaQuery.paddingOf(context).bottom +
+                widget.launcherBottomInset,
             child: ChatbotLauncher(onPressed: _openPanel),
           ),
       ],

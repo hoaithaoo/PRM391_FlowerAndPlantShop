@@ -48,26 +48,30 @@ class OrderDetailDialog extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Chi Tiết Đơn Hàng',
-                          style: GoogleFonts.cormorantGaramond(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textLight,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Chi Tiết Đơn Hàng',
+                            style: GoogleFonts.cormorantGaramond(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.textHeading,
+                            ),
                           ),
-                        ),
-                        Text(
-                          order.orderCode,
-                          style: GoogleFonts.plusJakartaSans(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.accent,
+                          Text(
+                            order.orderCode,
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.accent,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.close, color: AppColors.textMuted),
@@ -78,7 +82,10 @@ class OrderDetailDialog extends StatelessWidget {
                 const Divider(color: AppColors.border, height: 20),
 
                 // Order Meta Chips
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -96,7 +103,6 @@ class OrderDetailDialog extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
@@ -115,7 +121,6 @@ class OrderDetailDialog extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const Spacer(),
                     Text(
                       dateFormat.format(order.createdAt),
                       style: GoogleFonts.plusJakartaSans(
@@ -172,7 +177,7 @@ class OrderDetailDialog extends StatelessWidget {
                               order.customerAddress,
                               style: GoogleFonts.plusJakartaSans(
                                 fontSize: 13,
-                                color: AppColors.textLight,
+                                color: AppColors.textBody,
                               ),
                             ),
                           ),
@@ -205,7 +210,7 @@ class OrderDetailDialog extends StatelessWidget {
                   style: GoogleFonts.plusJakartaSans(
                     fontWeight: FontWeight.w700,
                     fontSize: 13,
-                    color: AppColors.textLight,
+                    color: AppColors.textHeading,
                   ),
                 ),
                 const SizedBox(height: 8),

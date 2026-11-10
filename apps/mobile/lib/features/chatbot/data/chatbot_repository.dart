@@ -9,5 +9,8 @@ abstract interface class ChatbotRepository {
 
   Future<ChatbotHistory> getHistory(String conversationId, {int page = 1});
 
+  /// Các phiên chat gần nhất của người dùng, mới nhất trước.
+  Future<List<ChatbotConversationSummary>> listConversations();
+
   Future<void> deleteConversation(String conversationId);
 }

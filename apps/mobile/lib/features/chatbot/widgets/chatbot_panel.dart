@@ -27,6 +27,35 @@ class _ChatbotPanelState extends State<ChatbotPanel> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
 
+  /// Khác null khi đang mở danh sách lịch sử chat.
+  Future<List<ChatbotConversationSummary>>? _conversations;
+
+  void _toggleHistory() {
+    setState(() {
+      _conversations = _conversations == null
+          ? widget.controller.listConversations()
+          : null;
+    });
+  }
+
+  void _openConversation(String conversationId) {
+    setState(() => _conversations = null);
+    widget.controller.resume(conversationId);
+  }
+
+  Future<void> _deleteConversation(String conversationId) async {
+    final deleted = await widget.controller.deleteConversation(conversationId);
+    if (!deleted || !mounted || _conversations == null) return;
+    setState(() {
+      _conversations = widget.controller.listConversations();
+    });
+  }
+
+  void _startNewConversation() {
+    setState(() => _conversations = null);
+    widget.controller.startNewConversation();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -48,6 +77,7 @@ class _ChatbotPanelState extends State<ChatbotPanel> {
     final message = (prompt ?? _messageController.text).trim();
     if (message.isEmpty || widget.controller.state.isBusy) return;
     _messageController.clear();
+    setState(() => _conversations = null);
     await widget.controller.send(message);
     _scrollToEnd();
   }
@@ -84,10 +114,20 @@ class _ChatbotPanelState extends State<ChatbotPanel> {
               child: Column(
                 children: <Widget>[
                   _PanelHeader(
-                    onNewConversation: widget.controller.startNewConversation,
+                    onNewConversation: _startNewConversation,
+                    onToggleHistory: state.isBusy ? null : _toggleHistory,
                     onClose: widget.onClose,
                   ),
-                  Expanded(child: _buildConversation(state)),
+                  Expanded(
+                    child: switch (_conversations) {
+                      final conversations? => _ConversationHistory(
+                        conversations: conversations,
+                        onSelected: _openConversation,
+                        onDelete: _deleteConversation,
+                      ),
+                      null => _buildConversation(state),
+                    },
+                  ),
                   if (state.errorMessage case final error?)
                     _ErrorBanner(
                       message: error,
@@ -133,9 +173,14 @@ class _ChatbotPanelState extends State<ChatbotPanel> {
 }
 
 class _PanelHeader extends StatelessWidget {
-  const _PanelHeader({required this.onNewConversation, required this.onClose});
+  const _PanelHeader({
+    required this.onNewConversation,
+    required this.onToggleHistory,
+    required this.onClose,
+  });
 
   final VoidCallback onNewConversation;
+  final VoidCallback? onToggleHistory;
   final VoidCallback onClose;
 
   @override
@@ -152,7 +197,7 @@ class _PanelHeader extends StatelessWidget {
             const CircleAvatar(
               radius: 20,
               backgroundColor: Color(0xFFE2F0E9),
-              child: Icon(Icons.auto_awesome, color: Color(0xFF132B1E)),
+              child: Icon(Icons.local_florist_outlined, color: Color(0xFF132B1E)),
             ),
             const SizedBox(width: 11),
             const Expanded(
@@ -176,6 +221,12 @@ class _PanelHeader extends StatelessWidget {
               ),
             ),
             IconButton(
+              key: const Key('chatbot-history-button'),
+              onPressed: onToggleHistory,
+              tooltip: 'Lịch sử trò chuyện',
+              icon: const Icon(Icons.history_rounded),
+            ),
+            IconButton(
               onPressed: onNewConversation,
               tooltip: 'Cuộc trò chuyện mới',
               icon: const Icon(Icons.add_comment_outlined),
@@ -189,6 +240,104 @@ class _PanelHeader extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ConversationHistory extends StatefulWidget {
+  const _ConversationHistory({
+    required this.conversations,
+    required this.onSelected,
+    required this.onDelete,
+  });
+
+  final Future<List<ChatbotConversationSummary>> conversations;
+  final ValueChanged<String> onSelected;
+  final ValueChanged<String> onDelete;
+
+  @override
+  State<_ConversationHistory> createState() => _ConversationHistoryState();
+}
+
+class _ConversationHistoryState extends State<_ConversationHistory> {
+  /// Dòng đang chờ xác nhận xóa. Panel nằm ngoài Navigator nên không dùng dialog.
+  String? _confirmingId;
+
+  Widget _deleteControls(String id) {
+    if (_confirmingId != id) {
+      return IconButton(
+        key: Key('chatbot-conversation-delete-$id'),
+        tooltip: 'Xóa cuộc trò chuyện',
+        icon: const Icon(Icons.delete_outline_rounded),
+        onPressed: () => setState(() => _confirmingId = id),
+      );
+    }
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: <Widget>[
+        TextButton(
+          onPressed: () => setState(() => _confirmingId = null),
+          child: const Text('Hủy'),
+        ),
+        TextButton(
+          key: Key('chatbot-conversation-confirm-delete-$id'),
+          style: TextButton.styleFrom(
+            foregroundColor: const Color(0xFFB5424A),
+          ),
+          onPressed: () {
+            setState(() => _confirmingId = null);
+            widget.onDelete(id);
+          },
+          child: const Text('Xóa'),
+        ),
+      ],
+    );
+  }
+
+  static String _formatDate(DateTime date) {
+    final local = date.toLocal();
+    String pad(int value) => value.toString().padLeft(2, '0');
+    return '${pad(local.day)}/${pad(local.month)}/${local.year} '
+        '${pad(local.hour)}:${pad(local.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<ChatbotConversationSummary>>(
+      future: widget.conversations,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(child: Text('Không tải được lịch sử trò chuyện.'));
+        }
+        final items = snapshot.data;
+        if (items == null) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (items.isEmpty) {
+          return const Center(child: Text('Chưa có cuộc trò chuyện nào.'));
+        }
+        return ListView.separated(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          itemCount: items.length,
+          separatorBuilder: (_, _) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final item = items[index];
+            final updatedAt = item.updatedAt;
+            return ListTile(
+              key: Key('chatbot-conversation-${item.id}'),
+              leading: const Icon(Icons.chat_bubble_outline_rounded),
+              title: Text(
+                item.title ?? 'Cuộc trò chuyện',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: updatedAt == null ? null : Text(_formatDate(updatedAt)),
+              trailing: _deleteControls(item.id),
+              onTap: () => widget.onSelected(item.id),
+            );
+          },
+        );
+      },
     );
   }
 }
@@ -330,30 +479,70 @@ class _MessageComposer extends StatelessWidget {
   }
 }
 
-class _TypingIndicator extends StatelessWidget {
+/// Ba chấm nhấp nháy lần lượt khi đang chờ trợ lý trả lời.
+class _TypingIndicator extends StatefulWidget {
   const _TypingIndicator();
 
   @override
+  State<_TypingIndicator> createState() => _TypingIndicatorState();
+}
+
+class _TypingIndicatorState extends State<_TypingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _animation = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1200),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _animation.dispose();
+    super.dispose();
+  }
+
+  double _opacityFor(int dot) {
+    final phase = (_animation.value - dot / 3) % 1;
+    return 0.35 + 0.65 * (1 - (2 * phase - 1).abs());
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const Align(
+    return Align(
       alignment: Alignment.centerLeft,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: Color(0xFFF1F7F4),
-          borderRadius: BorderRadius.all(Radius.circular(18)),
-        ),
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              SizedBox.square(
-                dimension: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
+      child: Semantics(
+        label: 'Trợ lý đang trả lời',
+        child: DecoratedBox(
+          key: const Key('chatbot-typing-indicator'),
+          decoration: const BoxDecoration(
+            color: Color(0xFFF1F7F4),
+            borderRadius: BorderRadius.all(Radius.circular(18)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: AnimatedBuilder(
+              animation: _animation,
+              builder: (context, _) => Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  for (var dot = 0; dot < 3; dot++)
+                    Padding(
+                      padding: EdgeInsets.only(left: dot == 0 ? 0 : 5),
+                      child: Opacity(
+                        opacity: _opacityFor(dot),
+                        child: const SizedBox.square(
+                          dimension: 8,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: Color(0xFF6B7770),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              SizedBox(width: 8),
-              Text('AI đang trả lời...'),
-            ],
+            ),
           ),
         ),
       ),

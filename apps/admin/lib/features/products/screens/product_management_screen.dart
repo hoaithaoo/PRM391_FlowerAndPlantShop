@@ -412,7 +412,9 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 6),
-                  Row(
+                  Wrap(
+                    spacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
                         _currencyFormat.format(p.displayPrice),
@@ -422,8 +424,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                           color: AppColors.accent,
                         ),
                       ),
-                      if (p.salePrice != null && p.salePrice! > 0) ...[
-                        const SizedBox(width: 6),
+                      if (p.salePrice != null && p.salePrice! > 0)
                         Text(
                           _currencyFormat.format(p.price),
                           style: GoogleFonts.plusJakartaSans(
@@ -432,7 +433,6 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                             decoration: TextDecoration.lineThrough,
                           ),
                         ),
-                      ],
                     ],
                   ),
                   const SizedBox(height: 8),

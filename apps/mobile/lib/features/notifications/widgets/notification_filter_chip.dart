@@ -7,12 +7,10 @@ class NotificationFilters extends StatelessWidget {
   const NotificationFilters({
     super.key,
     required this.selected,
-    required this.countFor,
     required this.onSelected,
   });
 
   final NotificationFilter selected;
-  final int Function(NotificationFilter filter) countFor;
   final ValueChanged<NotificationFilter> onSelected;
 
   @override
@@ -48,7 +46,7 @@ class NotificationFilters extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 14),
                   child: Center(
                     child: Text(
-                      '${filter.label} (${countFor(filter)})',
+                      filter.label,
                       style: TextStyle(
                         fontFamily: NotificationTextStyles.sans,
                         fontSize: 11,

@@ -61,7 +61,6 @@ class NotificationRepositoryImpl implements NotificationRepository {
 
   @override
   Stream<NotificationItem> watchNotifications() {
-    // TODO: Kết nối nguồn realtime từ backend khi API notification sẵn sàng.
     return _realtimeDataSource.watchNotifications();
   }
 }

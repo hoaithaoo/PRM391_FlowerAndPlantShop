@@ -116,15 +116,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         // Role Filter Dropdown
                         Expanded(
                           child: DropdownButtonFormField<UserRole?>(
+                            isExpanded: true,
                             initialValue: _selectedRole,
                             decoration: const InputDecoration(
                               labelText: 'Vai trò',
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
                             items: const [
-                              DropdownMenuItem(value: null, child: Text('Tất cả vai trò')),
-                              DropdownMenuItem(value: UserRole.admin, child: Text('ADMIN (Quản trị)')),
-                              DropdownMenuItem(value: UserRole.user, child: Text('USER (Khách hàng)')),
+                              DropdownMenuItem(value: null, child: Text('Tất cả', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: UserRole.admin, child: Text('ADMIN', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: UserRole.user, child: Text('USER', overflow: TextOverflow.ellipsis)),
                             ],
                             onChanged: (val) {
                               setState(() {
@@ -138,15 +139,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         // Status Filter Dropdown
                         Expanded(
                           child: DropdownButtonFormField<AccountStatus?>(
+                            isExpanded: true,
                             initialValue: _selectedStatus,
                             decoration: const InputDecoration(
                               labelText: 'Trạng thái',
                               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
                             items: const [
-                              DropdownMenuItem(value: null, child: Text('Tất cả trạng thái')),
-                              DropdownMenuItem(value: AccountStatus.active, child: Text('ACTIVE (Hoạt động)')),
-                              DropdownMenuItem(value: AccountStatus.disabled, child: Text('DISABLED (Đã khóa)')),
+                              DropdownMenuItem(value: null, child: Text('Tất cả', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: AccountStatus.active, child: Text('ACTIVE', overflow: TextOverflow.ellipsis)),
+                              DropdownMenuItem(value: AccountStatus.disabled, child: Text('DISABLED', overflow: TextOverflow.ellipsis)),
                             ],
                             onChanged: (val) {
                               setState(() {
@@ -216,57 +218,63 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
   }
 
   Widget _buildUserCard(UserProfile user) {
+    final hasValidName = user.fullName != null && user.fullName!.trim().isNotEmpty;
+    final displayName = hasValidName
+        ? user.fullName!.trim()
+        : (user.email.contains('@') ? user.email.split('@').first : 'Khách hàng');
+
     return Card(
       elevation: 0,
+      margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: const BorderSide(color: AppColors.border),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 14.0, vertical: 12.0),
         child: Row(
           children: [
             // Avatar
             CircleAvatar(
-              radius: 24,
+              radius: 22,
               backgroundColor: user.isAdmin
                   ? AppColors.primaryLight
                   : AppColors.petal500.withValues(alpha: 0.15),
               child: Text(
-                user.fullName != null && user.fullName!.isNotEmpty
-                    ? user.fullName![0].toUpperCase()
-                    : user.email[0].toUpperCase(),
+                displayName.isNotEmpty ? displayName[0].toUpperCase() : 'U',
                 style: GoogleFonts.cormorantGaramond(
-                  fontSize: 20,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: user.isAdmin ? AppColors.primary : AppColors.petal500,
                 ),
               ),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
 
             // User Info
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Row(
                     children: [
                       Flexible(
                         child: Text(
-                          user.fullName ?? 'Khách hàng',
+                          displayName,
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 15,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.textLight,
+                            color: AppColors.textHeading,
                           ),
+                          maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       // Role Badge
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: user.isAdmin ? AppColors.primaryLight : AppColors.surfacePastel,
                           borderRadius: BorderRadius.circular(4),
@@ -275,16 +283,16 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         child: Text(
                           user.role.name.toUpperCase(),
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
                             color: user.isAdmin ? AppColors.primary : AppColors.petal500,
                           ),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      const SizedBox(width: 4),
                       // Status Badge
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: user.isActive ? AppColors.forest100 : const Color(0xFFFFEBEE),
                           borderRadius: BorderRadius.circular(4),
@@ -292,30 +300,34 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                         child: Text(
                           user.status.name.toUpperCase(),
                           style: GoogleFonts.plusJakartaSans(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
                             color: user.isActive ? AppColors.primary : AppColors.statusCancelled,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     user.email,
                     style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13,
+                      fontSize: 12,
                       color: AppColors.textMuted,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  if (user.phone != null && user.phone!.isNotEmpty) ...[
+                  if (user.phone != null && user.phone!.trim().isNotEmpty) ...[
                     const SizedBox(height: 2),
                     Text(
                       'SĐT: ${user.phone}',
                       style: GoogleFonts.plusJakartaSans(
-                        fontSize: 12,
+                        fontSize: 11,
                         color: AppColors.textMuted,
                       ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ],
@@ -326,13 +338,15 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Quick Lock / Unlock Button
                 IconButton(
-                  tooltip: user.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản',
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
+                  tooltip: user.isActive ? 'Khóa tài khoản' : 'Mở khóa',
                   icon: Icon(
                     user.isActive ? Icons.lock_outline : Icons.lock_open,
                     color: user.isActive ? AppColors.statusCancelled : AppColors.statusDelivered,
-                    size: 20,
+                    size: 19,
                   ),
                   onPressed: () {
                     final nextStatus = user.isActive
@@ -343,10 +357,13 @@ class _UserManagementScreenState extends State<UserManagementScreen> {
                     );
                   },
                 ),
-                // Detail Button
+                const SizedBox(width: 4),
                 IconButton(
+                  visualDensity: VisualDensity.compact,
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
                   tooltip: 'Xem chi tiết',
-                  icon: const Icon(Icons.info_outline, color: AppColors.primary, size: 20),
+                  icon: const Icon(Icons.info_outline, color: AppColors.primary, size: 19),
                   onPressed: () {
                     showDialog(
                       context: context,

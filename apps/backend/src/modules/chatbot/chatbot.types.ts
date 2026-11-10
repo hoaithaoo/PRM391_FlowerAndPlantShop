@@ -28,6 +28,27 @@ export interface ChatbotAction {
 }
 
 /**
+ * Yêu cầu client thêm sản phẩm vào giỏ bằng token của chính người dùng.
+ * Không lưu vào metadata để mở lại lịch sử không thêm lần nữa.
+ */
+export interface ChatbotCartAction {
+  type: "ADD" | "UPDATE" | "REMOVE" | "CLEAR";
+  productId: string | null;
+  quantity: number | null;
+}
+
+/**
+ * Response của GET /conversations: các phiên chat của user, mới nhất trước.
+ */
+export interface ChatbotConversationListResult {
+  items: Array<{ id: string; title: string | null; updatedAt: string }>;
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+/**
  * Phần đi kèm câu trả lời (gợi ý sản phẩm, action), lưu vào cột metadata của tin nhắn.
  */
 export interface ChatbotMessageMetadata {
@@ -44,6 +65,7 @@ export interface SendChatbotMessageResult {
   reply: string;
   suggestedProducts: SuggestedProduct[];
   action: ChatbotAction | null;
+  cartActions: ChatbotCartAction[];
   createdAt: string;
 }
 

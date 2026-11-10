@@ -9,10 +9,16 @@ class DetailSubBar extends StatelessWidget {
     super.key,
     required this.categoryName,
     required this.onCartTap,
+    this.cartKey,
+    this.cartCount = 0,
   });
 
   final String categoryName;
   final VoidCallback onCartTap;
+
+  /// Đích của hiệu ứng bay vào giỏ.
+  final GlobalKey? cartKey;
+  final int cartCount;
 
   @override
   Widget build(BuildContext context) {
@@ -54,21 +60,48 @@ class DetailSubBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
-            IconButton(
-              key: const Key('detail-cart'),
-              onPressed: onCartTap,
-              tooltip: 'Giỏ hàng',
-              style: IconButton.styleFrom(
-                backgroundColor: AppColors.primarySoft,
-                fixedSize: const Size(40, 40),
-                padding: EdgeInsets.zero,
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-              icon: const Icon(
-                Icons.shopping_bag_outlined,
-                size: 20,
-                color: AppColors.primary,
-              ),
+            Stack(
+              key: cartKey,
+              clipBehavior: Clip.none,
+              children: [
+                IconButton(
+                  key: const Key('detail-cart'),
+                  onPressed: onCartTap,
+                  tooltip: 'Giỏ hàng',
+                  style: IconButton.styleFrom(
+                    backgroundColor: AppColors.primarySoft,
+                    fixedSize: const Size(40, 40),
+                    padding: EdgeInsets.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  icon: const Icon(
+                    Icons.shopping_bag_outlined,
+                    size: 20,
+                    color: AppColors.primary,
+                  ),
+                ),
+                if (cartCount > 0)
+                  Positioned(
+                    right: -4,
+                    top: -4,
+                    child: Container(
+                      key: const Key('detail-cart-count'),
+                      constraints: const BoxConstraints(minWidth: 18),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        cartCount > 99 ? '99+' : '$cartCount',
+                        textAlign: TextAlign.center,
+                        style: AppTextStyles.badge.copyWith(
+                          color: AppColors.textLight,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
           ],
         ),

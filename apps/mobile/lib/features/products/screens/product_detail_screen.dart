@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:plant_flower_shared/plant_flower_shared.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
+import '../../cart/state/cart_scope.dart';
+import '../data/buy_now_scope.dart';
 import '../data/product_repository.dart';
 import '../data/product_scope.dart';
 import '../widgets/common/brand_header.dart';
@@ -9,8 +11,9 @@ import '../widgets/detail/detail_image_carousel.dart';
 import '../widgets/detail/detail_info_section.dart';
 import '../widgets/detail/detail_states.dart';
 import '../widgets/detail/detail_sub_bar.dart';
+import '../widgets/detail/fly_to_cart.dart';
+import '../widgets/detail/product_purchase_sheet.dart';
 import '../widgets/detail/purchase_bar.dart';
-import '../widgets/detail/quantity_selector.dart';
 
 /// Chi tiết sản phẩm (Penpot: "Chi tiết sản phẩm - Fleuré").
 ///
@@ -26,11 +29,13 @@ class ProductDetailScreen extends StatefulWidget {
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
+enum ProductDetailResult { openCart }
+
 class _ProductDetailScreenState extends State<ProductDetailScreen> {
   ProductDetail? _product;
   ProductFailure? _failure;
   bool _loading = true;
-  int _quantity = 1;
+  final _cartIconKey = GlobalKey();
 
   /// Tăng mỗi lần tải để bỏ qua kết quả của yêu cầu đã cũ.
   int _requestId = 0;
@@ -58,7 +63,6 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       _loading = true;
       _failure = null;
       _product = null;
-      _quantity = 1;
     });
     try {
       final product = await repository.getProduct(widget.productId);
@@ -92,10 +96,43 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _share() => _showMessage('Tính năng chia sẻ sẽ sớm ra mắt');
 
-  void _openCart() => _showMessage('Giỏ hàng đang được phát triển');
+  void _openCart() => Navigator.of(context).pop(ProductDetailResult.openCart);
 
-  void _addToCart(ProductDetail product) {
-    _showMessage('Đã thêm $_quantity × ${product.name} vào giỏ hàng');
+  Future<void> _addToCart(ProductDetail product) async {
+    final quantity = await showProductPurchaseSheet(
+      context,
+      product: product,
+      confirmLabel: 'Thêm vào Giỏ hàng',
+    );
+    if (quantity == null || !mounted) return;
+    final cart = CartScope.of(context);
+    final added = await cart.addProduct(product, quantity: quantity);
+    if (!mounted) return;
+    if (added) {
+      flyToCart(
+        context,
+        target: _cartIconKey,
+        child: ProductThumbnail(
+          imageUrl: product.imageUrls.firstOrNull,
+          size: 84,
+        ),
+      );
+    }
+    _showMessage(
+      added
+          ? 'Đã thêm $quantity × ${product.name} vào giỏ hàng'
+          : cart.errorMessage ?? 'Không thể thêm sản phẩm vào giỏ hàng.',
+    );
+  }
+
+  Future<void> _buyNow(ProductDetail product) async {
+    final quantity = await showProductPurchaseSheet(
+      context,
+      product: product,
+      confirmLabel: 'Mua ngay',
+    );
+    if (quantity == null || !mounted) return;
+    BuyNowScope.maybeOf(context)?.call(product, quantity);
   }
 
   @override
@@ -113,9 +150,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
       bottomNavigationBar: product == null
           ? null
           : PurchaseBar(
-              total: product.price * _quantity,
               inStock: product.inStock,
               onAddToCart: () => _addToCart(product),
+              onBuyNow: () => _buyNow(product),
             ),
     );
   }
@@ -152,6 +189,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
           DetailSubBar(
             categoryName: product.category.name,
             onCartTap: _openCart,
+            cartKey: _cartIconKey,
+            cartCount: CartScope.of(context).totalQuantity,
           ),
           DetailImageCarousel(
             imageUrls: product.imageUrls,
@@ -161,15 +200,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                DetailInfoSection(product: product),
-                const SizedBox(height: 32),
-                QuantitySelector(
-                  quantity: _quantity,
-                  stock: product.stock,
-                  onChanged: (value) => setState(() => _quantity = value),
-                ),
-              ],
+              children: [DetailInfoSection(product: product)],
             ),
           ),
         ],

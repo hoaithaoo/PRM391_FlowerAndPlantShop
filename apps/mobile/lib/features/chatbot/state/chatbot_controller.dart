@@ -7,15 +7,21 @@ import 'chatbot_state.dart';
 
 typedef ChatbotContextProvider = ChatbotRequestContext? Function();
 
+/// Thực hiện thao tác giỏ hàng của AI. Trả về thông báo lỗi, `null` là thành công.
+typedef ChatbotCartHandler = Future<String?> Function(ChatbotCartAction action);
+
 class ChatbotController extends ChangeNotifier {
   ChatbotController({
     required ChatbotRepository repository,
     ChatbotContextProvider? contextProvider,
+    ChatbotCartHandler? onCartAction,
   }) : _repository = repository,
-       _contextProvider = contextProvider;
+       _contextProvider = contextProvider,
+       _onCartAction = onCartAction;
 
   final ChatbotRepository _repository;
   final ChatbotContextProvider? _contextProvider;
+  final ChatbotCartHandler? _onCartAction;
   ChatbotState _state = const ChatbotState();
   var _isDisposed = false;
 
@@ -40,12 +46,18 @@ class ChatbotController extends ChangeNotifier {
         message: message,
         context: _contextProvider?.call(),
       );
+      // Chạy lần lượt theo thứ tự AI trả về, dừng ở thao tác lỗi đầu tiên.
+      String? cartError;
+      for (final action in reply.cartActions) {
+        cartError = await _onCartAction?.call(action);
+        if (cartError != null) break;
+      }
       _setState(
         _state.copyWith(
           conversationId: reply.conversationId,
           messages: <ChatMessage>[..._state.messages, reply.toMessage()],
-          status: ChatbotStatus.ready,
-          errorMessage: null,
+          status: cartError == null ? ChatbotStatus.ready : ChatbotStatus.error,
+          errorMessage: cartError,
         ),
       );
     } on ChatbotFailure catch (failure) {
@@ -54,6 +66,9 @@ class ChatbotController extends ChangeNotifier {
       _setFailure(const ChatbotFailure.network());
     }
   }
+
+  Future<List<ChatbotConversationSummary>> listConversations() =>
+      _repository.listConversations();
 
   Future<void> resume(String conversationId) async {
     if (_state.isBusy || conversationId.trim().isEmpty) return;
@@ -78,6 +93,24 @@ class ChatbotController extends ChangeNotifier {
   void startNewConversation() {
     if (_state.isBusy) return;
     _setState(const ChatbotState());
+  }
+
+  /// Xóa một phiên trong lịch sử; nếu đang mở phiên đó thì về màn trống.
+  Future<bool> deleteConversation(String conversationId) async {
+    if (_state.isBusy) return false;
+    try {
+      await _repository.deleteConversation(conversationId);
+    } on ChatbotFailure catch (failure) {
+      _setFailure(failure);
+      return false;
+    } catch (_) {
+      _setFailure(const ChatbotFailure.network());
+      return false;
+    }
+    if (_state.conversationId == conversationId) {
+      _setState(const ChatbotState());
+    }
+    return true;
   }
 
   Future<void> deleteCurrentConversation() async {

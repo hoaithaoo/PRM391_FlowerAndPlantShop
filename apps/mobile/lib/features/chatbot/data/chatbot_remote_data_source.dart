@@ -74,6 +74,17 @@ class ChatbotRemoteDataSource {
     );
   }
 
+  Future<Map<String, dynamic>> listConversations({int page = 1}) async {
+    final headers = await _authenticatedHeaders();
+    return _request(
+      () => _transport.get(
+        path: conversationsEndpoint,
+        headers: headers,
+        queryParameters: <String, dynamic>{'page': page},
+      ),
+    );
+  }
+
   Future<void> deleteConversation(String conversationId) async {
     final headers = await _authenticatedHeaders();
     final encodedId = Uri.encodeComponent(conversationId);

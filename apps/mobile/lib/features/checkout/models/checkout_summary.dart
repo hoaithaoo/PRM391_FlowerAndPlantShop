@@ -28,6 +28,7 @@ class CheckoutSummary {
     required this.shippingFee,
     required this.grandTotal,
     this.discount = 0,
+    this.shippingDiscount = 0,
   });
 
   final List<CheckoutSummaryItem> items;
@@ -36,6 +37,25 @@ class CheckoutSummary {
   final num shippingFee;
   final num grandTotal;
   final num discount;
+  final num shippingDiscount;
+
+  CheckoutSummary copyWith({
+    List<CheckoutSummaryItem>? items,
+    num? subtotal,
+    num? tax,
+    num? shippingFee,
+    num? grandTotal,
+    num? discount,
+  }) {
+    return CheckoutSummary(
+      items: items ?? this.items,
+      subtotal: subtotal ?? this.subtotal,
+      tax: tax ?? this.tax,
+      shippingFee: shippingFee ?? this.shippingFee,
+      grandTotal: grandTotal ?? this.grandTotal,
+      discount: discount ?? this.discount,
+    );
+  }
 
   int get totalQuantity {
     return items.fold<int>(0, (total, item) => total + item.quantity);

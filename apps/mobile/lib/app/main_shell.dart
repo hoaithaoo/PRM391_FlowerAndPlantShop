@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
+import '../features/cart/screens/cart_screen.dart';
+import '../features/cart/state/cart_scope.dart';
 import '../features/products/screens/home_screen.dart';
 import '../features/products/screens/product_catalog_screen.dart';
+import '../features/notifications/state/notification_controller.dart';
+import '../features/notifications/state/notification_scope.dart';
 
 /// Các tab của thanh điều hướng dưới.
 enum MainTab {
   home('Trang chủ', Icons.home_outlined, Icons.home),
   products('Sản phẩm', Icons.storefront_outlined, Icons.storefront),
-  chatbot('Chatbot', Icons.auto_awesome_outlined, Icons.auto_awesome),
   cart('Giỏ hàng', Icons.shopping_bag_outlined, Icons.shopping_bag),
   account('Tài khoản', Icons.person_outline, Icons.person);
 
@@ -21,9 +24,32 @@ enum MainTab {
 
 /// Khung chính có thanh điều hướng nổi (Penpot board "Nav").
 class MainShell extends StatefulWidget {
-  const MainShell({super.key, this.initialTab = MainTab.home});
+  const MainShell({
+    super.key,
+    this.initialTab = MainTab.home,
+    this.notificationController,
+    this.onNotifications,
+    this.onSignOut,
+    this.onCheckout,
+    this.onOpenStores,
+    this.accountBuilder,
+  });
 
   final MainTab initialTab;
+  final NotificationController? notificationController;
+  final VoidCallback? onNotifications;
+
+  /// Hiện nút đăng xuất ở tab Tài khoản khi được truyền vào.
+  final VoidCallback? onSignOut;
+
+  /// Mở màn thanh toán từ giỏ hàng.
+  final VoidCallback? onCheckout;
+
+  /// Mở màn bản đồ vị trí cửa hàng từ Trang chủ.
+  final VoidCallback? onOpenStores;
+
+  /// Nội dung tab Tài khoản. Không truyền thì hiện màn tạm có nút đăng xuất.
+  final WidgetBuilder? accountBuilder;
 
   /// Chuyển sang tab Sản phẩm, chọn sẵn [categoryId] (null là "Tất cả").
   ///
@@ -32,6 +58,12 @@ class MainShell extends StatefulWidget {
     final state = context.findAncestorStateOfType<_MainShellState>();
     assert(state != null, 'Không tìm thấy MainShell phía trên widget này.');
     state?._openCatalog(categoryId);
+  }
+
+  static void openCart(BuildContext context) {
+    final state = context.findAncestorStateOfType<_MainShellState>();
+    assert(state != null, 'Không tìm thấy MainShell phía trên widget này.');
+    state?._openCart();
   }
 
   @override
@@ -53,20 +85,31 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
+  void _openCart() => setState(() => _tab = MainTab.cart);
+
   Widget _buildTab(MainTab tab) {
     return switch (tab) {
-      MainTab.home => const HomeScreen(),
+      MainTab.home => HomeScreen(onOpenStores: widget.onOpenStores),
       MainTab.products => ProductCatalogScreen(
         key: ValueKey(_catalogVersion),
         initialCategoryId: _catalogCategoryId,
       ),
-      _ => _ComingSoon(tab: tab),
+      MainTab.cart => CartScreen(
+        onContinueShopping: () => _openCatalog(null),
+        onCheckout: widget.onCheckout,
+      ),
+      MainTab.account when widget.accountBuilder != null =>
+        widget.accountBuilder!(context),
+      _ => _ComingSoon(
+        tab: tab,
+        onSignOut: tab == MainTab.account ? widget.onSignOut : null,
+      ),
     };
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final shell = Scaffold(
       extendBody: true,
       body: IndexedStack(
         index: _tab.index,
@@ -79,7 +122,18 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: AppBottomNav(
         current: _tab,
         onSelected: (tab) => setState(() => _tab = tab),
+        showCartDot: CartScope.of(context).totalQuantity > 0,
       ),
+    );
+    final notificationController = widget.notificationController;
+    final onNotifications = widget.onNotifications;
+    if (notificationController == null || onNotifications == null) {
+      return shell;
+    }
+    return NotificationScope(
+      controller: notificationController,
+      onOpen: onNotifications,
+      child: shell,
     );
   }
 }
@@ -168,7 +222,11 @@ class _NavItem extends StatelessWidget {
               Stack(
                 clipBehavior: Clip.none,
                 children: [
-                  Icon(selected ? tab.activeIcon : tab.icon, size: 20, color: color),
+                  Icon(
+                    selected ? tab.activeIcon : tab.icon,
+                    size: 20,
+                    color: color,
+                  ),
                   if (showDot)
                     const Positioned(
                       right: -2,
@@ -205,9 +263,10 @@ class _NavItem extends StatelessWidget {
 }
 
 class _ComingSoon extends StatelessWidget {
-  const _ComingSoon({required this.tab});
+  const _ComingSoon({required this.tab, this.onSignOut});
 
   final MainTab tab;
+  final VoidCallback? onSignOut;
 
   @override
   Widget build(BuildContext context) {
@@ -225,6 +284,14 @@ class _ComingSoon extends StatelessWidget {
               'Tính năng đang được phát triển.',
               style: AppTextStyles.body.copyWith(color: AppColors.textMuted),
             ),
+            if (onSignOut != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton(
+                key: const Key('account_sign_out'),
+                onPressed: onSignOut,
+                child: const Text('Đăng xuất'),
+              ),
+            ],
           ],
         ),
       ),
