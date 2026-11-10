@@ -143,26 +143,38 @@ class OrderDetailDialog extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 12,
+                        runSpacing: 4,
                         children: [
-                          const Icon(Icons.person, size: 16, color: AppColors.primary),
-                          const SizedBox(width: 6),
-                          Text(
-                            order.customerName,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontWeight: FontWeight.w700,
-                              fontSize: 14,
-                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.person, size: 16, color: AppColors.primary),
+                              const SizedBox(width: 6),
+                              Text(
+                                order.customerName,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 12),
-                          const Icon(Icons.phone, size: 14, color: AppColors.textMuted),
-                          const SizedBox(width: 4),
-                          Text(
-                            order.customerPhone,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 13,
-                              color: AppColors.textMuted,
-                            ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.phone, size: 14, color: AppColors.textMuted),
+                              const SizedBox(width: 4),
+                              Text(
+                                order.customerPhone,
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 13,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

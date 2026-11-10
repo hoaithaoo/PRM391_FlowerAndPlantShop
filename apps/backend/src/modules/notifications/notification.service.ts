@@ -20,6 +20,7 @@ const notificationSelect = {
   type: true,
   title: true,
   message: true,
+  data: true,
   isRead: true,
   createdAt: true,
 } satisfies Prisma.NotificationSelect;

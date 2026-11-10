@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:plant_flower_api_client/plant_flower_api_client.dart';
+import 'package:plant_flower_shared/plant_flower_shared.dart' show ProductReview;
 
 import '../models/profile_models.dart';
 
@@ -28,6 +29,29 @@ abstract interface class ProfileRepository {
   Future<OrderDetail> getOrder(String id);
 
   Future<void> cancelOrder(String id);
+
+  Future<IncidentReport> createIncident({
+    required String category,
+    required String title,
+    required String description,
+    String? orderId,
+  });
+
+  Future<List<IncidentReport>> listIncidents();
+
+  /// Đánh giá khách đã viết cho các sản phẩm trong đơn [orderId].
+  Future<List<ProductReview>> listMyReviews(String orderId);
+
+  Future<ProductReview> createReview({
+    required String orderId,
+    required String productId,
+    required int rating,
+    String? comment,
+    List<String> imageUrls = const [],
+  });
+
+  /// Tải một ảnh đánh giá lên kho, trả về URL công khai.
+  Future<String> uploadReviewImage(Uint8List bytes, String contentType);
 }
 
 class ApiProfileRepository implements ProfileRepository {
@@ -35,15 +59,20 @@ class ApiProfileRepository implements ProfileRepository {
     this._client, {
     required ProfileAccessTokenProvider accessTokenProvider,
     required AvatarUploader avatarUploader,
+    required AvatarUploader reviewImageUploader,
   }) : _accessTokenProvider = accessTokenProvider,
-       _avatarUploader = avatarUploader;
+       _avatarUploader = avatarUploader,
+       _reviewImageUploader = reviewImageUploader;
 
   static const _profilePath = 'api/v1/profile';
   static const _ordersPath = 'api/v1/orders';
+  static const _incidentsPath = 'api/v1/incidents';
+  static const _reviewsPath = 'api/v1/reviews';
 
   final ApiClient _client;
   final ProfileAccessTokenProvider _accessTokenProvider;
   final AvatarUploader _avatarUploader;
+  final AvatarUploader _reviewImageUploader;
 
   Future<Map<String, String>> _headers() async {
     final token = await _accessTokenProvider();
@@ -124,6 +153,79 @@ class ApiProfileRepository implements ProfileRepository {
       body: <String, dynamic>{'reason': 'Khách hủy trong ứng dụng'},
     );
   }
+
+  @override
+  Future<IncidentReport> createIncident({
+    required String category,
+    required String title,
+    required String description,
+    String? orderId,
+  }) async {
+    final response = await _client.post(
+      _incidentsPath,
+      headers: await _headers(),
+      body: <String, dynamic>{
+        'category': category,
+        'title': title,
+        'description': description,
+        'orderId': ?orderId,
+      },
+    );
+    return IncidentReport.fromJson(response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<List<IncidentReport>> listIncidents() async {
+    // Giới hạn: chỉ lấy 50 phiếu mới nhất, thêm phân trang khi khách có nhiều hơn.
+    final response = await _client.get(
+      _incidentsPath,
+      headers: await _headers(),
+      query: <String, String>{'limit': '50'},
+    );
+    final data = response.data! as Map<String, dynamic>;
+    return (data['items'] as List<dynamic>)
+        .map((item) => IncidentReport.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<List<ProductReview>> listMyReviews(String orderId) async {
+    final response = await _client.get(
+      '$_reviewsPath/mine',
+      headers: await _headers(),
+      query: <String, String>{'orderId': orderId},
+    );
+    final data = response.data! as Map<String, dynamic>;
+    return (data['items'] as List<dynamic>)
+        .map((item) => ProductReview.fromJson(item as Map<String, dynamic>))
+        .toList(growable: false);
+  }
+
+  @override
+  Future<ProductReview> createReview({
+    required String orderId,
+    required String productId,
+    required int rating,
+    String? comment,
+    List<String> imageUrls = const [],
+  }) async {
+    final response = await _client.post(
+      _reviewsPath,
+      headers: await _headers(),
+      body: <String, dynamic>{
+        'orderId': orderId,
+        'productId': productId,
+        'rating': rating,
+        'comment': ?comment,
+        'imageUrls': imageUrls,
+      },
+    );
+    return ProductReview.fromJson(response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<String> uploadReviewImage(Uint8List bytes, String contentType) =>
+      _reviewImageUploader(bytes, contentType);
 }
 
 /// Câu báo lỗi cho người dùng từ lỗi của [ProfileRepository].

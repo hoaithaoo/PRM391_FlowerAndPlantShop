@@ -20,6 +20,8 @@ export const sendChatbotMessageSchema = z
       })
       .strict()
       .optional(),
+    // Danh sách id sản phẩm yêu thích client đang giữ (nút trái tim), để chatbot xem/sửa yêu thích.
+    favoriteProductIds: z.array(z.string().uuid()).max(100).optional(),
   })
   .strict();
 

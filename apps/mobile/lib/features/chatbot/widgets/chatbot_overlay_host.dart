@@ -17,6 +17,8 @@ class ChatbotOverlayHost extends StatefulWidget {
     this.onProductTap,
     this.onOpenIncidentReport,
     this.onCartAction,
+    this.onFavoriteAction,
+    this.favoriteIdsProvider,
   });
 
   final ChatbotRepository repository;
@@ -27,6 +29,12 @@ class ChatbotOverlayHost extends StatefulWidget {
   final ValueChanged<String>? onProductTap;
   final ValueChanged<IncidentReportDraft>? onOpenIncidentReport;
   final ChatbotCartHandler? onCartAction;
+
+  /// Thao tác yêu thích từ chatbot; null thì chatbot báo chưa hỗ trợ.
+  final ChatbotFavoriteHandler? onFavoriteAction;
+
+  /// Id sản phẩm đang yêu thích, gửi kèm để chatbot biết danh sách hiện tại.
+  final ChatbotFavoriteIdsProvider? favoriteIdsProvider;
 
   @override
   State<ChatbotOverlayHost> createState() => _ChatbotOverlayHostState();
@@ -61,6 +69,8 @@ class _ChatbotOverlayHostState extends State<ChatbotOverlayHost> {
     repository: widget.repository,
     contextProvider: widget.contextProvider,
     onCartAction: widget.onCartAction,
+    onFavoriteAction: widget.onFavoriteAction,
+    favoriteIdsProvider: widget.favoriteIdsProvider,
   );
 
   void _openPanel() => setState(() => _isPanelOpen = true);

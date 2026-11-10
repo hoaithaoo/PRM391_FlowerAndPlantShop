@@ -12,8 +12,11 @@ import {
   ChatbotConversationRecord,
   ChatbotExchangeInput,
   ChatbotExchangeResult,
+  ChatbotIncidentSummary,
   ChatbotKnowledgeChunk,
+  ChatbotOrderSummary,
   ChatbotRepository,
+  ChatbotStoreInfo,
   OwnedOrderContext,
   OwnedPaymentContext,
   SearchKnowledgeInput,
@@ -65,6 +68,24 @@ class FakeRepository implements ChatbotRepository {
   databaseNow = NOW;
   knowledgeChunks: ChatbotKnowledgeChunk[] = [];
   searchRequests: SearchKnowledgeInput[] = [];
+  orderSummaries: Array<ChatbotOrderSummary & { userId: string }> = [];
+  incidentSummaries: Array<ChatbotIncidentSummary & { userId: string }> = [];
+  incidentFailure: Error | null = null;
+  stores: ChatbotStoreInfo[] = [];
+  storeFailure: Error | null = null;
+
+  async listActiveStores(): Promise<ChatbotStoreInfo[]> {
+    if (this.storeFailure) throw this.storeFailure;
+    return this.stores;
+  }
+
+  faqs: Array<{ topic: string; answer: string }> = [];
+  faqFailure: Error | null = null;
+
+  async listActiveFaqs() {
+    if (this.faqFailure) throw this.faqFailure;
+    return this.faqs;
+  }
 
   async findOwnedConversation(id: string, userId: string): Promise<ChatbotConversationRecord | null> {
     const conversation = this.conversations.get(id);
@@ -77,6 +98,10 @@ class FakeRepository implements ChatbotRepository {
 
   async findProductById(id: string): Promise<ChatbotCatalogProduct | null> {
     return this.products.find((product) => product.id === id) ?? null;
+  }
+
+  async findProductsByIds(ids: string[]): Promise<ChatbotCatalogProduct[]> {
+    return this.products.filter((product) => ids.includes(product.id));
   }
 
   async listCatalogProducts(): Promise<ChatbotCatalogProduct[]> {
@@ -96,6 +121,19 @@ class FakeRepository implements ChatbotRepository {
   async findOwnedPayment(userId: string, id: string): Promise<OwnedPaymentContext | null> {
     const payment = this.payments.get(id);
     return payment?.userId === userId ? payment : null;
+  }
+
+  async listOwnedOrders(userId: string, orderNumbers: string[], limit: number): Promise<ChatbotOrderSummary[]> {
+    const owned = this.orderSummaries.filter((order) => order.userId === userId);
+    return owned.filter((order, index) => index < limit || orderNumbers.includes(order.orderNumber))
+      .map(({ userId: _owner, ...order }) => order);
+  }
+
+  async listOwnedIncidents(userId: string, codes: string[], limit: number): Promise<ChatbotIncidentSummary[]> {
+    if (this.incidentFailure) throw this.incidentFailure;
+    const owned = this.incidentSummaries.filter((incident) => incident.userId === userId);
+    return owned.filter((incident, index) => index < limit || codes.includes(incident.code))
+      .map(({ userId: _owner, ...incident }) => incident);
   }
 
   async createExchange(input: ChatbotExchangeInput): Promise<ChatbotExchangeResult> {
@@ -370,6 +408,97 @@ describe("ChatbotService.sendMessage", () => {
     assert.deepEqual(repository.exchanges[0]?.assistantMetadata.action, result.action);
   });
 
+  test("passes the user's own orders and incidents and links a typed order number to the incident draft", async () => {
+    const repository = new FakeRepository();
+    const order = {
+      id: ORDER_ID,
+      orderNumber: "ORD-20261111-ABCDEF123456",
+      status: "SHIPPING",
+      paymentMethod: "COD",
+      invoiceStatus: "ISSUED",
+      totalAmount: "250000",
+      isPickup: false,
+      items: [{ name: "Bó hồng", quantity: 1 }],
+      createdAt: NOW,
+      completedAt: null,
+      cancelledAt: null,
+    };
+    repository.orderSummaries = [
+      { ...order, userId: USER_ID },
+      { ...order, id: PAYMENT_ID, orderNumber: "ORD-20261111-000000000000", userId: OTHER_USER_ID },
+    ];
+    repository.incidentSummaries = [
+      {
+        userId: USER_ID,
+        code: "SC-20261111-A1B2C3",
+        category: "DELIVERY",
+        title: "Giao trễ",
+        status: "IN_PROGRESS",
+        adminNote: "Đang liên hệ shipper",
+        orderNumber: order.orderNumber,
+        createdAt: NOW,
+        resolvedAt: null,
+      },
+    ];
+    const provider = new FakeProvider({
+      responseType: "INCIDENT",
+      reply: "Mình đã soạn phiếu cho đơn này.",
+      suggestedProductIds: [],
+      actionDraft: { category: "DELIVERY", title: "Giao trễ", description: "Chưa nhận hàng." },
+    });
+
+    const result = await service(repository, provider).sendMessage(USER_ID, {
+      message: "đơn ord-20261111-abcdef123456 giao trễ quá",
+    });
+
+    const input = provider.calls[0]!;
+    assert.deepEqual(input.customerOrders?.map((o) => o.orderNumber), [order.orderNumber]);
+    assert.equal(input.customerOrders?.[0]?.createdAt, NOW.toISOString());
+    assert.equal(input.incidentReports?.[0]?.adminNote, "Đang liên hệ shipper");
+    assert.equal(input.incidentContext?.orderId, ORDER_ID);
+    assert.equal(input.incidentContext?.source, "CHAT_MESSAGE");
+    assert.equal(result.action?.draft.orderId, ORDER_ID);
+    assert.equal(result.reply, "Mình đã soạn phiếu cho đơn này.");
+  });
+
+  test("ACCOUNT reply without any order or incident data is replaced", async () => {
+    const repository = new FakeRepository();
+    repository.incidentFailure = new Error("relation incident_reports does not exist");
+    const provider = new FakeProvider({
+      responseType: "ACCOUNT",
+      reply: "Đơn của bạn đang được giao.",
+      suggestedProductIds: [],
+      actionDraft: null,
+    });
+
+    const result = await service(repository, provider).sendMessage(USER_ID, { message: "đơn của tôi tới đâu rồi" });
+
+    assert.match(result.reply, /chưa thấy đơn hàng/u);
+    assert.equal(result.action, null);
+  });
+
+  test("drafts an incident without order context but replaces the unverified reply", async () => {
+    const repository = new FakeRepository();
+    const provider = new FakeProvider({
+      responseType: "INCIDENT",
+      reply: "Đơn của bạn đã được hoàn tiền.",
+      suggestedProductIds: [],
+      actionDraft: { category: "hoa-bi-heo", title: "Hoa bị héo", description: "Hoa nhận về đã héo." },
+    });
+
+    const result = await service(repository, provider).sendMessage(USER_ID, { message: "Hoa tôi nhận bị héo" });
+
+    assert.doesNotMatch(result.reply, /hoàn tiền/u);
+    assert.deepEqual(result.action?.draft, {
+      category: "OTHER",
+      title: "Hoa bị héo",
+      description: "Hoa nhận về đã héo.",
+      orderId: null,
+      paymentId: null,
+      conversationId: CONVERSATION_ID,
+    });
+  });
+
   test("retrieves knowledge before generation and exposes only retrieved products", async () => {
     const repository = new FakeRepository();
     repository.knowledgeChunks = [
@@ -565,6 +694,92 @@ describe("ChatbotService.sendMessage", () => {
     await assert.rejects(chatbot.sendMessage(USER_ID, { message: "Tin ngay sau khi xóa" }), (error: unknown) => {
       return error instanceof AppError && error.code === "CHATBOT_RATE_LIMITED";
     });
+  });
+
+  test("answers store FAQ from store data even with an empty product catalog", async () => {
+    const repository = new FakeRepository();
+    repository.stores = [{ name: "Nhà Có Hoa Q1", address: "1 Lê Lợi", phone: "0900000000", openingHours: "8:00-21:00" }];
+    const provider = new FakeProvider({
+      responseType: "FAQ",
+      reply: "Phí giao trong 2 km là 15.000đ.",
+      suggestedProductIds: [PRODUCT_ID],
+      actionDraft: null,
+    });
+
+    const result = await service(repository, provider).sendMessage(USER_ID, { message: "Phí ship bao nhiêu?" });
+
+    assert.equal(result.reply, "Phí giao trong 2 km là 15.000đ.");
+    assert.deepEqual(result.suggestedProducts, []);
+    assert.deepEqual(provider.calls[0]?.stores, repository.stores);
+  });
+
+  test("still chats when stores cannot be loaded", async () => {
+    const repository = new FakeRepository();
+    repository.storeFailure = new Error("db down");
+    const provider = new FakeProvider();
+
+    await service(repository, provider).sendMessage(USER_ID, { message: "Cửa hàng ở đâu?" });
+
+    assert.deepEqual(provider.calls[0]?.stores, []);
+  });
+
+  test("uses admin FAQ from the database when present", async () => {
+    const repository = new FakeRepository();
+    repository.faqs = [{ topic: "Đổi trả", answer: "Đổi trong 24 giờ nếu hoa héo." }];
+    const provider = new FakeProvider();
+
+    await service(repository, provider).sendMessage(USER_ID, { message: "Có đổi trả không?" });
+
+    assert.deepEqual(provider.calls[0]?.storeFaq, repository.faqs);
+  });
+
+  test("still chats with no FAQ when the FAQ table cannot be read", async () => {
+    const repository = new FakeRepository();
+    repository.faqFailure = new Error('relation "store_faqs" does not exist');
+    const provider = new FakeProvider();
+
+    await service(repository, provider).sendMessage(USER_ID, { message: "Phí ship bao nhiêu?" });
+
+    assert.deepEqual(provider.calls[0]?.storeFaq, []);
+  });
+
+  test("passes DB-verified favorites and returns favorite actions without persisting them", async () => {
+    const repository = new FakeRepository();
+    repository.products = [product()];
+    const favoriteActions = [{ type: "REMOVE" as const, productId: PRODUCT_ID }];
+    const provider = new FakeProvider({
+      responseType: "FAVORITE",
+      reply: "Đã bỏ khỏi yêu thích.",
+      suggestedProductIds: [],
+      actionDraft: null,
+      favoriteActions,
+    });
+
+    const result = await service(repository, provider).sendMessage(USER_ID, {
+      message: "Bỏ cây lưỡi hổ khỏi yêu thích",
+      // Id thứ hai không có trong DB nên bị bỏ qua.
+      favoriteProductIds: [PRODUCT_ID, ORDER_ID],
+    });
+
+    assert.deepEqual(provider.calls[0]?.favoriteItems, [
+      { productId: PRODUCT_ID, name: "Cây Lưỡi Hổ Mini", price: "120000" },
+    ]);
+    assert.deepEqual(result.favoriteActions, favoriteActions);
+    assert.equal("favoriteActions" in repository.exchanges[0]!.assistantMetadata, false);
+  });
+
+  test("drops favorite actions for non-favorite responses", async () => {
+    const provider = new FakeProvider({
+      responseType: "ANSWER",
+      reply: "Bạn tham khảo nhé.",
+      suggestedProductIds: [],
+      actionDraft: null,
+      favoriteActions: [{ type: "CLEAR", productId: null }],
+    });
+
+    const result = await service(new FakeRepository(), provider).sendMessage(USER_ID, { message: "Tư vấn hoa" });
+
+    assert.deepEqual(result.favoriteActions, []);
   });
 });
 

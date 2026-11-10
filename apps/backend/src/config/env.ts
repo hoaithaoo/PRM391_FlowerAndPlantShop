@@ -14,9 +14,12 @@ const envSchema = z
     // Backward-compatible fallbacks while Supabase phases out legacy keys.
     SUPABASE_ANON_KEY: z.string().min(1).optional(),
     SEPAY_WEBHOOK_SECRET: z.string().optional(),
+    // Tài khoản nhận tiền đã liên kết SePay; thiếu thì app không có ảnh QR, chỉ hiện thông tin chuyển khoản.
+    SEPAY_BANK_ACCOUNT: z.string().min(1).optional(),
+    SEPAY_BANK_CODE: z.string().min(1).optional(),
     CORS_ORIGIN: z.string().default("*"),
     GEMINI_API_KEY: z.string().min(1).optional(),
-    GEMINI_MODEL: z.string().min(1).default("gemini-3.6-flash"),
+    GEMINI_MODEL: z.string().min(1).default("gemini-3.5-flash-lite"),
     GEMINI_EMBEDDING_MODEL: z.string().min(1).default("gemini-embedding-2"),
     GEMINI_API_BASE_URL: z.string().url().default("https://generativelanguage.googleapis.com/v1beta"),
     GEMINI_TIMEOUT_MS: z.coerce.number().int().positive().default(15000),

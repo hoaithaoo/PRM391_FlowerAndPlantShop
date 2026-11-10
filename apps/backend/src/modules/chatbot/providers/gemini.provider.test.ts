@@ -158,6 +158,53 @@ describe("GeminiChatbotProvider", () => {
     });
   });
 
+  describe("favoriteActions", () => {
+    const FAVORITE_PRODUCT_ID = "44444444-4444-4444-8444-444444444444";
+    const favoriteInput = {
+      ...input,
+      favoriteItems: [{ productId: FAVORITE_PRODUCT_ID, name: "Bó cúc", price: "180000" }],
+    };
+    const generate = (favoriteActions: unknown[], overrides: Record<string, unknown> = {}, source = favoriteInput) =>
+      providerWith(async () =>
+        geminiResponse({
+          responseType: "FAVORITE",
+          reply: "Đã cập nhật yêu thích.",
+          suggestedProductIds: [],
+          actionDraft: null,
+          favoriteActions,
+          ...overrides,
+        })
+      ).generate(source);
+
+    test("accepts ADD from catalog, REMOVE from favorites and CLEAR", async () => {
+      assert.deepEqual((await generate([{ type: "ADD", productId: PRODUCT_ID }])).favoriteActions, [
+        { type: "ADD", productId: PRODUCT_ID },
+      ]);
+      assert.deepEqual((await generate([{ type: "REMOVE", productId: FAVORITE_PRODUCT_ID }])).favoriteActions, [
+        { type: "REMOVE", productId: FAVORITE_PRODUCT_ID },
+      ]);
+      assert.deepEqual((await generate([{ type: "CLEAR" }])).favoriteActions, [{ type: "CLEAR", productId: null }]);
+    });
+
+    test("drops the whole batch and the success claim when one action is invalid", async () => {
+      for (const actions of [
+        [{ type: "ADD", productId: UNKNOWN_PRODUCT_ID }],
+        [{ type: "REMOVE", productId: PRODUCT_ID }],
+        [{ type: "REMOVE", productId: FAVORITE_PRODUCT_ID }, { type: "ADD", productId: UNKNOWN_PRODUCT_ID }],
+      ]) {
+        const result = await generate(actions);
+        assert.deepEqual(result.favoriteActions, []);
+        assert.notEqual(result.reply, "Đã cập nhật yêu thích.");
+      }
+      assert.deepEqual((await generate([{ type: "CLEAR" }], {}, { ...favoriteInput, favoriteItems: [] })).favoriteActions, []);
+    });
+
+    test("ignores favoriteActions outside FAVORITE responses", async () => {
+      const result = await generate([{ type: "CLEAR" }], { responseType: "ANSWER" });
+      assert.deepEqual(result.favoriteActions, []);
+    });
+  });
+
   test("returns an editable incident draft from valid structured output", async () => {
     const provider = providerWith(async () =>
       geminiResponse({
