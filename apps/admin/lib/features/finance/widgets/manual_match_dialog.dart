@@ -50,12 +50,14 @@ class _ManualMatchDialogState extends State<ManualMatchDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'ĐỐI SOÁT GIAO DỊCH TAY',
-                      style: GoogleFonts.cormorantGaramond(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary,
+                    Expanded(
+                      child: Text(
+                        'ĐỐI SOÁT GIAO DỊCH TAY',
+                        style: GoogleFonts.cormorantGaramond(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                     IconButton(
@@ -80,14 +82,19 @@ class _ManualMatchDialogState extends State<ManualMatchDialog> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            widget.transaction.referenceCode,
-                            style: GoogleFonts.plusJakartaSans(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.textHeading,
+                          Expanded(
+                            child: Text(
+                              widget.transaction.referenceCode,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.textHeading,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Text(
                             currencyFormat.format(widget.transaction.amountIn),
                             style: GoogleFonts.plusJakartaSans(

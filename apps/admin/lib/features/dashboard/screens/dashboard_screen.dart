@@ -551,7 +551,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         style: GoogleFonts.plusJakartaSans(fontSize: 10, color: AppColors.textMuted),
                       ),
                       const SizedBox(height: 2),
-                      Row(
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 4,
+                        runSpacing: 2,
                         children: [
                           Text(
                             '+${_currencyFormat.format(totalMonthlyProfit)}',
@@ -561,7 +564,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               color: AppColors.statusDelivered,
                             ),
                           ),
-                          const SizedBox(width: 4),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                             decoration: BoxDecoration(
