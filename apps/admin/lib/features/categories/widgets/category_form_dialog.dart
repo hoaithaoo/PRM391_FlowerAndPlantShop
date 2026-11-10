@@ -93,12 +93,13 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       backgroundColor: Colors.white,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.symmetric(horizontal: 18.0, vertical: 20.0),
           child: Form(
             key: _formKey,
             child: SingleChildScrollView(
@@ -114,7 +115,7 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
                         style: GoogleFonts.cormorantGaramond(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.textLight,
+                          color: AppColors.textHeading,
                         ),
                       ),
                       IconButton(
@@ -131,7 +132,7 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textLight,
+                      color: AppColors.textHeading,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -160,7 +161,7 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textLight,
+                      color: AppColors.textHeading,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -186,7 +187,7 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textLight,
+                      color: AppColors.textHeading,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -215,7 +216,7 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textLight,
+                      color: AppColors.textHeading,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -230,14 +231,15 @@ class _CategoryFormDialogState extends State<CategoryFormDialog> {
                   const SizedBox(height: 24),
 
                   // Action Buttons
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
+                  Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: [
                       OutlinedButton(
                         onPressed: () => Navigator.of(context).pop(),
                         child: const Text('Hủy bỏ'),
                       ),
-                      const SizedBox(width: 12),
                       ElevatedButton(
                         onPressed: _save,
                         style: ElevatedButton.styleFrom(

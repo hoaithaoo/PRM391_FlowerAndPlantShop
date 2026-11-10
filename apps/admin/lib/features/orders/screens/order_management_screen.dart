@@ -243,9 +243,13 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> with Sing
               children: [
                 const Icon(Icons.person_outline, size: 16, color: AppColors.textMuted),
                 const SizedBox(width: 6),
-                Text(
-                  '${o.customerName} • ${o.customerPhone}',
-                  style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+                Expanded(
+                  child: Text(
+                    '${o.customerName} • ${o.customerPhone}',
+                    style: GoogleFonts.plusJakartaSans(fontSize: 13, fontWeight: FontWeight.w600),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ],
             ),
@@ -301,64 +305,93 @@ class _OrderManagementScreenState extends State<OrderManagementScreen> with Sing
               ),
             ],
 
-            const SizedBox(height: 14),
-            // Total & Change Status Action
+            const SizedBox(height: 12),
+            const Divider(height: 1, color: AppColors.border),
+            const SizedBox(height: 12),
+
+            // Total Amount Row (Left: Label + items count, Right: Big Bold Price)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tổng thanh toán:',
-                      style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textMuted),
-                    ),
-                    Text(
-                      _currencyFormat.format(o.totalAmount),
-                      style: GoogleFonts.plusJakartaSans(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.accent,
-                      ),
-                    ),
-                  ],
+                Text(
+                  'Tổng thanh toán (${o.items.length} món):',
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 12,
+                    color: AppColors.textMuted,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    OutlinedButton.icon(
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (_) => OrderDetailDialog(order: o),
-                        );
-                      },
-                      icon: const Icon(Icons.receipt_outlined, size: 16),
-                      label: const Text('Chi tiết'),
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                Text(
+                  _currencyFormat.format(o.totalAmount),
+                  style: GoogleFonts.plusJakartaSans(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.accent,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            // Action Buttons Row (Chi tiết 50% & Đổi trạng thái 50%, cân đối chuẩn UI)
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => OrderDetailDialog(order: o),
+                      );
+                    },
+                    icon: const Icon(Icons.receipt_outlined, size: 16),
+                    label: Text(
+                      'Chi tiết',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        showDialog(
-                          context: context,
-                          builder: (_) => BlocProvider.value(
-                            value: context.read<OrderBloc>(),
-                            child: OrderStatusDialog(order: o),
-                          ),
-                        );
-                      },
-                      icon: const Icon(Icons.sync_alt, size: 16),
-                      label: const Text('Đổi trạng thái'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: AppColors.textLight,
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      ),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      side: const BorderSide(color: AppColors.border),
+                      foregroundColor: AppColors.textHeading,
                     ),
-                  ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      showDialog(
+                        context: context,
+                        builder: (_) => BlocProvider.value(
+                          value: context.read<OrderBloc>(),
+                          child: OrderStatusDialog(order: o),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.sync_alt, size: 16),
+                    label: Text(
+                      'Đổi trạng thái',
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      elevation: 0,
+                    ),
+                  ),
                 ),
               ],
             ),

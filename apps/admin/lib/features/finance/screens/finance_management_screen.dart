@@ -337,20 +337,27 @@ class _FinanceManagementScreenState extends State<FinanceManagementScreen>
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.receipt, color: AppColors.primary, size: 20),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        inv.invoiceNumber,
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.textHeading,
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.receipt, color: AppColors.primary, size: 20),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            inv.invoiceNumber,
+                                            style: GoogleFonts.plusJakartaSans(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                              color: AppColors.textHeading,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
@@ -373,10 +380,15 @@ class _FinanceManagementScreenState extends State<FinanceManagementScreen>
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    '${inv.customerName} • Đơn: ${inv.orderCode}',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+                                  Expanded(
+                                    child: Text(
+                                      '${inv.customerName} • Đơn: ${inv.orderCode}',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Text(
                                     _dateFormat.format(inv.issuedAt),
                                     style: GoogleFonts.plusJakartaSans(fontSize: 11, color: AppColors.textMuted),
@@ -387,10 +399,15 @@ class _FinanceManagementScreenState extends State<FinanceManagementScreen>
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(
-                                    'VAT (${(inv.taxRate * 100).toInt()}%): ${_currencyFormat.format(inv.taxAmount)}',
-                                    style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textBody),
+                                  Expanded(
+                                    child: Text(
+                                      'VAT (${(inv.taxRate * 100).toInt()}%): ${_currencyFormat.format(inv.taxAmount)}',
+                                      style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textBody),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
+                                  const SizedBox(width: 8),
                                   Text(
                                     _currencyFormat.format(inv.totalAmount),
                                     style: GoogleFonts.plusJakartaSans(
@@ -604,34 +621,41 @@ class _FinanceManagementScreenState extends State<FinanceManagementScreen>
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: AppColors.primaryLight,
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        txn.bankName,
-                                        style: GoogleFonts.plusJakartaSans(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: AppColors.primary,
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: AppColors.primaryLight,
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          txn.bankName,
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.primary,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      txn.referenceCode,
-                                      style: GoogleFonts.plusJakartaSans(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w700,
-                                        color: AppColors.textHeading,
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          txn.referenceCode,
+                                          style: GoogleFonts.plusJakartaSans(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w700,
+                                            color: AppColors.textHeading,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
+                                const SizedBox(width: 8),
                                 Text(
                                   '+${_currencyFormat.format(txn.amountIn)}',
                                   style: GoogleFonts.plusJakartaSans(
@@ -664,8 +688,11 @@ class _FinanceManagementScreenState extends State<FinanceManagementScreen>
                             const SizedBox(height: 10),
 
                             // Bottom info & matching action
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 8,
                               children: [
                                 Text(
                                   _dateFormat.format(txn.transactionDate),
