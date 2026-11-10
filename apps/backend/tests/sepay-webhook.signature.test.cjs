@@ -65,3 +65,37 @@ test("signature verification reports missing server configuration", () => {
     hasError(503, "SERVICE_UNAVAILABLE")
   );
 });
+
+test("API Key auth accepts the configured key and rejects others", () => {
+  assert.ifError(loadError);
+  const verifier = new SepaySignatureVerifier(undefined, () => nowMs, "sepay-api-key");
+  assert.doesNotThrow(() =>
+    verifier.verify(rawBody, undefined, undefined, "Apikey sepay-api-key")
+  );
+  assert.throws(
+    () => verifier.verify(rawBody, undefined, undefined, "Apikey wrong-key"),
+    (error) => hasError(401, "SEPAY_SIGNATURE_INVALID")(error) && error.reason === "apikey_mismatch"
+  );
+  assert.throws(
+    () => verifier.verify(rawBody, undefined, undefined, undefined),
+    hasError(401, "SEPAY_SIGNATURE_INVALID")
+  );
+});
+
+test("signed requests always use HMAC even when an API key is configured", () => {
+  assert.ifError(loadError);
+  const verifier = new SepaySignatureVerifier(secret, () => nowMs, "sepay-api-key");
+  assert.doesNotThrow(() => verifier.verify(rawBody, sign(rawBody), timestamp));
+  assert.throws(
+    () => verifier.verify(rawBody, "sha256=" + "0".repeat(64), timestamp, "Apikey sepay-api-key"),
+    (error) => error.reason === "hmac_mismatch"
+  );
+});
+
+test("rejections carry a diagnostic reason", () => {
+  assert.ifError(loadError);
+  const verifier = new SepaySignatureVerifier(secret, () => nowMs);
+  assert.throws(() => verifier.verify(rawBody, undefined, undefined), (e) => e.reason === "missing_signature_headers");
+  const stale = String(Number(timestamp) - 301);
+  assert.throws(() => verifier.verify(rawBody, sign(rawBody, stale), stale), (e) => e.reason === "stale_timestamp");
+});

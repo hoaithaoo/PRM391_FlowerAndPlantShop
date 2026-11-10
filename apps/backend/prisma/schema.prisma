@@ -91,6 +91,7 @@ model Profile {
   notifications        Notification[]
   chatbotConversations ChatbotConversation[]
   chatbotRateLimit     ChatbotRateLimit?
+  favorites            Favorite[]
   addresses            UserAddress[]
   voucherRedemptions   VoucherRedemption[]
 
@@ -128,6 +129,7 @@ model Product {
   updatedAt   DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   category        Category                @relation(fields: [categoryId], references: [id])
+  favorites       Favorite[]
   cartItems       CartItem[]
   orderItems      OrderItem[]
   invoiceItems    InvoiceItem[]
@@ -468,4 +470,20 @@ model VoucherRedemption {
   @@index([voucherId, userId])
   @@index([userId])
   @@map("voucher_redemptions")
+}
+
+// Sản phẩm yêu thích được lưu riêng theo từng hồ sơ.
+model Favorite {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  profileId String   @map("profile_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, productId])
+  @@index([profileId, createdAt])
+  @@index([productId])
+  @@map("favorites")
 }

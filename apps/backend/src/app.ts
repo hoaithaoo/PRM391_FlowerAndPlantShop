@@ -17,6 +17,7 @@ import {
 } from "./modules/products/product.routes";
 import { storeRoutes } from "./modules/stores/store.routes";
 import { cartRoutes } from "./modules/carts/cart.routes";
+import { favoriteRoutes } from "./modules/favorites/favorite.routes";
 import { cartService } from "./modules/carts/cart.service";
 import { checkoutRoutes } from "./modules/checkout/checkout.routes";
 import { notificationRoutes } from "./modules/notifications/notification.routes";
@@ -111,7 +112,15 @@ export const createApp = (): Application => {
       },
     })
   );
-  app.use(express.urlencoded({ extended: true }));
+  app.use(
+    express.urlencoded({
+      extended: true,
+      // SePay có thể gửi webhook dạng form và ký trên chuỗi form gốc.
+      verify: (req, _res, buffer) => {
+        (req as Request).rawBody = Buffer.from(buffer);
+      },
+    })
+  );
 
   // 2. Health check route
   app.get("/health", (_req: Request, res: Response) => {
@@ -131,6 +140,7 @@ export const createApp = (): Application => {
   app.use("/api/v1/admin/products", adminProductRoutes);
   app.use("/api/v1/stores", storeRoutes);
   app.use("/api/v1/cart", cartRoutes);
+  app.use("/api/v1/favorites", favoriteRoutes);
   app.use("/api/v1/checkout", checkoutRoutes);
   app.use("/api/v1/vouchers", voucherRoutes);
   app.use("/api/v1/orders", orderRoutes);

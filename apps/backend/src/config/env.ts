@@ -14,6 +14,8 @@ const envSchema = z
     // Backward-compatible fallbacks while Supabase phases out legacy keys.
     SUPABASE_ANON_KEY: z.string().min(1).optional(),
     SEPAY_WEBHOOK_SECRET: z.string().optional(),
+    // Dùng khi webhook SePay đặt kiểu chứng thực "API Key" thay vì HMAC.
+    SEPAY_WEBHOOK_API_KEY: z.string().min(1).optional(),
     CORS_ORIGIN: z.string().default("*"),
     GEMINI_API_KEY: z.string().min(1).optional(),
     GEMINI_MODEL: z.string().min(1).default("gemini-3.6-flash"),
