@@ -27,6 +27,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
   late final TextEditingController _salePriceController;
   late final TextEditingController _stockController;
   late final TextEditingController _descController;
+  late final TextEditingController _imageUrlController;
   String? _selectedCategoryId;
 
   bool get isEditing => widget.product != null;
@@ -51,13 +52,23 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
     _descController = TextEditingController(
       text: widget.product?.description ?? '',
     );
+    _imageUrlController = TextEditingController(
+      text: widget.product?.imageUrl ?? '',
+    );
+    _imageUrlController.addListener(_onImageUrlChanged);
     _selectedCategoryId =
         widget.product?.categoryId ??
         (widget.categories.isNotEmpty ? widget.categories.first.id : null);
   }
 
+  void _onImageUrlChanged() {
+    setState(() {});
+  }
+
   @override
   void dispose() {
+    _imageUrlController.removeListener(_onImageUrlChanged);
+    _imageUrlController.dispose();
     _nameController.dispose();
     _priceController.dispose();
     _salePriceController.dispose();
@@ -75,6 +86,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
           : null;
       final stock = int.tryParse(_stockController.text.trim()) ?? 0;
       final desc = _descController.text.trim();
+      final imageUrl = _imageUrlController.text.trim();
 
       CategoryModel? cat;
       try {
@@ -91,9 +103,7 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
         stock: stock,
         categoryId: _selectedCategoryId,
         categoryName: cat?.name,
-        imageUrl:
-            widget.product?.imageUrl ??
-            'https://images.unsplash.com/photo-1508615039623-a25605d2b022?w=500',
+        imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
       );
 
       if (isEditing) {
@@ -103,6 +113,95 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
       }
       Navigator.of(context).pop();
     }
+  }
+
+  Widget _buildImagePreview() {
+    final url = _imageUrlController.text.trim();
+    final isValidUrl = url.isNotEmpty &&
+        (url.startsWith('http://') || url.startsWith('https://'));
+
+    return Container(
+      width: double.infinity,
+      height: 150,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE9ECEF)),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: isValidUrl
+            ? Image.network(
+                url,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: SizedBox(
+                      width: 28,
+                      height: 28,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.5,
+                        color: AppColors.primary,
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.broken_image_outlined,
+                        color: Colors.amber.shade700,
+                        size: 36,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Không thể tải ảnh từ liên kết này',
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.textMuted,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              )
+            : Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.add_photo_alternate_outlined,
+                    color: Colors.grey.shade400,
+                    size: 38,
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Chưa có ảnh sản phẩm',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Dán đường dẫn ảnh bên dưới để xem trước',
+                    style: GoogleFonts.plusJakartaSans(
+                      fontSize: 11,
+                      color: Colors.grey.shade500,
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
   }
 
   @override
@@ -155,6 +254,43 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                     ],
                   ),
                   const Divider(height: 24),
+
+                  // Khung xem trước hình ảnh
+                  _buildImagePreview(),
+                  const SizedBox(height: 14),
+
+                  // Đường dẫn hình ảnh
+                  TextFormField(
+                    controller: _imageUrlController,
+                    keyboardType: TextInputType.url,
+                    decoration: InputDecoration(
+                      labelText: 'Đường dẫn hình ảnh (URL) *',
+                      hintText: 'https://images.unsplash.com/...',
+                      prefixIcon: const Icon(Icons.link),
+                      suffixIcon: _imageUrlController.text.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear, size: 20),
+                              onPressed: () {
+                                _imageUrlController.clear();
+                              },
+                            )
+                          : null,
+                    ),
+                    validator: (v) {
+                      if (v == null || v.trim().isEmpty) {
+                        return 'Vui lòng nhập đường dẫn hình ảnh';
+                      }
+                      final uri = Uri.tryParse(v.trim());
+                      if (uri == null ||
+                          !uri.hasScheme ||
+                          (!v.trim().startsWith('http://') &&
+                              !v.trim().startsWith('https://'))) {
+                        return 'Đường dẫn phải bắt đầu bằng http:// hoặc https://';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
 
                   // Tên sản phẩm
                   TextFormField(
