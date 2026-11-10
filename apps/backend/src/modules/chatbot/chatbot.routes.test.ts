@@ -25,6 +25,7 @@ class FakeChatbotService implements ChatbotServiceContract {
       suggestedProducts: [],
       action: null,
       cartActions: [],
+      favoriteActions: [],
       createdAt: "2026-10-15T10:00:00.000Z",
     };
   }

@@ -179,6 +179,14 @@ export class ChatbotService {
         });
       }
 
+      // Yêu thích do client giữ: chỉ nhận id, tra DB lấy tên/giá thật để AI không bịa.
+      const favoriteProducts = await repository
+        .findProductsByIds([...new Set(input.favoriteProductIds ?? [])])
+        .catch((error: unknown) => {
+          logger.warn("Chatbot could not load favorites", { reason: error instanceof Error ? error.message : "unknown" });
+          return [];
+        });
+
       const [account, stores, dbFaq] = await Promise.all([
         this.loadAccountData(userId, input.message, incidentContext),
         repository.listActiveStores().catch((error: unknown) => {
@@ -205,6 +213,7 @@ export class ChatbotService {
 
       const providerResult = await this.options.provider.generate({
         cartItems,
+        favoriteItems: favoriteProducts.map(({ id, name, price }) => ({ productId: id, name, price })),
         customerOrders: account.orders.map((order) => ({
           orderNumber: order.orderNumber,
           status: order.status,
@@ -261,7 +270,8 @@ export class ChatbotService {
               ? UNVERIFIED_INCIDENT_REPLY
               : providerResult.reply;
       const allowCartArtifacts = providerResult.responseType === "CART";
-      const suggestedProducts = allowAnswerArtifacts || allowCartArtifacts
+      const allowFavoriteArtifacts = providerResult.responseType === "FAVORITE";
+      const suggestedProducts = allowAnswerArtifacts || allowCartArtifacts || allowFavoriteArtifacts
         ? this.resolveSuggestions(providerResult.suggestedProductIds, catalogProducts)
         : [];
       const action = allowIncidentArtifacts && providerResult.actionDraft
@@ -269,6 +279,8 @@ export class ChatbotService {
         : null;
       // Không lưu cartActions vào metadata: mở lại lịch sử không được thao tác giỏ lần nữa.
       const cartActions = allowCartArtifacts ? providerResult.cartActions ?? [] : [];
+      // Tương tự giỏ hàng: thao tác yêu thích chỉ trả về một lần, client tự thực hiện.
+      const favoriteActions = allowFavoriteArtifacts ? providerResult.favoriteActions ?? [] : [];
       const assistantMetadata: ChatbotMessageMetadata = { suggestedProducts, action };
       const exchange = await repository.createExchange({
         conversationId,
@@ -287,6 +299,7 @@ export class ChatbotService {
         suggestedProducts,
         action,
         cartActions,
+        favoriteActions,
         createdAt: exchange.createdAt.toISOString(),
       };
     } finally {

@@ -38,6 +38,15 @@ export interface ChatbotCartAction {
 }
 
 /**
+ * Yêu cầu client thêm/bỏ/xóa hết sản phẩm yêu thích. Server không lưu yêu thích;
+ * client tự thực hiện bằng logic trái tim sẵn có. Không lưu vào metadata.
+ */
+export interface ChatbotFavoriteAction {
+  type: "ADD" | "REMOVE" | "CLEAR";
+  productId: string | null;
+}
+
+/**
  * Response của GET /conversations: các phiên chat của user, mới nhất trước.
  */
 export interface ChatbotConversationListResult {
@@ -66,6 +75,7 @@ export interface SendChatbotMessageResult {
   suggestedProducts: SuggestedProduct[];
   action: ChatbotAction | null;
   cartActions: ChatbotCartAction[];
+  favoriteActions: ChatbotFavoriteAction[];
   createdAt: string;
 }
 

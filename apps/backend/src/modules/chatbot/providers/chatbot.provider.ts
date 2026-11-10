@@ -1,4 +1,4 @@
-import type { ChatbotCartAction } from "../chatbot.types";
+import type { ChatbotCartAction, ChatbotFavoriteAction } from "../chatbot.types";
 import type { ChatbotStoreInfo, StoreFaqEntry } from "../repository/chatbot.repository";
 
 /**
@@ -34,12 +34,14 @@ export interface ChatbotProviderKnowledgeChunk {
  * ANSWER tư vấn sản phẩm, INCIDENT hỗ trợ báo sự cố, IDENTITY hỏi bot là ai,
  * TRANSLATION dịch câu trước, OFF_TOPIC ngoài phạm vi, NO_KNOWLEDGE thiếu dữ liệu,
  * CART xem hoặc thay đổi giỏ hàng của người dùng, ACCOUNT trả lời trạng thái đơn hàng/phiếu sự cố
- * của chính người dùng, FAQ trả lời chính sách/thông tin cửa hàng từ storeFaq và stores.
+ * của chính người dùng, FAQ trả lời chính sách/thông tin cửa hàng từ storeFaq và stores,
+ * FAVORITE xem hoặc thay đổi danh sách sản phẩm yêu thích (nút trái tim) của người dùng.
  */
 export type ChatbotResponseType =
   | "ANSWER"
   | "FAQ"
   | "CART"
+  | "FAVORITE"
   | "ACCOUNT"
   | "INCIDENT"
   | "IDENTITY"
@@ -79,6 +81,15 @@ export interface ChatbotCartItem {
 }
 
 /**
+ * Một sản phẩm trong danh sách yêu thích client gửi lên (đã kiểm tra còn bán trong DB).
+ */
+export interface ChatbotFavoriteItem {
+  productId: string;
+  name: string;
+  price: string;
+}
+
+/**
  * Đơn hàng của chính user (đơn gần đây + đơn user nhắc mã trong tin nhắn).
  */
 export interface ChatbotProviderOrder {
@@ -113,6 +124,8 @@ export interface ChatbotProviderIncident {
  */
 export interface ChatbotProviderInput {
   cartItems?: ChatbotCartItem[];
+  /** Sản phẩm yêu thích hiện tại của user. */
+  favoriteItems?: ChatbotFavoriteItem[];
   customerOrders?: ChatbotProviderOrder[];
   incidentReports?: ChatbotProviderIncident[];
   /** Chính sách cửa hàng (phí giao, thanh toán, hủy đơn...) admin nhập trong bảng store_faqs. */
@@ -136,6 +149,7 @@ export interface ChatbotProviderResult {
   suggestedProductIds: string[];
   actionDraft: ProviderIncidentDraft | null;
   cartActions?: ChatbotCartAction[];
+  favoriteActions?: ChatbotFavoriteAction[];
 }
 
 /**

@@ -172,6 +172,8 @@ export interface ChatbotRepository {
   findOwnedConversation(id: string, userId: string): Promise<ChatbotConversationRecord | null>;
   findRecentMessages(conversationId: string, limit: number): Promise<StoredChatbotMessage[]>;
   findProductById(id: string): Promise<ChatbotCatalogProduct | null>;
+  /** Lấy nhiều sản phẩm còn bán theo id (dùng cho danh sách yêu thích client gửi lên). */
+  findProductsByIds(ids: string[]): Promise<ChatbotCatalogProduct[]>;
   listCatalogProducts(limit: number): Promise<ChatbotCatalogProduct[]>;
   searchKnowledge(input: SearchKnowledgeInput): Promise<ChatbotKnowledgeChunk[]>;
   findOwnedOrder(userId: string, id: string): Promise<OwnedOrderContext | null>;

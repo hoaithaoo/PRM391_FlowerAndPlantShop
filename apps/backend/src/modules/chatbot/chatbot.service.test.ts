@@ -100,6 +100,10 @@ class FakeRepository implements ChatbotRepository {
     return this.products.find((product) => product.id === id) ?? null;
   }
 
+  async findProductsByIds(ids: string[]): Promise<ChatbotCatalogProduct[]> {
+    return this.products.filter((product) => ids.includes(product.id));
+  }
+
   async listCatalogProducts(): Promise<ChatbotCatalogProduct[]> {
     return this.products.filter((product) => product.isActive && product.stock > 0);
   }
@@ -737,6 +741,45 @@ describe("ChatbotService.sendMessage", () => {
     await service(repository, provider).sendMessage(USER_ID, { message: "Phí ship bao nhiêu?" });
 
     assert.deepEqual(provider.calls[0]?.storeFaq, []);
+  });
+
+  test("passes DB-verified favorites and returns favorite actions without persisting them", async () => {
+    const repository = new FakeRepository();
+    repository.products = [product()];
+    const favoriteActions = [{ type: "REMOVE" as const, productId: PRODUCT_ID }];
+    const provider = new FakeProvider({
+      responseType: "FAVORITE",
+      reply: "Đã bỏ khỏi yêu thích.",
+      suggestedProductIds: [],
+      actionDraft: null,
+      favoriteActions,
+    });
+
+    const result = await service(repository, provider).sendMessage(USER_ID, {
+      message: "Bỏ cây lưỡi hổ khỏi yêu thích",
+      // Id thứ hai không có trong DB nên bị bỏ qua.
+      favoriteProductIds: [PRODUCT_ID, ORDER_ID],
+    });
+
+    assert.deepEqual(provider.calls[0]?.favoriteItems, [
+      { productId: PRODUCT_ID, name: "Cây Lưỡi Hổ Mini", price: "120000" },
+    ]);
+    assert.deepEqual(result.favoriteActions, favoriteActions);
+    assert.equal("favoriteActions" in repository.exchanges[0]!.assistantMetadata, false);
+  });
+
+  test("drops favorite actions for non-favorite responses", async () => {
+    const provider = new FakeProvider({
+      responseType: "ANSWER",
+      reply: "Bạn tham khảo nhé.",
+      suggestedProductIds: [],
+      actionDraft: null,
+      favoriteActions: [{ type: "CLEAR", productId: null }],
+    });
+
+    const result = await service(new FakeRepository(), provider).sendMessage(USER_ID, { message: "Tư vấn hoa" });
+
+    assert.deepEqual(result.favoriteActions, []);
   });
 });
 

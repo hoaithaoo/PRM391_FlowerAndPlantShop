@@ -10,18 +10,34 @@ typedef ChatbotContextProvider = ChatbotRequestContext? Function();
 /// Thực hiện thao tác giỏ hàng của AI. Trả về thông báo lỗi, `null` là thành công.
 typedef ChatbotCartHandler = Future<String?> Function(ChatbotCartAction action);
 
+/// Thực hiện thao tác yêu thích của AI. Trả về thông báo lỗi, `null` là thành công.
+typedef ChatbotFavoriteHandler =
+    Future<String?> Function(ChatbotFavoriteAction action);
+
+/// Trả về id các sản phẩm đang yêu thích để gửi kèm tin nhắn.
+typedef ChatbotFavoriteIdsProvider = List<String> Function();
+
+const _favoriteUnsupported =
+    'Ứng dụng chưa hỗ trợ cập nhật yêu thích từ chatbot.';
+
 class ChatbotController extends ChangeNotifier {
   ChatbotController({
     required ChatbotRepository repository,
     ChatbotContextProvider? contextProvider,
     ChatbotCartHandler? onCartAction,
+    ChatbotFavoriteHandler? onFavoriteAction,
+    ChatbotFavoriteIdsProvider? favoriteIdsProvider,
   }) : _repository = repository,
        _contextProvider = contextProvider,
-       _onCartAction = onCartAction;
+       _onCartAction = onCartAction,
+       _onFavoriteAction = onFavoriteAction,
+       _favoriteIdsProvider = favoriteIdsProvider;
 
   final ChatbotRepository _repository;
   final ChatbotContextProvider? _contextProvider;
   final ChatbotCartHandler? _onCartAction;
+  final ChatbotFavoriteHandler? _onFavoriteAction;
+  final ChatbotFavoriteIdsProvider? _favoriteIdsProvider;
   ChatbotState _state = const ChatbotState();
   var _isDisposed = false;
 
@@ -44,13 +60,20 @@ class ChatbotController extends ChangeNotifier {
       final reply = await _repository.sendMessage(
         conversationId: _state.conversationId,
         message: message,
-        context: _contextProvider?.call(),
+        context: _buildContext(),
       );
       // Chạy lần lượt theo thứ tự AI trả về, dừng ở thao tác lỗi đầu tiên.
       String? cartError;
       for (final action in reply.cartActions) {
         cartError = await _onCartAction?.call(action);
         if (cartError != null) break;
+      }
+      // Sau giỏ hàng mới tới yêu thích; chưa gắn handler thì báo lỗi thay vì im lặng.
+      for (final action in reply.favoriteActions) {
+        if (cartError != null) break;
+        cartError = _onFavoriteAction == null
+            ? _favoriteUnsupported
+            : await _onFavoriteAction(action);
       }
       _setState(
         _state.copyWith(
@@ -65,6 +88,14 @@ class ChatbotController extends ChangeNotifier {
     } catch (_) {
       _setFailure(const ChatbotFailure.network());
     }
+  }
+
+  /// Gộp ngữ cảnh màn hình hiện tại với danh sách yêu thích (nếu có).
+  ChatbotRequestContext? _buildContext() {
+    final context = _contextProvider?.call();
+    final ids = _favoriteIdsProvider?.call() ?? const <String>[];
+    if (ids.isEmpty) return context;
+    return (context ?? const ChatbotRequestContext()).withFavorites(ids);
   }
 
   Future<List<ChatbotConversationSummary>> listConversations() =>

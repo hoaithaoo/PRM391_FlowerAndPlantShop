@@ -64,6 +64,24 @@ export class PrismaChatbotRepository implements ChatbotRepository {
     return row ? { ...row, price: row.price.toFixed(0) } : null;
   }
 
+  /** Lấy các sản phẩm còn bán theo danh sách id; id không tồn tại hoặc đã ẩn bị bỏ qua. */
+  async findProductsByIds(ids: string[]): Promise<ChatbotCatalogProduct[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.client.product.findMany({
+      where: { id: { in: ids }, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        price: true,
+        imageUrl: true,
+        isActive: true,
+        stock: true,
+      },
+    });
+    return rows.map((row) => ({ ...row, price: row.price.toFixed(0) }));
+  }
+
   async listCatalogProducts(limit: number): Promise<ChatbotCatalogProduct[]> {
     const rows = await this.client.product.findMany({
       where: { isActive: true, stock: { gt: 0 } },
