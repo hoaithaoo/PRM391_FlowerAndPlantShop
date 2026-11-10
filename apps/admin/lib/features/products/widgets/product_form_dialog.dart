@@ -304,6 +304,10 @@ class _ProductFormDialogState extends State<ProductFormDialog> {
                       if (v.trim().length < 2 || v.trim().length > 150) {
                         return 'Tên sản phẩm phải từ 2 đến 150 ký tự';
                       }
+                      final validNameRegex = RegExp(r'^[\p{L}\p{N}\s\-_(),.]+$', unicode: true);
+                      if (!validNameRegex.hasMatch(v.trim())) {
+                        return 'Tên sản phẩm không được chứa ký tự đặc biệt';
+                      }
                       return null;
                     },
                   ),

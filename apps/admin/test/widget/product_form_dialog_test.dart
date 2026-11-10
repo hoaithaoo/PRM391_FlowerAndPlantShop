@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:plant_flower_admin/features/products/bloc/product_bloc.dart';
-import 'package:plant_flower_admin/features/products/bloc/product_event.dart';
 import 'package:plant_flower_admin/features/products/bloc/product_state.dart';
 import 'package:plant_flower_admin/features/products/widgets/product_form_dialog.dart';
 import 'package:plant_flower_shared/plant_flower_shared.dart';
@@ -97,6 +96,53 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Đường dẫn phải bắt đầu bằng http:// hoặc https://'), findsOneWidget);
+    });
+
+    testWidgets('Validates product name does not contain special characters', (tester) async {
+      tester.view.physicalSize = const Size(800, 1200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BlocProvider<ProductBloc>.value(
+              value: mockProductBloc,
+              child: const ProductFormDialog(),
+            ),
+          ),
+        ),
+      );
+
+      final urlInput = find.widgetWithText(TextFormField, 'Đường dẫn hình ảnh (URL) *');
+      final nameInput = find.widgetWithText(TextFormField, 'Tên hoa / cây cảnh *');
+      final submitButton = find.text('Thêm mới');
+
+      // Enter valid image URL
+      await tester.ensureVisible(urlInput);
+      await tester.enterText(urlInput, 'https://example.com/plant.jpg');
+
+      // Enter product name with special character '@'
+      await tester.ensureVisible(nameInput);
+      await tester.enterText(nameInput, 'Đất trồng hữu cơ 5 lít @');
+
+      // Submit
+      await tester.ensureVisible(submitButton);
+      await tester.tap(submitButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tên sản phẩm không được chứa ký tự đặc biệt'), findsOneWidget);
+
+      // Enter valid product name with Vietnamese characters and numbers
+      await tester.ensureVisible(nameInput);
+      await tester.enterText(nameInput, 'Đất trồng hữu cơ 5 lít');
+
+      // Submit again
+      await tester.ensureVisible(submitButton);
+      await tester.tap(submitButton);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Tên sản phẩm không được chứa ký tự đặc biệt'), findsNothing);
     });
   });
 }
