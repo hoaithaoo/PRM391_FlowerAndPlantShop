@@ -15,7 +15,7 @@ final bool kAhemFont =
     Platform.environment['PFS_TEST_FONT']?.toLowerCase() == 'ahem';
 
 const kHomeText = 'HOME_STUB';
-const kLoginSuccessText = 'Đăng nhập thành công. Chào mừng bạn đến Fleuré!';
+const kLoginSuccessText = 'Đăng nhập thành công. Chào mừng bạn đến Nhà Có Hoa!';
 
 /// Repository giả bọc [MockAuthRepository]: đếm số lần gọi, ghi lại tham số,
 /// cho phép giữ request lại bằng [Completer] hoặc ép ném lỗi.

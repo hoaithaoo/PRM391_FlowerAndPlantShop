@@ -202,7 +202,7 @@ class _PickupBranchScreenState extends State<PickupBranchScreen> {
                 icon: Icons.eco_outlined,
                 title: 'Nhận tại quán, giảm dấu chân vận chuyển',
                 message:
-                    'Bạn giúp Fleuré giảm bao bì giao hàng và có thể kiểm tra tác phẩm trước khi mang về.',
+                    'Bạn giúp Nhà Có Hoa giảm bao bì giao hàng và có thể kiểm tra tác phẩm trước khi mang về.',
               ),
             ],
           ),

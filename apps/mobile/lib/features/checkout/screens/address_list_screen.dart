@@ -103,14 +103,14 @@ class _AddressListScreenState extends State<AddressListScreen> {
               icon: Icons.local_florist_outlined,
               title: 'Giao hoa tận tay, trọn vẹn cảm xúc',
               message:
-                  'Fleuré sẽ xác nhận người nhận và chăm chút từng chi tiết trước khi giao.',
+                  'Nhà Có Hoa sẽ xác nhận người nhận và chăm chút từng chi tiết trước khi giao.',
               color: CheckoutPalette.petal50,
               iconColor: CheckoutPalette.petal500,
             ),
             const SizedBox(height: 24),
             const CheckoutSectionHeader(
               title: 'Sổ địa chỉ của bạn',
-              subtitle: 'Chọn nơi Fleuré sẽ mang tác phẩm đến.',
+              subtitle: 'Chọn nơi Nhà Có Hoa sẽ mang tác phẩm đến.',
             ),
             const SizedBox(height: 14),
             ...widget.controller.addresses.map(

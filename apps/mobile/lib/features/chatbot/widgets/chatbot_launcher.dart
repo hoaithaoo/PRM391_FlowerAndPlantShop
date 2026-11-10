@@ -22,7 +22,7 @@ class ChatbotLauncher extends StatelessWidget {
           child: const SizedBox.square(
             dimension: 58,
             child: Icon(
-              Icons.auto_awesome_rounded,
+              Icons.chat_bubble_outline_rounded,
               color: Colors.white,
               size: 27,
             ),

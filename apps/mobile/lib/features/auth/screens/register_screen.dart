@@ -129,7 +129,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _showSupport() {
-    _showMessage('Hỗ trợ riêng cho thành viên Privé: 1800 6868 (8:00 - 21:00)');
+    _showMessage('Hỗ trợ riêng cho thành viên Nhà Có Hoa: 1800 6868 (8:00 - 21:00)');
   }
 
   void _showTermsPlaceholder() => _showMessage('Đang cập nhật');

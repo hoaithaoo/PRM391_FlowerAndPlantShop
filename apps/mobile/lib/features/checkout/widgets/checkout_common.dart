@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:plant_flower_ui/plant_flower_ui.dart';
 
 import '../models/checkout_flow_models.dart';
 import '../models/checkout_summary.dart';
@@ -47,15 +48,10 @@ class FleureAppBar extends StatelessWidget implements PreferredSizeWidget {
       title: Column(
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
-          Image.asset(
-            CheckoutAssets.logo,
-            width: 68,
-            height: 21,
-            fit: BoxFit.contain,
-            errorBuilder: (_, _, _) => Text(
-              'Fleuré',
-              style: CheckoutTypography.brand.copyWith(fontSize: 22),
-            ),
+          Text(
+            'Nhà Có Hoa',
+            maxLines: 1,
+            style: AppTextStyles.brandLogo.copyWith(fontSize: 20, height: 1.1),
           ),
           const SizedBox(height: 1),
           Text(

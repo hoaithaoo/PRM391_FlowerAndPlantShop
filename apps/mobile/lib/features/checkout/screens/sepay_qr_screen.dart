@@ -195,7 +195,7 @@ class _SepayQrScreenState extends State<SepayQrScreen>
                   ? 'Đã nhận giao dịch nhưng số tiền hoặc thời gian chưa khớp. Cửa hàng sẽ liên hệ với bạn.'
                   : expired
                   ? 'Đang cập nhật trạng thái từ máy chủ.'
-                  : 'Giữ màn hình này mở. Fleuré sẽ nhận tín hiệu ngay khi giao dịch hoàn tất.',
+                  : 'Giữ màn hình này mở. Nhà Có Hoa sẽ nhận tín hiệu ngay khi giao dịch hoàn tất.',
               color: expired || _underReview
                   ? CheckoutPalette.errorSurface
                   : CheckoutPalette.forest50,

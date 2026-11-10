@@ -1,5 +1,8 @@
 import 'package:flutter/widgets.dart';
 
+import '../../../core/location/current_address_service.dart';
+import '../../../core/location/delivery_location.dart';
+import '../../../core/location/location_service.dart';
 import '../data/auth_failure.dart';
 import '../data/auth_repository.dart';
 import '../models/auth_models.dart';
@@ -21,17 +24,16 @@ class CompleteProfileSubmitResult {
 
 /// Điều khiển màn hoàn thiện thông tin còn thiếu sau khi đăng nhập Google.
 class CompleteProfileController extends ChangeNotifier {
-  CompleteProfileController({required AuthRepository repository})
-    : _repository = repository {
+  CompleteProfileController({
+    required AuthRepository repository,
+    CurrentAddressService currentAddressService = const CurrentAddressService(),
+  })  : _repository = repository,
+        _currentAddressService = currentAddressService {
     final meta = repository.currentUserMetadata ?? {};
     final initialName =
-        (meta['full_name'] as String?) ??
-        (meta['name'] as String?) ??
-        '';
+        (meta['full_name'] as String?) ?? (meta['name'] as String?) ?? '';
     final initialEmail =
-        repository.currentUserEmail ??
-        (meta['email'] as String?) ??
-        '';
+        repository.currentUserEmail ?? (meta['email'] as String?) ?? '';
 
     fullNameController.text = initialName;
     _state = CompleteProfileState(
@@ -42,12 +44,15 @@ class CompleteProfileController extends ChangeNotifier {
     fullNameController.addListener(_syncText);
     phoneController.addListener(_syncText);
     addressController.addListener(_syncText);
+    addressDetailsController.addListener(_syncText);
   }
 
   final AuthRepository _repository;
+  final CurrentAddressService _currentAddressService;
   final fullNameController = TextEditingController();
   final phoneController = TextEditingController();
   final addressController = TextEditingController();
+  final addressDetailsController = TextEditingController();
 
   CompleteProfileState _state = const CompleteProfileState();
   bool _isDisposed = false;
@@ -60,6 +65,9 @@ class CompleteProfileController extends ChangeNotifier {
         fullName: fullNameController.text,
         phone: phoneController.text,
         address: addressController.text,
+        addressDetails: addressDetailsController.text,
+        clearSelectedLocation: addressController.text != _state.address,
+        clearLocationFeedback: addressController.text != _state.address,
       ),
     );
   }
@@ -68,8 +76,70 @@ class CompleteProfileController extends ChangeNotifier {
     _setState(_state.copyWith(agreed: !_state.agreed));
   }
 
+  void selectDeliveryLocation(DeliveryLocation location) {
+    if (_isDisposed ||
+        _state.isBusy ||
+        !location.coordinates.isValid ||
+        location.address.trim().isEmpty) {
+      return;
+    }
+    addressController.text = location.address;
+    _setState(_state.copyWith(
+      selectedLocation: location,
+      clearLocationFeedback: true,
+    ));
+  }
+
+  void useManualAddress() {
+    if (!_state.isBusy) _setState(_state.copyWith(clearSelectedLocation: true));
+  }
+
+  bool get supportsLocationSettings => _currentAddressService.supportsSettings;
+
+  Future<bool> openAppSettings() => _currentAddressService.openAppSettings();
+
+  Future<bool> openLocationSettings() =>
+      _currentAddressService.openLocationSettings();
+
+  Future<void> useCurrentLocation() async {
+    if (_isDisposed || _state.isBusy) return;
+    final previousAddress = addressController.text;
+    _setState(_state.copyWith(isLocating: true, clearLocationFeedback: true));
+    try {
+      final address = await _currentAddressService.getCurrentAddress();
+      if (_isDisposed) return;
+      // Người dùng có thể đang nhập tay trong lúc GPS hoặc mạng còn chờ.
+      if (addressController.text != previousAddress) {
+        _setState(_state.copyWith(
+          locationMessage: 'Đã giữ địa chỉ bạn vừa nhập.',
+        ));
+        return;
+      }
+      addressController.text = address;
+      _setState(_state.copyWith(
+        locationMessage:
+            'Đã điền địa chỉ gần vị trí của bạn. Hãy kiểm tra số nhà trước khi lưu.',
+      ));
+    } on LocationException catch (error) {
+      _setState(_state.copyWith(
+        locationError:
+            '${error.failure.message} Bạn vẫn có thể nhập địa chỉ bên dưới.',
+        locationFailure: error.failure,
+      ));
+    } on AddressLookupException catch (error) {
+      _setState(_state.copyWith(locationError: error.message));
+    } catch (_) {
+      _setState(_state.copyWith(
+        locationError:
+            'Chưa lấy được địa chỉ hiện tại. Bạn có thể thử lại hoặc nhập địa chỉ bên dưới.',
+      ));
+    } finally {
+      _setState(_state.copyWith(isLocating: false));
+    }
+  }
+
   Future<CompleteProfileSubmitResult> submit() async {
-    if (_state.isSubmitting) {
+    if (_state.isBusy || _isDisposed) {
       return const CompleteProfileSubmitResult(CompleteProfileOutcome.busy);
     }
 
@@ -84,7 +154,13 @@ class CompleteProfileController extends ChangeNotifier {
         CompleteProfileRequest(
           fullName: _state.fullName.trim(),
           phone: _state.phone.trim(),
-          address: _state.address.trim(),
+          address: [
+            if (_state.addressDetails.trim().isNotEmpty)
+              _state.addressDetails.trim(),
+            _state.address.trim(),
+          ].join(', '),
+          latitude: _state.selectedLocation?.coordinates.latitude,
+          longitude: _state.selectedLocation?.coordinates.longitude,
         ),
       );
       return const CompleteProfileSubmitResult(CompleteProfileOutcome.success);
@@ -120,9 +196,11 @@ class CompleteProfileController extends ChangeNotifier {
     fullNameController.removeListener(_syncText);
     phoneController.removeListener(_syncText);
     addressController.removeListener(_syncText);
+    addressDetailsController.removeListener(_syncText);
     fullNameController.dispose();
     phoneController.dispose();
     addressController.dispose();
+    addressDetailsController.dispose();
     super.dispose();
   }
 }

@@ -39,7 +39,7 @@ class NotificationHeader extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 const Text(
-                  'Fleuré',
+                  'Nhà Có Hoa',
                   style: TextStyle(
                     fontFamily: NotificationTextStyles.serif,
                     fontSize: 15,
@@ -65,7 +65,7 @@ class NotificationHeader extends StatelessWidget {
               ),
               SizedBox(height: 2),
               Text(
-                'Fleuré',
+                'Nhà Có Hoa',
                 style: TextStyle(
                   fontFamily: NotificationTextStyles.serif,
                   fontSize: 14,

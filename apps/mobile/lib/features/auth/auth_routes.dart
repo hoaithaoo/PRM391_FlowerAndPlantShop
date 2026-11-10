@@ -61,7 +61,7 @@ abstract final class AuthRoutes {
     Navigator.of(context).popUntil((route) => route.isFirst);
     messenger?.showSnackBar(
       const SnackBar(
-        content: Text('Đăng nhập thành công. Chào mừng bạn đến Fleuré!'),
+        content: Text('Đăng nhập thành công. Chào mừng bạn đến Nhà Có Hoa!'),
       ),
     );
   }

@@ -78,14 +78,14 @@ class SupabaseAuthRepository implements AuthRepository {
 
   @override
   Stream<bool> get signedInChanges => _auth.onAuthStateChange
-      .where(
+          .where(
         (state) =>
             state.event == AuthChangeEvent.signedIn ||
             state.event == AuthChangeEvent.signedOut ||
             state.event == AuthChangeEvent.userUpdated ||
             state.event == AuthChangeEvent.tokenRefreshed,
       )
-      .map((state) {
+          .map((state) {
         final session = state.session;
         return session != null && !session.isExpired;
       });
@@ -163,7 +163,10 @@ class SupabaseAuthRepository implements AuthRepository {
     final meta = user.userMetadata ?? {};
     final phone = meta['phone']?.toString().trim();
     final address = meta['address']?.toString().trim();
-    return phone != null && phone.isNotEmpty && address != null && address.isNotEmpty;
+    return phone != null &&
+        phone.isNotEmpty &&
+        address != null &&
+        address.isNotEmpty;
   }
 
   @override
@@ -176,7 +179,9 @@ class SupabaseAuthRepository implements AuthRepository {
   @override
   Future<void> completeProfile(CompleteProfileRequest request) {
     return _guard(() async {
-      final point = await _geocoder?.geocode(request.address);
+      final point = request.hasValidCoordinates
+          ? GeoPoint(request.latitude!, request.longitude!)
+          : await _geocoder?.geocode(request.address);
       await _auth.updateUser(
         UserAttributes(
           data: {
@@ -279,41 +284,43 @@ class SupabaseAuthRepository implements AuthRepository {
   static AuthFailure mapAuthException(AuthException error) {
     return switch (error.code) {
       'invalid_credentials' => const AuthFailure(
-        AuthFailureCode.invalidCredentials,
-        'Email hoặc mật khẩu không đúng.',
-      ),
+          AuthFailureCode.invalidCredentials,
+          'Email hoặc mật khẩu không đúng.',
+        ),
       'email_not_confirmed' => const AuthFailure(
-        AuthFailureCode.emailNotConfirmed,
-        'Email chưa được xác thực. Vui lòng kiểm tra hộp thư của bạn.',
-      ),
+          AuthFailureCode.emailNotConfirmed,
+          'Email chưa được xác thực. Vui lòng kiểm tra hộp thư của bạn.',
+        ),
       'user_already_exists' || 'email_exists' => const AuthFailure(
-        AuthFailureCode.userAlreadyExists,
-        'Email này đã được đăng ký. Vui lòng đăng nhập.',
-      ),
+          AuthFailureCode.userAlreadyExists,
+          'Email này đã được đăng ký. Vui lòng đăng nhập.',
+        ),
       'user_not_found' => const AuthFailure(
-        AuthFailureCode.invalidCredentials,
-        'Không tìm thấy tài khoản với email này.',
-      ),
+          AuthFailureCode.invalidCredentials,
+          'Không tìm thấy tài khoản với email này.',
+        ),
       'over_email_send_rate_limit' ||
-      'over_request_rate_limit' => const AuthFailure(
-        AuthFailureCode.rateLimited,
-        'Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.',
-      ),
+      'over_request_rate_limit' =>
+        const AuthFailure(
+          AuthFailureCode.rateLimited,
+          'Bạn thao tác quá nhanh. Vui lòng thử lại sau ít phút.',
+        ),
       'weak_password' => const AuthFailure(
-        AuthFailureCode.weakPassword,
-        'Mật khẩu quá yếu. Vui lòng chọn mật khẩu mạnh hơn.',
-      ),
+          AuthFailureCode.weakPassword,
+          'Mật khẩu quá yếu. Vui lòng chọn mật khẩu mạnh hơn.',
+        ),
       'same_password' => const AuthFailure(
-        AuthFailureCode.samePassword,
-        'Mật khẩu mới không được trùng với mật khẩu cũ.',
-      ),
+          AuthFailureCode.samePassword,
+          'Mật khẩu mới không được trùng với mật khẩu cũ.',
+        ),
       'otp_expired' ||
       'invalid_otp' ||
       'bad_code' ||
-      'token_expired' => const AuthFailure(
-        AuthFailureCode.invalidOtp,
-        'Mã OTP không đúng hoặc đã hết hạn.',
-      ),
+      'token_expired' =>
+        const AuthFailure(
+          AuthFailureCode.invalidOtp,
+          'Mã OTP không đúng hoặc đã hết hạn.',
+        ),
       _ => AuthFailure.unknown,
     };
   }

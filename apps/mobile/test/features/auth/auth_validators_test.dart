@@ -253,11 +253,11 @@ void main() {
     test('rỗng', () {
       expect(
         AuthValidators.loginIdentifier(''),
-        'Vui lòng nhập số điện thoại hoặc email.',
+        'Vui lòng nhập địa chỉ email.',
       );
       expect(
         AuthValidators.loginIdentifier('   '),
-        'Vui lòng nhập số điện thoại hoặc email.',
+        'Vui lòng nhập địa chỉ email.',
       );
     });
 

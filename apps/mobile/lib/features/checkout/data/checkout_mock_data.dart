@@ -44,7 +44,7 @@ abstract final class CheckoutMockData {
   static const branches = <PickupBranch>[
     PickupBranch(
       id: 'thao-dien',
-      name: 'Fleuré Thảo Điền',
+      name: 'Nhà Có Hoa Thảo Điền',
       address: '24 Nguyễn Ư Dĩ, Thảo Điền, TP. Thủ Đức',
       distance: '2,1 km',
       readyTime: 'Sẵn sàng sau 45 phút',
@@ -53,7 +53,7 @@ abstract final class CheckoutMockData {
     ),
     PickupBranch(
       id: 'district-1',
-      name: 'Fleuré Đồng Khởi',
+      name: 'Nhà Có Hoa Đồng Khởi',
       address: '91 Đồng Khởi, Bến Nghé, Quận 1',
       distance: '4,8 km',
       readyTime: 'Sẵn sàng sau 60 phút',
@@ -62,7 +62,7 @@ abstract final class CheckoutMockData {
     ),
     PickupBranch(
       id: 'district-3',
-      name: 'Fleuré Tú Xương',
+      name: 'Nhà Có Hoa Tú Xương',
       address: '35 Tú Xương, Võ Thị Sáu, Quận 3',
       distance: '6,2 km',
       readyTime: 'Sẵn sàng sau 75 phút',
@@ -103,5 +103,5 @@ abstract final class CheckoutMockData {
   static const transactionCode = 'SP24100592817';
   static const paymentCode = 'FLR2410050186';
   static const bankAccount = '0912 345 678';
-  static const bankOwner = 'CONG TY TNHH FLEURE VIET NAM';
+  static const bankOwner = 'CONG TY TNHH NHA CO HOA';
 }

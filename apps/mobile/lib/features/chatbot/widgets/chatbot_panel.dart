@@ -197,7 +197,7 @@ class _PanelHeader extends StatelessWidget {
             const CircleAvatar(
               radius: 20,
               backgroundColor: Color(0xFFE2F0E9),
-              child: Icon(Icons.auto_awesome, color: Color(0xFF132B1E)),
+              child: Icon(Icons.local_florist_outlined, color: Color(0xFF132B1E)),
             ),
             const SizedBox(width: 11),
             const Expanded(

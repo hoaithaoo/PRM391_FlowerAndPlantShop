@@ -146,7 +146,7 @@ class _RoundBackButton extends StatelessWidget {
   }
 }
 
-/// Header của layout thường: back | FLEURÉ • | icon trang trí.
+/// Header của layout thường: back | Nhà Có Hoa • | icon trang trí.
 class RegisterHeader extends StatelessWidget {
   const RegisterHeader({super.key, required this.onBack});
 
@@ -165,12 +165,8 @@ class RegisterHeader extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'FLEURÉ',
-                    style: AuthFonts.serif(
-                      fontSize: 18,
-                      height: 26 / 18,
-                      letterSpacing: 1.8,
-                    ),
+                    'Nhà Có Hoa',
+                    style: AuthTextStyles.brandLogo.copyWith(fontSize: 22),
                   ),
                   const SizedBox(width: 6),
                   Container(
@@ -205,7 +201,7 @@ class RegisterGreeting extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const AuthPill(label: 'Gia nhập Fleuré Privé', showDot: true),
+        const AuthPill(label: 'Gia nhập Nhà Có Hoa', showDot: true),
         const SizedBox(height: 3),
         Text(
           'Tạo tài khoản mới',
@@ -315,7 +311,7 @@ class RegisterSocialSection extends StatelessWidget {
 // Layout lỗi (Màn 4)
 // ---------------------------------------------------------------------------
 
-/// Header cố định cao 56 có viền dưới: back | FLEURÉ | help.
+/// Header cố định cao 56 có viền dưới: back | Nhà Có Hoa | help.
 class RegisterErrorHeader extends StatelessWidget {
   const RegisterErrorHeader({
     super.key,
@@ -359,12 +355,8 @@ class RegisterErrorHeader extends StatelessWidget {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'FLEURÉ',
-                    style: AuthFonts.serif(
-                      fontSize: 18,
-                      height: 26 / 18,
-                      letterSpacing: 1.8,
-                    ),
+                    'Nhà Có Hoa',
+                    style: AuthTextStyles.brandLogo.copyWith(fontSize: 22),
                   ),
                 ],
               ),
@@ -411,7 +403,7 @@ class RegisterErrorIntro extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           'Vui lòng kiểm tra và sửa lại các thông tin chưa chính xác bên dưới '
-          'để hoàn tất đăng ký Fleuré Privé.',
+          'để hoàn tất đăng ký Nhà Có Hoa.',
           style: AuthFonts.sans(
             fontSize: 14,
             color: AuthPalette.muted,
@@ -734,7 +726,7 @@ class RegisterSupportCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  'Hỗ trợ riêng cho thành viên Privé: 1800 6868 (8:00 - 21:00)',
+                  'Hỗ trợ riêng cho thành viên Nhà Có Hoa: 1800 6868 (8:00 - 21:00)',
                   style: AuthFonts.sans(
                     fontSize: 12,
                     color: AuthPalette.muted,
@@ -769,7 +761,7 @@ class RegisterAgreementRow extends StatefulWidget {
   final VoidCallback onToggle;
   final VoidCallback onOpenLink;
 
-  /// Layout lỗi dùng chữ "và", link màu forest và "Fleuré Privé".
+  /// Layout lỗi dùng chữ "và", link màu forest và "Nhà Có Hoa".
   final bool errorLayout;
 
   /// Câu báo lỗi hiện dưới checkbox (layout lỗi, khi chưa chọn).
@@ -876,9 +868,7 @@ class _RegisterAgreementRowState extends State<RegisterAgreementRow> {
                             recognizer: _privacyTap,
                           ),
                           TextSpan(
-                            text: errorLayout
-                                ? ' của Fleuré Privé.'
-                                : ' của Fleuré.',
+                            text: ' của Nhà Có Hoa.',
                           ),
                         ],
                       ),
@@ -902,7 +892,7 @@ class _RegisterAgreementRowState extends State<RegisterAgreementRow> {
   }
 }
 
-/// "Đã có tài khoản Fleuré? Đăng nhập ngay".
+/// "Đã có tài khoản Nhà Có Hoa? Đăng nhập ngay".
 class RegisterLoginLink extends StatelessWidget {
   const RegisterLoginLink({super.key, required this.onPressed});
 
@@ -915,7 +905,7 @@ class RegisterLoginLink extends StatelessWidget {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         Text(
-          'Đã có tài khoản Fleuré? ',
+          'Đã có tài khoản Nhà Có Hoa? ',
           style: AuthFonts.sans(fontSize: 14, color: AuthPalette.muted),
         ),
         GestureDetector(

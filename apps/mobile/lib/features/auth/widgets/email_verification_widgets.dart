@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../utils/auth_assets.dart';
 import '../utils/auth_theme.dart';
 
 // Ảnh minh hoạ xuất từ Penpot (AuthAssets không còn khai báo ảnh này).
 const _thumbnailAsset = 'assets/auth/otp_thumbnail.png';
 
-/// Header màn "Kiểm tra email": nút back + logo Fleuré + tiêu đề (cao 64).
+/// Header màn "Kiểm tra email": nút back + logo Nhà Có Hoa + tiêu đề (cao 64).
 class EmailVerificationHeader extends StatelessWidget {
   const EmailVerificationHeader({super.key, required this.onBack});
 
@@ -36,7 +35,14 @@ class EmailVerificationHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 4),
-          Image.asset(AuthAssets.fleureLogo, height: 32, errorBuilder: (_, _, _) => const SizedBox(width: 32, height: 32)),
+          SizedBox(
+            width: 96,
+            height: 32,
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text('Nhà Có Hoa', style: AuthTextStyles.brandLogo),
+            ),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

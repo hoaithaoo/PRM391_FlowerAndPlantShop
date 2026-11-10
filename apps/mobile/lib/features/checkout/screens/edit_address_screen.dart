@@ -660,7 +660,7 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
               const SizedBox(height: 14),
               const CheckoutInfoBanner(
                 icon: Icons.verified_user_outlined,
-                title: 'Tiêu chuẩn bảo mật Fleuré',
+                title: 'Tiêu chuẩn bảo mật Nhà Có Hoa',
                 message:
                     'Thông tin người nhận chỉ được dùng để hoàn tất đơn hoa và không hiển thị công khai.',
               ),

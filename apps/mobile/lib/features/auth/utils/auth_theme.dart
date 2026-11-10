@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:plant_flower_ui/plant_flower_ui.dart';
 
-/// Bảng màu lấy trực tiếp từ thiết kế Penpot của 5 màn auth (Fleuré).
+/// Bảng màu lấy trực tiếp từ thiết kế Penpot của 5 màn auth (Nhà Có Hoa).
 abstract final class AuthPalette {
   static const forest = Color(
     0xFF193023,
@@ -14,7 +15,7 @@ abstract final class AuthPalette {
   static const muted = Color(0xFF77736D); // Chữ mô tả, placeholder, icon input
   static const gold = Color(0xFF8A6A32); // Badge vàng
   static const goldSoft = Color(0xFFF2E8D2); // Nền badge vàng
-  static const rose = Color(0xFFB98286); // Chấm hồng cạnh logo FLEURÉ
+  static const rose = Color(0xFFB98286); // Chấm hồng cạnh logo Nhà Có Hoa
 
   static const background = Color(0xFFFCF9F3); // Nền màn hình
   static const surface = Color(0xFFFFFDF9); // Nền input, nút Google, thẻ
@@ -50,7 +51,8 @@ abstract final class AuthPalette {
   ];
 }
 
-/// Font của thiết kế: Playfair Display cho tiêu đề, Inter cho nội dung.
+/// Font theo landing page: Cormorant Garamond cho tiêu đề,
+/// Plus Jakarta Sans cho nội dung. Logo dùng Dancing Script trong AppFonts.
 ///
 /// Test đặt [useGoogleFonts] = false để không tải font qua mạng.
 abstract final class AuthFonts {
@@ -73,8 +75,8 @@ abstract final class AuthFonts {
       letterSpacing: letterSpacing,
     );
     return useGoogleFonts
-        ? GoogleFonts.playfairDisplay(textStyle: base)
-        : base.copyWith(fontFamily: 'Playfair Display');
+        ? GoogleFonts.cormorantGaramond(textStyle: base)
+        : base.copyWith(fontFamily: 'Cormorant Garamond');
   }
 
   static TextStyle sans({
@@ -95,13 +97,17 @@ abstract final class AuthFonts {
       decorationColor: color,
     );
     return useGoogleFonts
-        ? GoogleFonts.inter(textStyle: base)
-        : base.copyWith(fontFamily: 'Inter');
+        ? GoogleFonts.plusJakartaSans(textStyle: base)
+        : base.copyWith(fontFamily: 'Plus Jakarta Sans');
   }
 }
 
 /// Các kiểu chữ lặp lại nhiều lần trong thiết kế.
 abstract final class AuthTextStyles {
+  /// Logo Nhà Có Hoa dùng Dancing Script như landing page và header của app.
+  static TextStyle get brandLogo =>
+      AppFonts.script(fontSize: 26, color: AuthPalette.forest);
+
   /// Tiêu đề lớn 28px (Chào mừng bạn, Tạo tài khoản mới...).
   static TextStyle get heading1 =>
       AuthFonts.serif(fontSize: 28, height: 36 / 28, letterSpacing: -0.7);
@@ -116,28 +122,28 @@ abstract final class AuthTextStyles {
 
   /// Nhãn input dạng chữ hoa 11px (màn đăng ký).
   static TextStyle get capsLabel => AuthFonts.sans(
-    fontSize: 11,
-    fontWeight: FontWeight.w500,
-    height: 16 / 11,
-    letterSpacing: 0.275,
-  );
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        height: 16 / 11,
+        letterSpacing: 0.275,
+      );
 
   /// Chữ người dùng nhập và placeholder 14px.
   static TextStyle get input => AuthFonts.sans(fontSize: 14, height: 22 / 14);
 
   static TextStyle get placeholder => AuthFonts.sans(
-    fontSize: 14,
-    color: AuthPalette.muted.withValues(alpha: 0.7),
-    height: 1.2,
-  );
+        fontSize: 14,
+        color: AuthPalette.muted.withValues(alpha: 0.7),
+        height: 1.2,
+      );
 
   /// Chữ trên nút chính 16px trắng.
   static TextStyle get button => AuthFonts.sans(
-    fontSize: 16,
-    fontWeight: FontWeight.w600,
-    color: Colors.white,
-    height: 1.5,
-  );
+        fontSize: 16,
+        fontWeight: FontWeight.w600,
+        color: Colors.white,
+        height: 1.5,
+      );
 
   /// Dòng báo lỗi 12px màu đỏ dưới input.
   static TextStyle get fieldError =>
@@ -153,6 +159,7 @@ class AuthTheme extends StatelessWidget {
   static ThemeData data(ThemeData base) {
     return base.copyWith(
       scaffoldBackgroundColor: AuthPalette.background,
+      textTheme: base.textTheme.apply(fontFamily: AuthFonts.sans().fontFamily),
       colorScheme: base.colorScheme.copyWith(
         primary: AuthPalette.forest,
         onPrimary: Colors.white,

@@ -3,46 +3,6 @@ import 'package:flutter/material.dart';
 import '../utils/auth_theme.dart';
 import 'auth_common.dart';
 
-/// Biểu tượng vòng tròn nét + chấm vàng cạnh chữ "Fleuré" (32x32).
-class FleureMark extends StatelessWidget {
-  const FleureMark({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox.square(
-      dimension: 32,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 6,
-            top: 10,
-            child: Container(
-              width: 14,
-              height: 14,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: AuthPalette.forestButton, width: 2),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 19,
-            top: 4,
-            child: Container(
-              width: 4,
-              height: 4,
-              decoration: const BoxDecoration(
-                color: AuthPalette.gold,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 /// Thanh trên của màn đăng nhập: logo bên trái, pill "BOTANICAL" bên phải.
 class LoginTopBar extends StatelessWidget {
   const LoginTopBar({super.key});
@@ -60,21 +20,7 @@ class LoginTopBar extends StatelessWidget {
             child: FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const FleureMark(),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Fleuré',
-                    style: AuthFonts.serif(
-                      fontSize: 22,
-                      height: 1.2,
-                      letterSpacing: -0.55,
-                    ),
-                  ),
-                ],
-              ),
+              child: Text('Nhà Có Hoa', style: AuthTextStyles.brandLogo),
             ),
           ),
           const SizedBox(width: 8),
@@ -101,7 +47,7 @@ class LoginTopBar extends StatelessWidget {
   }
 }
 
-/// Nhãn phía trên ô nhập ("Mật khẩu", "Số điện thoại hoặc Email").
+/// Nhãn phía trên ô nhập ("Mật khẩu", "Email").
 class LoginFieldLabel extends StatelessWidget {
   const LoginFieldLabel(this.text, {super.key});
 

@@ -320,7 +320,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      'Vui lòng nhấp vào liên kết trong email để mở lại ứng dụng Fleuré và nhập mật khẩu mới. Nếu không thấy thư, hãy kiểm tra mục Spam hoặc Thư rác.',
+                      'Vui lòng nhấp vào liên kết trong email để mở lại ứng dụng Nhà Có Hoa và nhập mật khẩu mới. Nếu không thấy thư, hãy kiểm tra mục Spam hoặc Thư rác.',
                       style: AuthFonts.sans(
                         fontSize: 13,
                         height: 1.45,

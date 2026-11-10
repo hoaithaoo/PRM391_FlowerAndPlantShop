@@ -16,8 +16,8 @@ void main() {
       await openRegister(tester, repo);
 
       expect(find.byType(RegisterScreen), findsOneWidget);
-      expect(find.text('FLEURÉ'), findsOneWidget);
-      expect(find.text('GIA NHẬP FLEURÉ PRIVÉ'), findsOneWidget);
+      expect(find.text('Nhà Có Hoa'), findsOneWidget);
+      expect(find.text('GIA NHẬP NHÀ CÓ HOA'), findsOneWidget);
       expect(find.text('Tạo tài khoản mới'), findsOneWidget);
       for (final label in [
         'HỌ VÀ TÊN ĐẦY ĐỦ',
@@ -173,7 +173,7 @@ void main() {
       await fillDesignErrorData(tester);
 
       expect(byKey('register_error_summary'), findsNothing);
-      expect(find.text('GIA NHẬP FLEURÉ PRIVÉ'), findsOneWidget);
+      expect(find.text('GIA NHẬP NHÀ CÓ HOA'), findsOneWidget);
     });
 
     authTestWidgets('ô "next" nhảy sang ô kế tiếp', (tester, repo) async {
