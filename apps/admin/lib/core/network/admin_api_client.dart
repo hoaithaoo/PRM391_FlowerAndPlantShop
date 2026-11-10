@@ -23,6 +23,15 @@ import '../remote/clusters/remote_categories_service.dart';
 import '../remote/clusters/remote_orders_service.dart';
 import '../remote/clusters/remote_users_service.dart';
 import '../remote/clusters/remote_finance_service.dart';
+import '../services/contracts/admin_incidents_service.dart';
+import '../mock/clusters/mock_incidents_service.dart';
+import '../remote/clusters/remote_incidents_service.dart';
+import '../services/contracts/admin_reviews_service.dart';
+import '../mock/clusters/mock_reviews_service.dart';
+import '../remote/clusters/remote_reviews_service.dart';
+import '../services/contracts/admin_faqs_service.dart';
+import '../mock/clusters/mock_faqs_service.dart';
+import '../remote/clusters/remote_faqs_service.dart';
 
 export 'api_exceptions.dart';
 export '../services/contracts/admin_auth_service.dart';
@@ -39,6 +48,10 @@ export '../remote/clusters/remote_categories_service.dart';
 export '../remote/clusters/remote_orders_service.dart';
 export '../remote/clusters/remote_users_service.dart';
 export '../remote/clusters/remote_finance_service.dart';
+export '../services/contracts/admin_incidents_service.dart';
+export '../remote/clusters/remote_incidents_service.dart';
+export '../services/contracts/admin_reviews_service.dart';
+export '../services/contracts/admin_faqs_service.dart';
 
 class AdminApiClient {
   final String baseUrl;
@@ -54,6 +67,9 @@ class AdminApiClient {
   late AdminOrdersService orders;
   late AdminUsersService users;
   late AdminFinanceService finance;
+  late AdminIncidentsService incidents;
+  late AdminReviewsService reviews;
+  late AdminFaqsService faqs;
 
   static String get defaultBaseUrl {
     const fromEnv = String.fromEnvironment('API_BASE_URL');
@@ -83,6 +99,9 @@ class AdminApiClient {
     AdminOrdersService? orders,
     AdminUsersService? users,
     AdminFinanceService? finance,
+    AdminIncidentsService? incidents,
+    AdminReviewsService? reviews,
+    AdminFaqsService? faqs,
   })  : baseUrl = baseUrl ?? defaultBaseUrl,
         httpClient = httpClient ?? http.Client() {
     this.auth = auth ?? createRemoteAuth();
@@ -92,6 +111,9 @@ class AdminApiClient {
     this.orders = orders ?? createRemoteOrders();
     this.users = users ?? createRemoteUsers();
     this.finance = finance ?? createRemoteFinance();
+    this.incidents = incidents ?? createRemoteIncidents();
+    this.reviews = reviews ?? createRemoteReviews();
+    this.faqs = faqs ?? createRemoteFaqs();
   }
 
   /// Khởi tạo với Mock data (dành cho kiểm thử ngoại tuyến hoặc test)
@@ -108,6 +130,9 @@ class AdminApiClient {
     orders = MockOrdersService();
     users = MockUsersService();
     finance = MockFinanceService();
+    incidents = MockIncidentsService();
+    reviews = MockReviewsService();
+    faqs = MockFaqsService();
   }
 
   void setAuthToken(String? token) {
@@ -178,6 +203,27 @@ class AdminApiClient {
       );
 
   RemoteFinanceService createRemoteFinance() => RemoteFinanceService(
+        httpClient: httpClient,
+        baseUrl: baseUrl,
+        headersProvider: () => headers,
+        responseValidator: handleResponseStatus,
+      );
+
+  RemoteIncidentsService createRemoteIncidents() => RemoteIncidentsService(
+        httpClient: httpClient,
+        baseUrl: baseUrl,
+        headersProvider: () => headers,
+        responseValidator: handleResponseStatus,
+      );
+
+  RemoteReviewsService createRemoteReviews() => RemoteReviewsService(
+        httpClient: httpClient,
+        baseUrl: baseUrl,
+        headersProvider: () => headers,
+        responseValidator: handleResponseStatus,
+      );
+
+  RemoteFaqsService createRemoteFaqs() => RemoteFaqsService(
         httpClient: httpClient,
         baseUrl: baseUrl,
         headersProvider: () => headers,

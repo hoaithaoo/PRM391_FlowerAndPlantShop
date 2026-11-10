@@ -46,6 +46,37 @@ export interface OwnedPaymentContext {
 }
 
 /**
+ * Tóm tắt đơn hàng của user để chatbot trả lời trạng thái đơn.
+ */
+export interface ChatbotOrderSummary {
+  id: string;
+  orderNumber: string;
+  status: string;
+  paymentMethod: string;
+  invoiceStatus: string | null;
+  totalAmount: string;
+  isPickup: boolean;
+  items: Array<{ name: string; quantity: number }>;
+  createdAt: Date;
+  completedAt: Date | null;
+  cancelledAt: Date | null;
+}
+
+/**
+ * Tóm tắt phiếu báo sự cố của user để chatbot trả lời tiến độ xử lý.
+ */
+export interface ChatbotIncidentSummary {
+  code: string;
+  category: string;
+  title: string;
+  status: string;
+  adminNote: string | null;
+  orderNumber: string | null;
+  createdAt: Date;
+  resolvedAt: Date | null;
+}
+
+/**
  * Tin nhắn đã lưu trong DB.
  */
 export interface StoredChatbotMessage {
@@ -107,6 +138,19 @@ export interface ChatbotKnowledgeChunk {
   score: number;
 }
 
+/** Một câu FAQ admin nhập trong bảng store_faqs. */
+export interface StoreFaqEntry {
+  topic: string;
+  answer: string;
+}
+
+export interface ChatbotStoreInfo {
+  name: string;
+  address: string;
+  phone: string | null;
+  openingHours: string | null;
+}
+
 /**
  * Tham số hybrid search: câu tìm kiếm, vector câu hỏi (null nếu embedding lỗi), bộ lọc giá,
  * số kết quả và ngưỡng điểm ngữ nghĩa tối thiểu.
@@ -128,10 +172,20 @@ export interface ChatbotRepository {
   findOwnedConversation(id: string, userId: string): Promise<ChatbotConversationRecord | null>;
   findRecentMessages(conversationId: string, limit: number): Promise<StoredChatbotMessage[]>;
   findProductById(id: string): Promise<ChatbotCatalogProduct | null>;
+  /** Lấy nhiều sản phẩm còn bán theo id (dùng cho danh sách yêu thích client gửi lên). */
+  findProductsByIds(ids: string[]): Promise<ChatbotCatalogProduct[]>;
   listCatalogProducts(limit: number): Promise<ChatbotCatalogProduct[]>;
   searchKnowledge(input: SearchKnowledgeInput): Promise<ChatbotKnowledgeChunk[]>;
   findOwnedOrder(userId: string, id: string): Promise<OwnedOrderContext | null>;
   findOwnedPayment(userId: string, id: string): Promise<OwnedPaymentContext | null>;
+  /** `limit` đơn mới nhất của user, cộng thêm các đơn của user có mã trong `orderNumbers`. */
+  listOwnedOrders(userId: string, orderNumbers: string[], limit: number): Promise<ChatbotOrderSummary[]>;
+  /** `limit` phiếu sự cố mới nhất của user, cộng thêm các phiếu của user có mã trong `codes`. */
+  listOwnedIncidents(userId: string, codes: string[], limit: number): Promise<ChatbotIncidentSummary[]>;
+  /** Cửa hàng đang hoạt động, cho câu hỏi địa chỉ/giờ mở cửa/số điện thoại. */
+  listActiveStores(): Promise<ChatbotStoreInfo[]>;
+  /** FAQ admin đang bật, theo sortOrder. */
+  listActiveFaqs(): Promise<StoreFaqEntry[]>;
   createExchange(input: ChatbotExchangeInput): Promise<ChatbotExchangeResult>;
   tryAcquireSendSlot(userId: string, cooldownMs: number, leaseMs: number): Promise<boolean>;
   releaseSendSlot(userId: string): Promise<void>;

@@ -70,9 +70,11 @@ class OrderLine {
     required this.quantity,
     required this.subtotal,
     this.imageUrl,
+    this.productId,
   });
 
   factory OrderLine.fromJson(Map<String, dynamic> json) => OrderLine(
+    productId: json['productId'] as String?,
     name: json['productName'] as String,
     quantity: json['quantity'] as int,
     subtotal: json['subtotal'] as num,
@@ -83,6 +85,7 @@ class OrderLine {
   final int quantity;
   final num subtotal;
   final String? imageUrl;
+  final String? productId;
 }
 
 class OrderDetail extends OrderSummary {
@@ -136,4 +139,64 @@ class OrderPage {
 
   final List<OrderSummary> items;
   final bool hasMore;
+}
+
+/// Khớp enum IncidentCategory của backend.
+const incidentCategoryLabels = <String, String>{
+  'DAMAGED_PRODUCT': 'Hàng hư hỏng, dập, héo',
+  'WRONG_ITEM': 'Giao sai hoặc thiếu hàng',
+  'DELIVERY': 'Giao trễ hoặc chưa nhận được',
+  'PAYMENT': 'Lỗi thanh toán',
+  'QUALITY': 'Không giống mô tả',
+  'SERVICE': 'Thái độ phục vụ',
+  'OTHER': 'Khác',
+};
+
+const incidentStatusLabels = <String, String>{
+  'OPEN': 'Đã tiếp nhận',
+  'IN_PROGRESS': 'Đang xử lý',
+  'RESOLVED': 'Đã giải quyết',
+  'REJECTED': 'Từ chối',
+};
+
+class IncidentReport {
+  const IncidentReport({
+    required this.id,
+    required this.code,
+    required this.category,
+    required this.title,
+    required this.description,
+    required this.status,
+    required this.createdAt,
+    this.adminNote,
+    this.orderCode,
+  });
+
+  factory IncidentReport.fromJson(Map<String, dynamic> json) {
+    final order = json['order'] as Map<String, dynamic>?;
+    return IncidentReport(
+      id: json['id'] as String,
+      code: json['code'] as String,
+      category: json['category'] as String,
+      title: json['title'] as String,
+      description: json['description'] as String,
+      status: json['status'] as String,
+      adminNote: json['adminNote'] as String?,
+      orderCode: order?['orderNumber'] as String?,
+      createdAt: DateTime.parse(json['createdAt'] as String).toLocal(),
+    );
+  }
+
+  final String id;
+  final String code;
+  final String category;
+  final String title;
+  final String description;
+  final String status;
+  final String? adminNote;
+  final String? orderCode;
+  final DateTime createdAt;
+
+  String get categoryLabel => incidentCategoryLabels[category] ?? category;
+  String get statusLabel => incidentStatusLabels[status] ?? status;
 }

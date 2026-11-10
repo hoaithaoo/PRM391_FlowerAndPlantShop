@@ -12,6 +12,7 @@ import {
   calculateDistanceKm,
   calculateShippingFee,
 } from "../../common/utils/distance";
+import { env } from "../../config/env";
 import { prisma } from "../../lib/prisma";
 import { allocateDiscount } from "../vouchers/voucher-pricing";
 import { voucherService } from "../vouchers/voucher.service";
@@ -83,6 +84,18 @@ const createReference = (prefix: string): string => {
   const date = new Date().toISOString().slice(0, 10).replaceAll("-", "");
   const suffix = randomUUID().replaceAll("-", "").slice(0, 12).toUpperCase();
   return `${prefix}-${date}-${suffix}`;
+};
+
+/** Ảnh QR chuyển khoản do SePay sinh sẵn; null khi chưa cấu hình tài khoản nhận tiền. */
+export const sepayQrUrl = (amount: string, paymentCode: string): string | null => {
+  if (!env.SEPAY_BANK_ACCOUNT || !env.SEPAY_BANK_CODE) return null;
+  const params = new URLSearchParams({
+    acc: env.SEPAY_BANK_ACCOUNT,
+    bank: env.SEPAY_BANK_CODE,
+    amount,
+    des: paymentCode,
+  });
+  return `https://qr.sepay.vn/img?${params}`;
 };
 
 export class CheckoutService {
@@ -375,18 +388,19 @@ export class CheckoutService {
       },
     });
 
+    const paymentCode = createReference("PAY").replaceAll("-", "");
     const payment =
       input.paymentMethod === PaymentMethod.SEPAY
         ? await tx.payment.create({
             data: {
               invoiceId: invoice.id,
-              paymentCode: createReference("PAY").replaceAll("-", ""),
+              paymentCode,
               provider: PaymentMethod.SEPAY,
               amount: grandTotal,
               expiresAt: new Date(
                 Date.now() + PAYMENT_EXPIRY_MINUTES * 60 * 1000
               ),
-              qrUrl: null,
+              qrUrl: sepayQrUrl(grandTotal.toFixed(0), paymentCode),
             },
             select: {
               id: true,

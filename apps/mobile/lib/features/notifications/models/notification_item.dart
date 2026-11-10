@@ -16,6 +16,7 @@ class NotificationItem {
     this.secondaryAction,
     this.amount,
     this.imageAsset,
+    this.data,
   });
 
   final String id;
@@ -31,6 +32,12 @@ class NotificationItem {
   final String? amount;
   final String? imageAsset;
 
+  /// Payload backend gửi kèm, ví dụ {orderId} hoặc {incidentId}.
+  final Map<String, dynamic>? data;
+
+  String? get orderId => _optionalString(data?['orderId']);
+  String? get incidentId => _optionalString(data?['incidentId']);
+
   factory NotificationItem.fromJson(Map<String, dynamic> json) {
     return NotificationItem(
       id: _requiredString(json, 'id'),
@@ -45,6 +52,9 @@ class NotificationItem {
       secondaryAction: _optionalString(json['secondaryAction']),
       amount: _optionalString(json['amount']),
       imageAsset: _optionalString(json['imageAsset']),
+      data: json['data'] is Map<String, dynamic>
+          ? json['data'] as Map<String, dynamic>
+          : null,
     );
   }
 
@@ -62,6 +72,7 @@ class NotificationItem {
       secondaryAction: secondaryAction,
       amount: amount,
       imageAsset: imageAsset,
+      data: data,
     );
   }
 }

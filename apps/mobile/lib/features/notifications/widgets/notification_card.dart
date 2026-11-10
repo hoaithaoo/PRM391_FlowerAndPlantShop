@@ -132,7 +132,7 @@ class _OrderCard extends StatelessWidget {
               child: Text(
                 notification.isRead
                     ? 'Chạm để xem chi tiết'
-                    : 'Chạm để đánh dấu đã đọc',
+                    : 'Chạm để xem và đánh dấu đã đọc',
                 style: NotificationTextStyles.caption,
               ),
             ),

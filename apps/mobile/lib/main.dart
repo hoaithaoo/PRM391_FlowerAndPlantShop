@@ -82,6 +82,23 @@ Future<void> main() async {
     return '${bucket.getPublicUrl(path)}?v=$version';
   }
 
+  // Ảnh đánh giá: thư mục riêng của user (khớp policy storage và backend).
+  Future<String> reviewImageUploader(
+    Uint8List bytes,
+    String contentType,
+  ) async {
+    final ext = contentType.split('/').last.replaceAll('jpeg', 'jpg');
+    final path =
+        '${auth.currentUser!.id}/${DateTime.now().microsecondsSinceEpoch}.$ext';
+    final bucket = Supabase.instance.client.storage.from('review-images');
+    await bucket.uploadBinary(
+      path,
+      bytes,
+      fileOptions: FileOptions(contentType: contentType),
+    );
+    return bucket.getPublicUrl(path);
+  }
+
   final apiClient = ApiClient(
     baseUrl: _apiBaseUrl,
     timeout: const Duration(seconds: 60),
@@ -116,6 +133,7 @@ Future<void> main() async {
     apiClient,
     accessTokenProvider: accessTokenProvider,
     avatarUploader: avatarUploader,
+    reviewImageUploader: reviewImageUploader,
   );
 
   runApp(

@@ -12,6 +12,7 @@ import '../data/profile_repository.dart';
 import '../models/profile_models.dart';
 import 'change_password_screen.dart';
 import 'edit_profile_screen.dart';
+import 'incident_report_screen.dart';
 import 'order_list_screen.dart';
 
 /// Tab Tài khoản.
@@ -205,6 +206,21 @@ class _AccountScreenState extends State<AccountScreen> {
                         label: 'Sổ địa chỉ',
                         subtitle: 'Địa chỉ nhận hoa đã lưu',
                         onTap: _openAddresses,
+                      ),
+                      _MenuTile(
+                        key: const Key('account-incidents'),
+                        icon: const Icon(
+                          Icons.report_problem_outlined,
+                          size: 16,
+                          color: _Palette.ink,
+                        ),
+                        label: 'Phiếu sự cố',
+                        subtitle: 'Báo lỗi đơn hàng và theo dõi xử lý',
+                        onTap: () => _push(
+                          (_) => IncidentListScreen(
+                            repository: widget.repository,
+                          ),
+                        ),
                       ),
                       if (auth.canChangePassword)
                         _MenuTile(

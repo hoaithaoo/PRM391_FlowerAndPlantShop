@@ -50,6 +50,21 @@ function geminiResponse(payload: unknown): Response {
 }
 
 describe("GeminiChatbotProvider", () => {
+  test("retries once when Gemini answers 503", async () => {
+    let calls = 0;
+    const provider = providerWith(async () => {
+      calls += 1;
+      return calls === 1
+        ? new Response("{}", { status: 503 })
+        : geminiResponse({ responseType: "ANSWER", reply: "Ok", suggestedProductIds: [], actionDraft: null });
+    }, 5000);
+
+    const result = await provider.generate(input);
+
+    assert.equal(calls, 2);
+    assert.equal(result.reply, "Ok");
+  });
+
   test("parses structured output and keeps only catalog product identifiers", async () => {
     const provider = providerWith(async () =>
       geminiResponse({
@@ -140,6 +155,53 @@ describe("GeminiChatbotProvider", () => {
     test("ignores cartActions outside CART responses", async () => {
       const result = await generate([{ type: "CLEAR" }], { responseType: "ANSWER" });
       assert.deepEqual(result.cartActions, []);
+    });
+  });
+
+  describe("favoriteActions", () => {
+    const FAVORITE_PRODUCT_ID = "44444444-4444-4444-8444-444444444444";
+    const favoriteInput = {
+      ...input,
+      favoriteItems: [{ productId: FAVORITE_PRODUCT_ID, name: "Bó cúc", price: "180000" }],
+    };
+    const generate = (favoriteActions: unknown[], overrides: Record<string, unknown> = {}, source = favoriteInput) =>
+      providerWith(async () =>
+        geminiResponse({
+          responseType: "FAVORITE",
+          reply: "Đã cập nhật yêu thích.",
+          suggestedProductIds: [],
+          actionDraft: null,
+          favoriteActions,
+          ...overrides,
+        })
+      ).generate(source);
+
+    test("accepts ADD from catalog, REMOVE from favorites and CLEAR", async () => {
+      assert.deepEqual((await generate([{ type: "ADD", productId: PRODUCT_ID }])).favoriteActions, [
+        { type: "ADD", productId: PRODUCT_ID },
+      ]);
+      assert.deepEqual((await generate([{ type: "REMOVE", productId: FAVORITE_PRODUCT_ID }])).favoriteActions, [
+        { type: "REMOVE", productId: FAVORITE_PRODUCT_ID },
+      ]);
+      assert.deepEqual((await generate([{ type: "CLEAR" }])).favoriteActions, [{ type: "CLEAR", productId: null }]);
+    });
+
+    test("drops the whole batch and the success claim when one action is invalid", async () => {
+      for (const actions of [
+        [{ type: "ADD", productId: UNKNOWN_PRODUCT_ID }],
+        [{ type: "REMOVE", productId: PRODUCT_ID }],
+        [{ type: "REMOVE", productId: FAVORITE_PRODUCT_ID }, { type: "ADD", productId: UNKNOWN_PRODUCT_ID }],
+      ]) {
+        const result = await generate(actions);
+        assert.deepEqual(result.favoriteActions, []);
+        assert.notEqual(result.reply, "Đã cập nhật yêu thích.");
+      }
+      assert.deepEqual((await generate([{ type: "CLEAR" }], {}, { ...favoriteInput, favoriteItems: [] })).favoriteActions, []);
+    });
+
+    test("ignores favoriteActions outside FAVORITE responses", async () => {
+      const result = await generate([{ type: "CLEAR" }], { responseType: "ANSWER" });
+      assert.deepEqual(result.favoriteActions, []);
     });
   });
 
@@ -259,7 +321,7 @@ describe("GeminiChatbotProvider", () => {
   });
 
   test("maps non-success and malformed responses to CHATBOT_PROVIDER_ERROR", async () => {
-    const unavailable = providerWith(async () => new Response("unavailable", { status: 503 }));
+    const unavailable = providerWith(async () => new Response("unavailable", { status: 503 }), 5000);
     const malformed = providerWith(async () => geminiResponse({ reply: "missing fields" }));
 
     for (const provider of [unavailable, malformed]) {
@@ -312,7 +374,7 @@ describe("GeminiChatbotProvider", () => {
 
     const result = await provider.generate({ ...input, message: "Write a Python sort function" });
 
-    assert.equal(result.reply, "Sorry, this store only sells flowers, so I can only help with flowers and store services.");
+    assert.equal(result.reply, "Sorry, I can only help with the store's products and services.");
   });
 
   test("blocks transliterated provider names in non-Latin identity replies", async () => {

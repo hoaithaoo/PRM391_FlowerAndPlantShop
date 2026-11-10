@@ -72,4 +72,15 @@ void main() {
       },
     });
   });
+
+  test('currentChatbotContext sends the order being viewed', () {
+    addTearDown(() => ChatbotRequestContext.viewingOrderId = null);
+    expect(currentChatbotContext(), isNull);
+
+    ChatbotRequestContext.viewingOrderId = 'order-1';
+
+    expect(currentChatbotContext()!.toRequestFields(), <String, dynamic>{
+      'context': <String, dynamic>{'orderId': 'order-1', 'source': 'ORDER_DETAIL'},
+    });
+  });
 }

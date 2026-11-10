@@ -20,6 +20,10 @@ class GatedDetailRepository implements ProductRepository {
   final List<PendingDetailCall> calls = [];
 
   @override
+  Future<ProductReviewPage> listProductReviews(String productId) async =>
+      ProductReviewPage.empty;
+
+  @override
   Future<ProductDetail> getProduct(String id) {
     final call = PendingDetailCall(id);
     calls.add(call);

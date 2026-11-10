@@ -13,6 +13,7 @@ import '../widgets/detail/detail_states.dart';
 import '../widgets/detail/detail_sub_bar.dart';
 import '../widgets/detail/fly_to_cart.dart';
 import '../widgets/detail/product_purchase_sheet.dart';
+import '../widgets/detail/product_reviews_section.dart';
 import '../widgets/detail/purchase_bar.dart';
 
 /// Chi tiết sản phẩm (Penpot: "Chi tiết sản phẩm - Fleuré").
@@ -200,7 +201,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [DetailInfoSection(product: product)],
+              children: [
+                DetailInfoSection(product: product),
+                ProductReviewsSection(productId: product.id),
+              ],
             ),
           ),
         ],
