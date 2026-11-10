@@ -67,9 +67,7 @@ class _PaymentFailureScreenState extends State<PaymentFailureScreen> {
         reason: 'Khách không hoàn tất thanh toán',
       );
       if (!mounted) return;
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Đã hủy đơn hàng.')),
-      );
+      messenger.showSnackBar(const SnackBar(content: Text('Đã hủy đơn hàng.')));
       _goHome();
     } catch (_) {
       if (!mounted) return;
@@ -91,9 +89,8 @@ class _PaymentFailureScreenState extends State<PaymentFailureScreen> {
           title: 'Thanh toán chưa hoàn tất',
           closeButton: true,
           showProfile: false,
-          onLeadingPressed: () => widget.canRetry
-              ? Navigator.of(context).maybePop()
-              : _goHome(),
+          onLeadingPressed: () =>
+              widget.canRetry ? Navigator.of(context).maybePop() : _goHome(),
         ),
         body: CheckoutContent(
           children: <Widget>[

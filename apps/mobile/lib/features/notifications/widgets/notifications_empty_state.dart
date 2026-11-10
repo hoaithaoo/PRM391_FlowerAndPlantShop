@@ -34,7 +34,9 @@ class NotificationsEmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Chưa có thông báo $filterLabel',
+            filterLabel.isEmpty
+                ? 'Bạn chưa có thông báo nào.'
+                : 'Bạn không có thông báo chưa đọc.',
             textAlign: TextAlign.center,
             style: NotificationTextStyles.cardTitle,
           ),

@@ -101,7 +101,7 @@ class _OrderStatusDialogState extends State<OrderStatusDialog> {
                           style: GoogleFonts.cormorantGaramond(
                             fontSize: 20,
                             fontWeight: FontWeight.w700,
-                            color: AppColors.textLight,
+                            color: AppColors.textHeading,
                           ),
                         ),
                         Text(
@@ -188,7 +188,7 @@ class _OrderStatusDialogState extends State<OrderStatusDialog> {
                   style: GoogleFonts.plusJakartaSans(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: AppColors.textLight,
+                    color: AppColors.textHeading,
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -247,15 +247,16 @@ class _OrderStatusDialogState extends State<OrderStatusDialog> {
 
               const SizedBox(height: 20),
               // Actions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 12,
+                runSpacing: 8,
                 children: [
                   OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(),
                     child: const Text('Đóng'),
                   ),
-                  if (!_isTerminalState) ...[
-                    const SizedBox(width: 12),
+                  if (!_isTerminalState)
                     ElevatedButton(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -272,7 +273,6 @@ class _OrderStatusDialogState extends State<OrderStatusDialog> {
                       },
                       child: const Text('Xác nhận đổi'),
                     ),
-                  ],
                 ],
               ),
             ],

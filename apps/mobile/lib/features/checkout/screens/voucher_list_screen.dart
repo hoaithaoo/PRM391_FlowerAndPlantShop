@@ -113,7 +113,8 @@ class _VoucherListScreenState extends State<VoucherListScreen> {
       if (!mounted) return;
       setState(() {
         _validating = false;
-        _validationError = 'Không thể áp dụng voucher lúc này. Vui lòng thử lại.';
+        _validationError =
+            'Không thể áp dụng voucher lúc này. Vui lòng thử lại.';
       });
     }
   }
@@ -162,10 +163,7 @@ class _VoucherListScreenState extends State<VoucherListScreen> {
                   textCapitalization: TextCapitalization.characters,
                   decoration: const InputDecoration(
                     hintText: 'Nhập mã voucher...',
-                    prefixIcon: Icon(
-                      Icons.local_offer_outlined,
-                      size: 20,
-                    ),
+                    prefixIcon: Icon(Icons.local_offer_outlined, size: 20),
                     contentPadding: EdgeInsets.symmetric(
                       horizontal: 14,
                       vertical: 14,
@@ -382,10 +380,7 @@ class _VoucherListScreenState extends State<VoucherListScreen> {
     );
 
     if (!eligible) {
-      return Opacity(
-        opacity: 0.55,
-        child: card,
-      );
+      return Opacity(opacity: 0.55, child: card);
     }
     return card;
   }

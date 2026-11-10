@@ -7,10 +7,15 @@ import 'api_exception.dart';
 
 /// Response thành công đã bóc envelope `{ success, data, meta }`.
 class ApiResponse {
-  const ApiResponse({required this.data, required this.meta});
+  const ApiResponse({
+    required this.data,
+    required this.meta,
+    this.statusCode = 200,
+  });
 
   final Object? data;
   final Map<String, dynamic> meta;
+  final int statusCode;
 }
 
 /// HTTP client tối giản cho REST API `/api/v1`.
@@ -53,17 +58,17 @@ class ApiClient {
     Object? body,
   }) => _send('POST', path, headers: headers, body: body);
 
-  Future<ApiResponse> patch(
-    String path, {
-    Map<String, String>? headers,
-    Object? body,
-  }) => _send('PATCH', path, headers: headers, body: body);
-
   Future<ApiResponse> put(
     String path, {
     Map<String, String>? headers,
     Object? body,
   }) => _send('PUT', path, headers: headers, body: body);
+
+  Future<ApiResponse> patch(
+    String path, {
+    Map<String, String>? headers,
+    Object? body,
+  }) => _send('PATCH', path, headers: headers, body: body);
 
   Future<ApiResponse> delete(String path, {Map<String, String>? headers}) =>
       _send('DELETE', path, headers: headers);
@@ -130,7 +135,7 @@ class ApiClient {
   ApiResponse _decode(http.Response response) {
     // 204 No Content không có envelope, ví dụ DELETE /cart/items/:id
     if (response.statusCode == 204) {
-      return const ApiResponse(data: null, meta: {});
+      return const ApiResponse(data: null, meta: {}, statusCode: 204);
     }
 
     Map<String, dynamic>? body;
@@ -146,6 +151,7 @@ class ApiClient {
       return ApiResponse(
         data: body['data'],
         meta: (body['meta'] as Map<String, dynamic>?) ?? const {},
+        statusCode: response.statusCode,
       );
     }
 

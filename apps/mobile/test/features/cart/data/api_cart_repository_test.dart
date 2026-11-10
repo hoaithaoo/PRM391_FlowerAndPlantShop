@@ -65,21 +65,18 @@ void main() {
     expect(loaded.items.single.unitPrice, 490000);
     expect(loaded.subtotal, 980000);
     expect(loaded.totalQuantity, 2);
-    expect(
-      requests.map((request) => '${request.method} ${request.url.path}'),
-      [
-        'GET /api/v1/cart',
-        'POST /api/v1/cart/items',
-        'GET /api/v1/cart',
-        'PUT /api/v1/cart/items/$_itemId',
-        'GET /api/v1/cart',
-        'DELETE /api/v1/cart/items/$_itemId',
-        'GET /api/v1/cart',
-        'GET /api/v1/cart',
-        'DELETE /api/v1/cart/items/$_itemId',
-        'GET /api/v1/cart',
-      ],
-    );
+    expect(requests.map((request) => '${request.method} ${request.url.path}'), [
+      'GET /api/v1/cart',
+      'POST /api/v1/cart/items',
+      'GET /api/v1/cart',
+      'PUT /api/v1/cart/items/$_itemId',
+      'GET /api/v1/cart',
+      'DELETE /api/v1/cart/items/$_itemId',
+      'GET /api/v1/cart',
+      'GET /api/v1/cart',
+      'DELETE /api/v1/cart/items/$_itemId',
+      'GET /api/v1/cart',
+    ]);
     expect(
       requests.every(
         (request) => request.headers['authorization'] == 'Bearer token-123',

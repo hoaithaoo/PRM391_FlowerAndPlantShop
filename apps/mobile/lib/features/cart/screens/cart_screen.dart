@@ -48,7 +48,13 @@ class CartScreen extends StatelessWidget {
             _CheckoutBar(
               subtotal: controller.subtotal,
               isBusy: controller.isMutating,
-              onCheckout: onCheckout,
+              onCheckout:
+                  onCheckout ??
+                  () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Chưa thể mở thanh toán lúc này.'),
+                    ),
+                  ),
             ),
         ],
       ),
@@ -271,7 +277,11 @@ class _CartImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (item.imageAsset case final asset?) {
-      return Image.asset(asset, fit: BoxFit.cover);
+      return Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const _CartImagePlaceholder(),
+      );
     }
     if (item.imageUrl case final url?) {
       return Image.network(

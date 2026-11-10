@@ -91,7 +91,7 @@ class CheckoutAddress {
     ward,
     district,
     city,
-  ].where((part) => part.isNotEmpty).join(', ');
+  ].where((part) => part.trim().isNotEmpty).join(', ');
 
   Map<String, dynamic> toJson() {
     return <String, dynamic>{
@@ -146,11 +146,17 @@ class PickupBranch {
     required this.openingHours,
     required this.imageAsset,
     this.isOpen = true,
+    this.latitude,
+    this.longitude,
+    this.phone,
+    this.distanceKm,
+    this.shippingFee,
+    this.estimatedDeliveryMinutes,
   });
 
   /// Một phần tử của `GET /stores`.
   factory PickupBranch.fromJson(Map<String, dynamic> json) {
-    final distanceKm = (json['distanceKm'] as num?)?.toDouble();
+    final distanceKm = _nullableDouble(json['distanceKm']);
     return PickupBranch(
       id: json['id'] as String,
       name: json['name'] as String,
@@ -161,6 +167,13 @@ class PickupBranch {
       readyTime: 'Hoa được chuẩn bị trước giờ bạn ghé',
       openingHours: json['openingHours'] as String? ?? 'Liên hệ cửa hàng',
       imageAsset: CheckoutAssets.pickupBouquet,
+      latitude: _nullableDouble(json['latitude']),
+      longitude: _nullableDouble(json['longitude']),
+      phone: json['phone'] as String?,
+      distanceKm: distanceKm,
+      shippingFee: json['shippingFee'] as num?,
+      estimatedDeliveryMinutes:
+          (json['estimatedDeliveryMinutes'] as num?)?.toInt(),
     );
   }
 
@@ -172,6 +185,28 @@ class PickupBranch {
   final String openingHours;
   final String imageAsset;
   final bool isOpen;
+  final double? latitude;
+  final double? longitude;
+  final String? phone;
+  final double? distanceKm;
+  final num? shippingFee;
+  final int? estimatedDeliveryMinutes;
+
+  bool get hasValidCoordinates =>
+      latitude != null &&
+      longitude != null &&
+      latitude!.isFinite &&
+      longitude!.isFinite &&
+      latitude! >= -90 &&
+      latitude! <= 90 &&
+      longitude! >= -180 &&
+      longitude! <= 180;
+
+  static double? _nullableDouble(Object? value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
 }
 
 class CheckoutTimelineStep {

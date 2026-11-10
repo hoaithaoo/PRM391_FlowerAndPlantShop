@@ -5,9 +5,9 @@ import 'package:plant_flower_shared/plant_flower_shared.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
 import '../features/auth/auth.dart';
+import '../features/cart/data/cart_repository.dart';
 import '../features/cart/state/cart_controller.dart';
 import '../features/cart/state/cart_scope.dart';
-import '../features/cart/data/cart_repository.dart';
 import '../features/chatbot/data/chatbot_repository.dart';
 import '../features/chatbot/models/chatbot_models.dart';
 import '../features/chatbot/widgets/chatbot_overlay_host.dart';
@@ -15,6 +15,10 @@ import '../features/checkout/data/checkout_repository.dart';
 import '../features/checkout/models/checkout_request.dart';
 import '../features/checkout/models/checkout_summary.dart';
 import '../features/checkout/screens/checkout_screen.dart';
+import '../features/notifications/data/notification_repository.dart';
+import '../features/notifications/screens/notifications_screen.dart';
+import '../features/notifications/state/notification_controller.dart';
+import '../features/map/screens/store_map_screen.dart';
 import '../features/products/data/buy_now_scope.dart';
 import '../features/products/data/product_repository.dart';
 import '../features/products/data/product_scope.dart';
@@ -33,6 +37,7 @@ class PlantFlowerApp extends StatefulWidget {
     required this.cartRepository,
     required this.chatbotRepository,
     required this.checkoutRepository,
+    required this.notificationRepository,
     this.profileRepository,
   });
 
@@ -41,6 +46,7 @@ class PlantFlowerApp extends StatefulWidget {
   final CartRepository cartRepository;
   final ChatbotRepository chatbotRepository;
   final CheckoutRepository checkoutRepository;
+  final NotificationRepository notificationRepository;
   final ProfileRepository? profileRepository;
 
   @override
@@ -134,6 +140,14 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
     );
   }
 
+  void _openNotifications(NotificationController controller) {
+    _navigatorKey.currentState?.push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => NotificationsScreen(controller: controller),
+      ),
+    );
+  }
+
   Future<String?> _applyChatbotCartAction(ChatbotCartAction action) async {
     final cart = _cartController;
     final item = cart.items
@@ -183,7 +197,10 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
               title: 'Nhà Có Hoa',
               theme: AppTheme.data(),
               home: AuthSessionGate(
-                signedInBuilder: (_) => MainShell(
+                signedInBuilder: (_) => _SignedInShell(
+                  notificationRepository: widget.notificationRepository,
+                  checkoutRepository: widget.checkoutRepository,
+                  onOpenNotifications: _openNotifications,
                   onSignOut: auth.signOut,
                   onCheckout: _openCheckout,
                   accountBuilder: profile == null
@@ -214,6 +231,60 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _SignedInShell extends StatefulWidget {
+  const _SignedInShell({
+    required this.notificationRepository,
+    required this.checkoutRepository,
+    required this.onOpenNotifications,
+    required this.onSignOut,
+    required this.onCheckout,
+    this.accountBuilder,
+  });
+
+  final NotificationRepository notificationRepository;
+  final CheckoutRepository checkoutRepository;
+  final ValueChanged<NotificationController> onOpenNotifications;
+  final VoidCallback onSignOut;
+  final VoidCallback onCheckout;
+  final WidgetBuilder? accountBuilder;
+
+  @override
+  State<_SignedInShell> createState() => _SignedInShellState();
+}
+
+class _SignedInShellState extends State<_SignedInShell> {
+  late final NotificationController _notificationController =
+      NotificationController(repository: widget.notificationRepository)
+        ..loadInitial();
+
+  @override
+  void dispose() {
+    _notificationController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MainShell(
+      onSignOut: widget.onSignOut,
+      onCheckout: widget.onCheckout,
+      onOpenStores: () {
+        Navigator.of(context).push<void>(
+          MaterialPageRoute<void>(
+            builder: (_) => StoreMapScreen(
+              repository: widget.checkoutRepository,
+            ),
+          ),
+        );
+      },
+      accountBuilder: widget.accountBuilder,
+      notificationController: _notificationController,
+      onNotifications: () =>
+          widget.onOpenNotifications(_notificationController),
     );
   }
 }

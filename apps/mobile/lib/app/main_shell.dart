@@ -5,6 +5,8 @@ import '../features/cart/screens/cart_screen.dart';
 import '../features/cart/state/cart_scope.dart';
 import '../features/products/screens/home_screen.dart';
 import '../features/products/screens/product_catalog_screen.dart';
+import '../features/notifications/state/notification_controller.dart';
+import '../features/notifications/state/notification_scope.dart';
 
 /// Các tab của thanh điều hướng dưới.
 enum MainTab {
@@ -25,18 +27,26 @@ class MainShell extends StatefulWidget {
   const MainShell({
     super.key,
     this.initialTab = MainTab.home,
+    this.notificationController,
+    this.onNotifications,
     this.onSignOut,
     this.onCheckout,
+    this.onOpenStores,
     this.accountBuilder,
   });
 
   final MainTab initialTab;
+  final NotificationController? notificationController;
+  final VoidCallback? onNotifications;
 
   /// Hiện nút đăng xuất ở tab Tài khoản khi được truyền vào.
   final VoidCallback? onSignOut;
 
   /// Mở màn thanh toán từ giỏ hàng.
   final VoidCallback? onCheckout;
+
+  /// Mở màn bản đồ vị trí cửa hàng từ Trang chủ.
+  final VoidCallback? onOpenStores;
 
   /// Nội dung tab Tài khoản. Không truyền thì hiện màn tạm có nút đăng xuất.
   final WidgetBuilder? accountBuilder;
@@ -79,7 +89,7 @@ class _MainShellState extends State<MainShell> {
 
   Widget _buildTab(MainTab tab) {
     return switch (tab) {
-      MainTab.home => const HomeScreen(),
+      MainTab.home => HomeScreen(onOpenStores: widget.onOpenStores),
       MainTab.products => ProductCatalogScreen(
         key: ValueKey(_catalogVersion),
         initialCategoryId: _catalogCategoryId,
@@ -99,7 +109,7 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final shell = Scaffold(
       extendBody: true,
       body: IndexedStack(
         index: _tab.index,
@@ -114,6 +124,16 @@ class _MainShellState extends State<MainShell> {
         onSelected: (tab) => setState(() => _tab = tab),
         showCartDot: CartScope.of(context).totalQuantity > 0,
       ),
+    );
+    final notificationController = widget.notificationController;
+    final onNotifications = widget.onNotifications;
+    if (notificationController == null || onNotifications == null) {
+      return shell;
+    }
+    return NotificationScope(
+      controller: notificationController,
+      onOpen: onNotifications,
+      child: shell,
     );
   }
 }
