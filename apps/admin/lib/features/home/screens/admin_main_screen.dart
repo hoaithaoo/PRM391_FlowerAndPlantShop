@@ -11,6 +11,9 @@ import '../../products/screens/product_management_screen.dart';
 import '../../users/screens/user_management_screen.dart';
 import '../../users/screens/customer_directory_screen.dart';
 import '../../finance/screens/finance_management_screen.dart';
+import '../../incidents/screens/incident_management_screen.dart';
+import '../../reviews/screens/review_management_screen.dart';
+import '../../faqs/screens/faq_management_screen.dart';
 
 class AdminMainScreen extends StatefulWidget {
   final UserProfile profile;
@@ -382,6 +385,90 @@ class _AdminMainScreenState extends State<AdminMainScreen> {
               onTap: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(builder: (_) => const FinanceManagementScreen()),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            margin: EdgeInsets.zero,
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.accentLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.report_problem_outlined, color: AppColors.accent, size: 22),
+              ),
+              title: Text(
+                'Phiếu sự cố khách hàng',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              subtitle: Text(
+                'Tiếp nhận, xử lý và phản hồi khiếu nại về đơn hàng',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const IncidentManagementScreen()),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            margin: EdgeInsets.zero,
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.accentLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.star_outline_rounded, color: AppColors.accent, size: 22),
+              ),
+              title: Text(
+                'Đánh giá sản phẩm',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              subtitle: Text(
+                'Xem, ẩn/hiện đánh giá của khách',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ReviewManagementScreen()),
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            margin: EdgeInsets.zero,
+            child: ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.quiz_outlined, color: AppColors.primaryActive, size: 22),
+              ),
+              title: Text(
+                'FAQ chatbot',
+                style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+              subtitle: Text(
+                'Chính sách cửa hàng chatbot dùng để trả lời',
+                style: GoogleFonts.plusJakartaSans(fontSize: 12, color: AppColors.textMuted),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: AppColors.textMuted),
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const FaqManagementScreen()),
                 );
               },
             ),

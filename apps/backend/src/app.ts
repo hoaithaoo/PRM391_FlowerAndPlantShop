@@ -19,6 +19,7 @@ import {
 } from "./modules/products/product.routes";
 import { storeRoutes } from "./modules/stores/store.routes";
 import { cartRoutes } from "./modules/carts/cart.routes";
+import { favoriteRoutes } from "./modules/favorites/favorite.routes";
 import { cartService } from "./modules/carts/cart.service";
 import { checkoutRoutes } from "./modules/checkout/checkout.routes";
 import { notificationRoutes } from "./modules/notifications/notification.routes";
@@ -42,6 +43,12 @@ import {
   adminVoucherRoutes,
   voucherRoutes,
 } from "./modules/vouchers/voucher.routes";
+import {
+  adminIncidentRoutes,
+  incidentRoutes,
+} from "./modules/incidents/incident.routes";
+import { adminReviewRoutes, reviewRoutes } from "./modules/reviews/review.routes";
+import { adminFaqRoutes } from "./modules/faqs/faq.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
 import { profileMiddleware } from "./middlewares/profile.middleware";
 import { accountStatusMiddleware } from "./middlewares/account-status.middleware";
@@ -113,7 +120,15 @@ export const createApp = (): Application => {
       },
     })
   );
-  app.use(express.urlencoded({ extended: true }));
+  app.use(
+    express.urlencoded({
+      extended: true,
+      // SePay có thể gửi webhook dạng form và ký trên chuỗi form gốc.
+      verify: (req, _res, buffer) => {
+        (req as Request).rawBody = Buffer.from(buffer);
+      },
+    })
+  );
 
   // 2. Health check route
   app.get("/health", (_req: Request, res: Response) => {
@@ -148,6 +163,7 @@ export const createApp = (): Application => {
   app.use("/api/v1/admin/products", adminProductRoutes);
   app.use("/api/v1/stores", storeRoutes);
   app.use("/api/v1/cart", cartRoutes);
+  app.use("/api/v1/favorites", favoriteRoutes);
   app.use("/api/v1/checkout", checkoutRoutes);
   app.use("/api/v1/vouchers", voucherRoutes);
   app.use("/api/v1/orders", orderRoutes);
@@ -158,6 +174,8 @@ export const createApp = (): Application => {
   app.use("/api/v1/user-addresses", addressRoutes);
   app.use("/api/v1/addresses", addressRoutes);
   app.use("/api/v1/chatbot", chatbotRoutes);
+  app.use("/api/v1/incidents", incidentRoutes);
+  app.use("/api/v1/reviews", reviewRoutes);
 
   // 3b. Admin API (spec mục 9)
   app.use("/api/v1/admin/dashboard", adminDashboardRoutes);
@@ -167,6 +185,9 @@ export const createApp = (): Application => {
   app.use("/api/v1/admin/invoices", adminInvoiceRoutes);
   app.use("/api/v1/admin/payments", adminPaymentRoutes);
   app.use("/api/v1/admin/sepay-transactions", adminSepayTransactionRoutes);
+  app.use("/api/v1/admin/incidents", adminIncidentRoutes);
+  app.use("/api/v1/admin/reviews", adminReviewRoutes);
+  app.use("/api/v1/admin/faqs", adminFaqRoutes);
 
   // 4. Fallback 404 handler
   app.use((req: Request, _res: Response, next: NextFunction) => {

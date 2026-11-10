@@ -17,6 +17,9 @@ abstract interface class ProductRepository {
   /// Chi tiết sản phẩm; ném [ProductFailure] với [ProductFailure.notFound]
   /// khi sản phẩm không tồn tại hoặc đã ngừng bán.
   Future<ProductDetail> getProduct(String id);
+
+  /// Đánh giá công khai của sản phẩm (bỏ qua đánh giá bị ẩn), mới nhất trước.
+  Future<ProductReviewPage> listProductReviews(String productId);
 }
 
 /// Lỗi khi tải dữ liệu sản phẩm.

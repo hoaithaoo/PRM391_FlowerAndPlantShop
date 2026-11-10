@@ -66,6 +66,56 @@ void main() {
     expect(controller.state.errorMessage, contains('phản hồi'));
   });
 
+  group('favorite action', () {
+    ChatbotReply favoriteReply() => ChatbotReply.fromJson({
+      'conversationId': 'conversation-1',
+      'messageId': 'assistant-1',
+      'reply': 'Đã thêm vào yêu thích.',
+      'favoriteActions': [
+        {'type': 'ADD', 'productId': 'product-1'},
+      ],
+    });
+
+    test('sends favorite ids and applies the action', () async {
+      final repository = FakeChatbotRepository(
+        sendCompleter: Completer<ChatbotReply>()..complete(favoriteReply()),
+      );
+      final calls = <ChatbotFavoriteAction>[];
+      final controller = ChatbotController(
+        repository: repository,
+        favoriteIdsProvider: () => ['product-9'],
+        onFavoriteAction: (action) async {
+          calls.add(action);
+          return null;
+        },
+      );
+
+      await controller.send('Thêm bó này vào yêu thích');
+
+      expect(repository.lastContext?.favoriteProductIds, ['product-9']);
+      expect(
+        repository.lastContext?.toRequestFields()['favoriteProductIds'],
+        ['product-9'],
+      );
+      expect(calls.single.type, ChatbotFavoriteActionType.add);
+      expect(calls.single.productId, 'product-1');
+      expect(controller.state.status, ChatbotStatus.ready);
+    });
+
+    test('reports an error when no favorite handler is wired', () async {
+      final controller = ChatbotController(
+        repository: FakeChatbotRepository(
+          sendCompleter: Completer<ChatbotReply>()..complete(favoriteReply()),
+        ),
+      );
+
+      await controller.send('Thêm bó này vào yêu thích');
+
+      expect(controller.state.status, ChatbotStatus.error);
+      expect(controller.state.errorMessage, contains('yêu thích'));
+    });
+  });
+
   group('cart action', () {
     ChatbotReply cartReply() => ChatbotReply.fromJson({
       'conversationId': 'conversation-1',

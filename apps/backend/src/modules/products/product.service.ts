@@ -15,6 +15,17 @@ const productCategorySelect = {
   name: true,
 } satisfies Prisma.CategorySelect;
 
+// Dùng chung cho danh mục và danh sách sản phẩm yêu thích.
+export const productSummarySelect = {
+  id: true,
+  sku: true,
+  name: true,
+  price: true,
+  stock: true,
+  imageUrl: true,
+  category: { select: productCategorySelect },
+} satisfies Prisma.ProductSelect;
+
 const toNumber = (value: Prisma.Decimal): number => Number(value.toString());
 
 const slugify = (value: string): string => {
@@ -31,7 +42,7 @@ const slugify = (value: string): string => {
   return slug || "san-pham";
 };
 
-const mapSummary = (product: {
+export const mapSummary = (product: {
   id: string;
   sku: string;
   name: string;
@@ -149,15 +160,7 @@ export class ProductService {
         orderBy,
         skip: (query.page - 1) * query.limit,
         take: query.limit,
-        select: {
-          id: true,
-          sku: true,
-          name: true,
-          price: true,
-          stock: true,
-          imageUrl: true,
-          category: { select: productCategorySelect },
-        },
+        select: productSummarySelect,
       }),
       prisma.product.count({ where }),
     ]);

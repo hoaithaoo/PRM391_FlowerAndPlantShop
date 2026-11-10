@@ -91,6 +91,10 @@ class MockProductRepository implements ProductRepository {
     );
   }
 
+  @override
+  Future<ProductReviewPage> listProductReviews(String productId) async =>
+      ProductReviewPage.empty;
+
   Future<void> _wait() async {
     if (latency > Duration.zero) await Future<void>.delayed(latency);
     final failure = nextFailure;

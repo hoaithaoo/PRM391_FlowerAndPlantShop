@@ -57,6 +57,18 @@ class ProductsApi {
     return ProductDetail.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// Đánh giá công khai của sản phẩm, kèm điểm trung bình.
+  Future<ProductReviewPage> listProductReviews(
+    String productId, {
+    int limit = 20,
+  }) async {
+    final response = await _client.get(
+      'api/v1/reviews/products/${Uri.encodeComponent(productId)}',
+      query: {'limit': '$limit'},
+    );
+    return ProductReviewPage.fromJson(response.data as Map<String, dynamic>);
+  }
+
   static List<dynamic> _items(Object? data) => switch (data) {
     {'items': final List<dynamic> items} => items,
     final List<dynamic> list => list,

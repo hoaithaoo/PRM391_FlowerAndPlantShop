@@ -8,12 +8,26 @@ class ChatbotRequestContext {
     this.orderId,
     this.paymentId,
     this.source,
+    this.favoriteProductIds = const <String>[],
   });
 
   final String? productId;
   final String? orderId;
   final String? paymentId;
   final String? source;
+
+  /// Id sản phẩm yêu thích (nút trái tim) để chatbot xem/sửa danh sách yêu thích.
+  final List<String> favoriteProductIds;
+
+  /// Bản sao kèm danh sách yêu thích, giữ nguyên các trường khác.
+  ChatbotRequestContext withFavorites(List<String> ids) =>
+      ChatbotRequestContext(
+        productId: productId,
+        orderId: orderId,
+        paymentId: paymentId,
+        source: source,
+        favoriteProductIds: ids,
+      );
 
   Map<String, dynamic> toRequestFields() {
     final context = <String, dynamic>{
@@ -25,11 +39,25 @@ class ChatbotRequestContext {
     return <String, dynamic>{
       if (_hasValue(productId)) 'productId': productId,
       if (context.isNotEmpty) 'context': context,
+      if (favoriteProductIds.isNotEmpty)
+        'favoriteProductIds': favoriteProductIds,
     };
   }
 
   static bool _hasValue(String? value) =>
       value != null && value.trim().isNotEmpty;
+
+  /// Id đơn của màn chi tiết đơn đang mở; null khi không xem đơn nào.
+  static String? viewingOrderId;
+}
+
+/// Ngữ cảnh gửi kèm tin nhắn chatbot. Hàm top-level nên tear-off luôn identical,
+/// ChatbotOverlayHost không tạo lại controller mỗi lần build.
+ChatbotRequestContext? currentChatbotContext() {
+  final orderId = ChatbotRequestContext.viewingOrderId;
+  return orderId == null
+      ? null
+      : ChatbotRequestContext(orderId: orderId, source: 'ORDER_DETAIL');
 }
 
 class SuggestedProduct {
@@ -167,6 +195,32 @@ class ChatbotCartAction {
   }
 }
 
+enum ChatbotFavoriteActionType { add, remove, clear }
+
+/// Thao tác yêu thích do AI trả về (thêm/bỏ một sản phẩm, bỏ hết).
+/// Giống thao tác giỏ: chỉ có trong phản hồi mới, không có trong lịch sử.
+class ChatbotFavoriteAction {
+  const ChatbotFavoriteAction({required this.type, this.productId});
+
+  final ChatbotFavoriteActionType type;
+  final String? productId;
+
+  static ChatbotFavoriteAction? tryParse(Object? value) {
+    if (value is! Map) return null;
+    final type = switch (value['type']) {
+      'ADD' => ChatbotFavoriteActionType.add,
+      'REMOVE' => ChatbotFavoriteActionType.remove,
+      'CLEAR' => ChatbotFavoriteActionType.clear,
+      _ => null,
+    };
+    if (type == null) return null;
+    return ChatbotFavoriteAction(
+      type: type,
+      productId: _optionalString(value['productId']),
+    );
+  }
+}
+
 /// Một phiên chat trong danh sách lịch sử.
 class ChatbotConversationSummary {
   const ChatbotConversationSummary({
@@ -251,6 +305,7 @@ class ChatbotReply {
     required this.createdAt,
     this.action,
     this.cartActions = const <ChatbotCartAction>[],
+    this.favoriteActions = const <ChatbotFavoriteAction>[],
   });
 
   final String conversationId;
@@ -259,6 +314,7 @@ class ChatbotReply {
   final List<SuggestedProduct> products;
   final ChatbotAction? action;
   final List<ChatbotCartAction> cartActions;
+  final List<ChatbotFavoriteAction> favoriteActions;
   final DateTime? createdAt;
 
   factory ChatbotReply.fromJson(Map<String, dynamic> json) {
@@ -269,6 +325,7 @@ class ChatbotReply {
       products: _parseProducts(json['suggestedProducts']),
       action: ChatbotAction.tryParse(json['action']),
       cartActions: _parseCartActions(json['cartActions']),
+      favoriteActions: _parseFavoriteActions(json['favoriteActions']),
       createdAt: _tryDate(json['createdAt']),
     );
   }
@@ -322,6 +379,15 @@ List<ChatbotCartAction> _parseCartActions(Object? value) {
   if (value is! List) return const <ChatbotCartAction>[];
   return List<ChatbotCartAction>.unmodifiable(
     value.map(ChatbotCartAction.tryParse).whereType<ChatbotCartAction>(),
+  );
+}
+
+List<ChatbotFavoriteAction> _parseFavoriteActions(Object? value) {
+  if (value is! List) return const <ChatbotFavoriteAction>[];
+  return List<ChatbotFavoriteAction>.unmodifiable(
+    value
+        .map(ChatbotFavoriteAction.tryParse)
+        .whereType<ChatbotFavoriteAction>(),
   );
 }
 

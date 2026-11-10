@@ -78,6 +78,10 @@ class ControlledProductRepository implements ProductRepository {
     if (value != null && value.id == id) return value;
     throw const ProductFailure('Không tìm thấy', notFound: true);
   }
+
+  @override
+  Future<ProductReviewPage> listProductReviews(String productId) async =>
+      ProductReviewPage.empty;
 }
 
 const testCategory = Category(id: 'cat-1', name: 'Hoa tươi');

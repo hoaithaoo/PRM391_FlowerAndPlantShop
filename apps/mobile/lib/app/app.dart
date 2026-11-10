@@ -25,6 +25,8 @@ import '../features/products/data/product_scope.dart';
 import '../features/products/product_routes.dart';
 import '../features/profile/data/profile_repository.dart';
 import '../features/profile/screens/account_screen.dart';
+import '../features/profile/screens/incident_report_screen.dart';
+import '../features/profile/screens/order_detail_screen.dart';
 import 'main_shell.dart';
 
 const _chatbotCartItemMissing = 'Không tìm thấy sản phẩm này trong giỏ hàng.';
@@ -141,9 +143,30 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
   }
 
   void _openNotifications(NotificationController controller) {
-    _navigatorKey.currentState?.push<void>(
+    final profile = widget.profileRepository;
+    final navigator = _navigatorKey.currentState;
+    navigator?.push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => NotificationsScreen(controller: controller),
+        builder: (_) => NotificationsScreen(
+          controller: controller,
+          onOpenOrder: profile == null
+              ? null
+              : (orderId) => navigator.push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => OrderDetailScreen(
+                      repository: profile,
+                      orderId: orderId,
+                    ),
+                  ),
+                ),
+          onOpenIncidents: profile == null
+              ? null
+              : () => navigator.push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (_) => IncidentListScreen(repository: profile),
+                  ),
+                ),
+        ),
       ),
     );
   }
@@ -221,9 +244,23 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
                   // Chỉ hiện trên màn chính, không che form đăng nhập.
                   visible: (snapshot.data ?? false) && auth.isProfileComplete,
                   launcherBottomInset: AppBottomNav.reservedHeight + 8,
+                  contextProvider: currentChatbotContext,
                   onProductTap: (productId) => _navigatorKey.currentState
                       ?.pushNamed(ProductRoutes.detail, arguments: productId),
                   onCartAction: _applyChatbotCartAction,
+                  onOpenIncidentReport: profile == null
+                      ? null
+                      : (draft) => _navigatorKey.currentState?.push<bool>(
+                          MaterialPageRoute<bool>(
+                            builder: (_) => IncidentReportFormScreen(
+                              repository: profile,
+                              category: draft.category,
+                              title: draft.title,
+                              description: draft.description,
+                              orderId: draft.orderId,
+                            ),
+                          ),
+                        ),
                   child: child ?? const SizedBox.shrink(),
                 ),
               ),

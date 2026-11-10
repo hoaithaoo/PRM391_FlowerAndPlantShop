@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { IncidentCategory } from "@prisma/client";
 import { z } from "zod";
 
 import { AppError } from "../../common/errors/app-error";
@@ -13,6 +14,8 @@ import {
 import { EmbeddingProvider } from "./providers/embedding.provider";
 import {
   ChatbotCatalogProduct,
+  ChatbotIncidentSummary,
+  ChatbotOrderSummary,
   ChatbotRepository,
   OwnedOrderContext,
   OwnedPaymentContext,
@@ -31,6 +34,15 @@ import {
 } from "./rag/product-search-query";
 
 const HISTORY_PAGE_SIZE = 20;
+const INCIDENT_CATEGORIES = new Set<string>(Object.values(IncidentCategory));
+const UNVERIFIED_INCIDENT_REPLY =
+  "Mình đã soạn sẵn phiếu báo sự cố. Bạn bấm nút bên dưới để kiểm tra, chọn đơn hàng liên quan rồi gửi cho cửa hàng nhé.";
+const NO_ACCOUNT_DATA_REPLY =
+  "Mình chưa thấy đơn hàng hay phiếu báo sự cố nào trong tài khoản của bạn. Bạn kiểm tra lại mục Đơn hàng trong ứng dụng giúp mình nhé.";
+const ACCOUNT_LOOKUP_LIMIT = 5;
+// Mã đơn thật: ORD-YYYYMMDD-XXXXXXXXXXXX; mã phiếu: SC-YYYYMMDD-XXXXXX. Nới lỏng để khớp cả dữ liệu seed.
+const ORDER_NUMBER_PATTERN = /\bORD-[A-Z0-9]+(?:-[A-Z0-9]+)*/giu;
+const INCIDENT_CODE_PATTERN = /\bSC-[A-Z0-9]+(?:-[A-Z0-9]+)*/giu;
 const messageMetadataSchema = z.object({
   suggestedProducts: z.array(
     z.object({
@@ -103,7 +115,7 @@ export class ChatbotService {
 
     // Chỉ đưa dữ liệu đã kiểm tra tồn tại và quyền sở hữu vào prompt của AI.
     const contextProduct = await this.verifyProductContext(repository, input.productId);
-    const incidentContext = await this.verifyIncidentContext(repository, userId, input.context);
+    let incidentContext = await this.verifyIncidentContext(repository, userId, input.context);
     const history = input.conversationId
       ? await repository.findRecentMessages(input.conversationId, 12)
       : [];
@@ -167,8 +179,60 @@ export class ChatbotService {
         });
       }
 
+      // Yêu thích do client giữ: chỉ nhận id, tra DB lấy tên/giá thật để AI không bịa.
+      const favoriteProducts = await repository
+        .findProductsByIds([...new Set(input.favoriteProductIds ?? [])])
+        .catch((error: unknown) => {
+          logger.warn("Chatbot could not load favorites", { reason: error instanceof Error ? error.message : "unknown" });
+          return [];
+        });
+
+      const [account, stores, dbFaq] = await Promise.all([
+        this.loadAccountData(userId, input.message, incidentContext),
+        repository.listActiveStores().catch((error: unknown) => {
+          logger.warn("Chatbot could not load stores", { reason: error instanceof Error ? error.message : "unknown" });
+          return [];
+        }),
+        repository.listActiveFaqs().catch((error: unknown) => {
+          logger.warn("Chatbot could not load FAQ", { reason: error instanceof Error ? error.message : "unknown" });
+          return [];
+        }),
+      ]);
+      // Khách gõ đúng một mã đơn của mình mà chưa có context: dùng đơn đó cho bản nháp sự cố.
+      if (!incidentContext && account.mentionedOrders.length === 1) {
+        const order = account.mentionedOrders[0]!;
+        incidentContext = {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          orderStatus: order.status,
+          paymentId: null,
+          paymentStatus: null,
+          source: "CHAT_MESSAGE",
+        };
+      }
+
       const providerResult = await this.options.provider.generate({
         cartItems,
+        favoriteItems: favoriteProducts.map(({ id, name, price }) => ({ productId: id, name, price })),
+        customerOrders: account.orders.map((order) => ({
+          orderNumber: order.orderNumber,
+          status: order.status,
+          paymentMethod: order.paymentMethod,
+          invoiceStatus: order.invoiceStatus,
+          totalAmount: order.totalAmount,
+          isPickup: order.isPickup,
+          items: order.items,
+          createdAt: order.createdAt.toISOString(),
+          completedAt: order.completedAt?.toISOString() ?? null,
+          cancelledAt: order.cancelledAt?.toISOString() ?? null,
+        })),
+        incidentReports: account.incidents.map((incident) => ({
+          ...incident,
+          createdAt: incident.createdAt.toISOString(),
+          resolvedAt: incident.resolvedAt?.toISOString() ?? null,
+        })),
+        storeFaq: dbFaq,
+        stores,
         message: input.message,
         history: history.map(({ role, content }) => ({ role, content })),
         catalogProducts: catalogProducts.map(({ id, name, description, price }) => ({
@@ -190,15 +254,24 @@ export class ChatbotService {
       });
 
       const allowAnswerArtifacts = providerResult.responseType === "ANSWER";
-      const allowIncidentArtifacts =
-        providerResult.responseType === "INCIDENT" && incidentContext !== null;
+      const isIncident = providerResult.responseType === "INCIDENT";
+      // Không có đơn đã xác minh thì câu trả lời của AI có thể bịa trạng thái đơn:
+      // chỉ giữ bản nháp phiếu, thay lời bằng câu cố định.
+      const allowIncidentArtifacts = isIncident && (incidentContext !== null || providerResult.actionDraft !== null);
+      // ACCOUNT mà không có đơn/phiếu nào để đối chiếu thì AI chỉ có thể bịa: dùng câu cố định.
+      const accountWithoutData =
+        providerResult.responseType === "ACCOUNT" && account.orders.length === 0 && account.incidents.length === 0;
       const reply =
-        (allowAnswerArtifacts && catalogProducts.length === 0) ||
-        (providerResult.responseType === "INCIDENT" && !allowIncidentArtifacts)
+        (allowAnswerArtifacts && catalogProducts.length === 0) || (isIncident && !allowIncidentArtifacts)
           ? noKnowledgeReply(input.message)
-          : providerResult.reply;
+          : accountWithoutData
+            ? NO_ACCOUNT_DATA_REPLY
+            : isIncident && incidentContext === null
+              ? UNVERIFIED_INCIDENT_REPLY
+              : providerResult.reply;
       const allowCartArtifacts = providerResult.responseType === "CART";
-      const suggestedProducts = allowAnswerArtifacts || allowCartArtifacts
+      const allowFavoriteArtifacts = providerResult.responseType === "FAVORITE";
+      const suggestedProducts = allowAnswerArtifacts || allowCartArtifacts || allowFavoriteArtifacts
         ? this.resolveSuggestions(providerResult.suggestedProductIds, catalogProducts)
         : [];
       const action = allowIncidentArtifacts && providerResult.actionDraft
@@ -206,6 +279,8 @@ export class ChatbotService {
         : null;
       // Không lưu cartActions vào metadata: mở lại lịch sử không được thao tác giỏ lần nữa.
       const cartActions = allowCartArtifacts ? providerResult.cartActions ?? [] : [];
+      // Tương tự giỏ hàng: thao tác yêu thích chỉ trả về một lần, client tự thực hiện.
+      const favoriteActions = allowFavoriteArtifacts ? providerResult.favoriteActions ?? [] : [];
       const assistantMetadata: ChatbotMessageMetadata = { suggestedProducts, action };
       const exchange = await repository.createExchange({
         conversationId,
@@ -224,6 +299,7 @@ export class ChatbotService {
         suggestedProducts,
         action,
         cartActions,
+        favoriteActions,
         createdAt: exchange.createdAt.toISOString(),
       };
     } finally {
@@ -330,6 +406,39 @@ export class ChatbotService {
     };
   }
 
+  /**
+   * Đơn hàng + phiếu sự cố của chính user: vài cái mới nhất cộng các mã user gõ trong tin nhắn.
+   * Lỗi đọc DB không chặn chat; AI chỉ thiếu dữ liệu tài khoản.
+   */
+  private async loadAccountData(
+    userId: string,
+    message: string,
+    context: VerifiedIncidentContext | null
+  ) {
+    const mentionedNumbers = extractCodes(message, ORDER_NUMBER_PATTERN);
+    const orderNumbers = context?.orderNumber
+      ? [...new Set([...mentionedNumbers, context.orderNumber])]
+      : mentionedNumbers;
+    const [orders, incidents] = await Promise.all([
+      this.options.repository.listOwnedOrders(userId, orderNumbers, ACCOUNT_LOOKUP_LIMIT).catch((error: unknown) => {
+        logger.warn("Chatbot could not load orders", { reason: error instanceof Error ? error.message : "unknown" });
+        return [] as ChatbotOrderSummary[];
+      }),
+      this.options.repository
+        .listOwnedIncidents(userId, extractCodes(message, INCIDENT_CODE_PATTERN), ACCOUNT_LOOKUP_LIMIT)
+        .catch((error: unknown) => {
+          logger.warn("Chatbot could not load incidents", { reason: error instanceof Error ? error.message : "unknown" });
+          return [] as ChatbotIncidentSummary[];
+        }),
+    ]);
+    const mentioned = new Set(mentionedNumbers);
+    return {
+      orders,
+      incidents,
+      mentionedOrders: orders.filter((order) => mentioned.has(order.orderNumber)),
+    };
+  }
+
   private resolveSuggestions(ids: string[], catalog: ChatbotCatalogProduct[]): SuggestedProduct[] {
     const products = new Map(catalog.map((product) => [product.id, product]));
     // ID do AI trả về là dữ liệu không tin cậy; chỉ giữ sản phẩm còn bán trong catalog hiện tại.
@@ -373,6 +482,8 @@ export class ChatbotService {
       type: "OPEN_INCIDENT_REPORT",
       draft: {
         ...draft,
+        // Mã loại do AI trả về là dữ liệu không tin cậy; ngoài danh sách thì quy về OTHER.
+        category: INCIDENT_CATEGORIES.has(draft.category) ? draft.category : "OTHER",
         orderId: context?.orderId ?? null,
         paymentId: context?.paymentId ?? null,
         conversationId,
@@ -389,6 +500,11 @@ export class ChatbotService {
   private conversationNotFound(): AppError {
     return new AppError(404, ErrorCodes.CHATBOT_CONVERSATION_NOT_FOUND, "Không tìm thấy phiên chatbot.");
   }
+}
+
+/** Lấy tối đa 5 mã (đã viết hoa) khớp `pattern` trong tin nhắn. */
+function extractCodes(message: string, pattern: RegExp): string[] {
+  return [...new Set([...message.matchAll(pattern)].map((match) => match[0].toUpperCase()))].slice(0, 5);
 }
 
 function noKnowledgeReply(message: string): string {
