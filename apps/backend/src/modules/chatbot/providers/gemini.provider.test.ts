@@ -50,6 +50,21 @@ function geminiResponse(payload: unknown): Response {
 }
 
 describe("GeminiChatbotProvider", () => {
+  test("retries once when Gemini answers 503", async () => {
+    let calls = 0;
+    const provider = providerWith(async () => {
+      calls += 1;
+      return calls === 1
+        ? new Response("{}", { status: 503 })
+        : geminiResponse({ responseType: "ANSWER", reply: "Ok", suggestedProductIds: [], actionDraft: null });
+    }, 5000);
+
+    const result = await provider.generate(input);
+
+    assert.equal(calls, 2);
+    assert.equal(result.reply, "Ok");
+  });
+
   test("parses structured output and keeps only catalog product identifiers", async () => {
     const provider = providerWith(async () =>
       geminiResponse({
@@ -259,7 +274,7 @@ describe("GeminiChatbotProvider", () => {
   });
 
   test("maps non-success and malformed responses to CHATBOT_PROVIDER_ERROR", async () => {
-    const unavailable = providerWith(async () => new Response("unavailable", { status: 503 }));
+    const unavailable = providerWith(async () => new Response("unavailable", { status: 503 }), 5000);
     const malformed = providerWith(async () => geminiResponse({ reply: "missing fields" }));
 
     for (const provider of [unavailable, malformed]) {
@@ -312,7 +327,7 @@ describe("GeminiChatbotProvider", () => {
 
     const result = await provider.generate({ ...input, message: "Write a Python sort function" });
 
-    assert.equal(result.reply, "Sorry, this store only sells flowers, so I can only help with flowers and store services.");
+    assert.equal(result.reply, "Sorry, I can only help with the store's products and services.");
   });
 
   test("blocks transliterated provider names in non-Latin identity replies", async () => {
