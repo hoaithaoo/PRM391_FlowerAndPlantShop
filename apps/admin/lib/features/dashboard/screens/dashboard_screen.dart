@@ -255,7 +255,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     children: [
                       Expanded(
                         child: _buildMetricCard(
-                          title: 'Doanh thu thuần đã thu',
+                          title: 'Doanh thu thuần',
                           value: _currencyFormat.format(netRevenue),
                           icon: Icons.account_balance_wallet_outlined,
                           iconColor: AppColors.primary,
@@ -364,7 +364,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final totalMonthlyProfit = stats.netProfit > 0 ? stats.netProfit : (totalMonthlyRev * 0.385);
     final totalMonthlyMargin = stats.profitMargin > 0 ? stats.profitMargin : 38.5;
 
-    final selectedRecord = _resolveRecord(_selectedDay, stats.dailyProfits);
+    final selectedRecord = _resolveRecord(_selectedDay, stats.dailyProfits, stats);
     final isSelectedToday = _selectedDay.year == now.year &&
         _selectedDay.month == now.month &&
         _selectedDay.day == now.day;
@@ -612,6 +612,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             selectedDay: _selectedDay,
             today: now,
             records: stats.dailyProfits,
+            stats: stats,
           ),
 
           const SizedBox(height: 16),
@@ -636,6 +637,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     required DateTime selectedDay,
     required DateTime today,
     required List<DailyProfitRecord> records,
+    DashboardStatsModel? stats,
   }) {
     final rows = <Widget>[];
     final totalCells = leadingBlanks + daysInMonth;
@@ -656,7 +658,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           final isToday = today.year == cellDate.year &&
               today.month == cellDate.month &&
               today.day == cellDate.day;
-          final record = _resolveRecord(cellDate, records);
+          final record = _resolveRecord(cellDate, records, stats);
           final hasData = record.orderCount > 0;
           final isFuture = DateTime(cellDate.year, cellDate.month, cellDate.day)
               .isAfter(DateTime(today.year, today.month, today.day));
@@ -945,7 +947,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return null;
   }
 
-  DailyProfitRecord _resolveRecord(DateTime date, List<DailyProfitRecord> records) {
+  DailyProfitRecord _resolveRecord(DateTime date, List<DailyProfitRecord> records, [DashboardStatsModel? stats]) {
     final existing = _getRecordForDate(date, records);
     if (existing != null) return existing;
 
@@ -953,6 +955,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final today = DateTime(now.year, now.month, now.day);
     final target = DateTime(date.year, date.month, date.day);
     if (target.isAfter(today)) {
+      return DailyProfitRecord(
+        date: DateFormat('dd/MM/yyyy').format(date),
+        revenue: 0,
+        cost: 0,
+        profit: 0,
+        profitMargin: 0,
+        orderCount: 0,
+      );
+    }
+
+    if (target == today) {
+      final rev = stats?.revenueToday ?? 0.0;
+      if (rev > 0) {
+        final cost = rev * 0.615;
+        final profit = rev - cost;
+        return DailyProfitRecord(
+          date: DateFormat('dd/MM/yyyy').format(date),
+          revenue: rev,
+          cost: cost,
+          profit: profit,
+          profitMargin: (profit / rev) * 100,
+          orderCount: (rev / 150000).clamp(1, 99).toInt(),
+        );
+      }
       return DailyProfitRecord(
         date: DateFormat('dd/MM/yyyy').format(date),
         revenue: 0,
