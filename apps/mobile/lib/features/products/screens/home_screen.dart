@@ -14,13 +14,16 @@ import '../widgets/home/home_product_grid.dart';
 import '../widgets/home/home_search_bar.dart';
 import '../widgets/home/home_section_header.dart';
 import '../widgets/home/home_story_card.dart';
+import '../widgets/home/home_store_location_card.dart';
 
 /// Trang chủ (Penpot: "Trang chủ - Fleuré").
 ///
 /// Không tự tìm kiếm: các điểm chạm dẫn sang tab Sản phẩm qua
 /// [MainShell.openCatalog]. Chỉ tải category cho chip và 4 sản phẩm mới nhất.
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  const HomeScreen({super.key, this.onOpenStores});
+
+  final VoidCallback? onOpenStores;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -143,6 +146,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       onSelected: _openCatalog,
                     ),
                     HomeHeroBanner(onExplore: _openCatalog),
+                    if (widget.onOpenStores != null)
+                      HomeStoreLocationCard(
+                        onOpenMap: widget.onOpenStores!,
+                      ),
                     HomeNoteCard(onDetails: _showNote),
                     HomeSectionHeader(onSeeMore: _openCatalog),
                     HomeProductGrid(

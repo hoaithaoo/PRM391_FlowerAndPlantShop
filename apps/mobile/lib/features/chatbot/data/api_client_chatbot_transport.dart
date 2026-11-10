@@ -40,11 +40,13 @@ class ApiClientChatbotTransport implements ChatbotApiTransport {
   ) async {
     try {
       final response = await send();
-      // ApiClient trả data null cho 204 No Content.
-      if (response.data == null) {
+      if (response.statusCode == 204) {
         return const ChatbotApiResponse(statusCode: 204, body: {});
       }
-      return ChatbotApiResponse(statusCode: 200, body: {'data': response.data});
+      return ChatbotApiResponse(
+        statusCode: response.statusCode,
+        body: {'data': response.data},
+      );
     } on ApiException catch (error) {
       if (error.isNetworkError) rethrow;
       return ChatbotApiResponse(

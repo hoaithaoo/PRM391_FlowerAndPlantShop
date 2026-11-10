@@ -48,12 +48,12 @@ class CheckoutController extends ChangeNotifier {
         request,
         idempotencyKey: idempotencyKey,
       );
-      _activeFingerprint = null;
-      _activeIdempotencyKey = null;
       _setState(CheckoutState(status: CheckoutStatus.success, result: result));
+      _clearAttempt();
       return result;
     } on CheckoutFailure catch (failure) {
       _setState(_stateForFailure(failure));
+      if (!_hasUncertainOutcome(failure)) _clearAttempt();
       return null;
     } catch (_) {
       _setState(
@@ -64,6 +64,17 @@ class CheckoutController extends ChangeNotifier {
       );
       return null;
     }
+  }
+
+  bool _hasUncertainOutcome(CheckoutFailure failure) {
+    return failure.code == CheckoutErrorCode.network ||
+        failure.code == CheckoutErrorCode.malformedResponse ||
+        (failure.statusCode != null && failure.statusCode! >= 500);
+  }
+
+  void _clearAttempt() {
+    _activeIdempotencyKey = null;
+    _activeFingerprint = null;
   }
 
   void resetError() {
@@ -149,10 +160,29 @@ class CheckoutController extends ChangeNotifier {
         errorCode: failure.code,
         errorMessage: 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.',
       ),
+      _ when failure.statusCode == 403 => CheckoutState(
+        status: CheckoutStatus.error,
+        errorCode: failure.code,
+        errorMessage:
+            'Tài khoản của bạn không có quyền thực hiện thao tác này.',
+      ),
+      _ when failure.statusCode == 409 => CheckoutState(
+        status: CheckoutStatus.error,
+        errorCode: failure.code,
+        errorMessage:
+            'Dữ liệu đơn hàng đã thay đổi. Vui lòng kiểm tra lại giỏ hàng.',
+      ),
+      _ when failure.statusCode == 422 => CheckoutState(
+        status: CheckoutStatus.error,
+        errorCode: failure.code,
+        errorMessage: 'Thông tin đặt hàng chưa hợp lệ. Vui lòng kiểm tra lại.',
+      ),
       _ => CheckoutState(
         status: CheckoutStatus.error,
         errorCode: failure.code,
-        errorMessage: 'Không thể xử lý đơn hàng lúc này. Vui lòng thử lại.',
+        errorMessage:
+            failure.message ??
+            'Không thể xử lý đơn hàng lúc này. Vui lòng thử lại.',
       ),
     };
   }

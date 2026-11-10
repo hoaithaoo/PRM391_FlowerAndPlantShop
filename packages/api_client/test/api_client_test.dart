@@ -39,6 +39,34 @@ ApiClient clientFor(
 }
 
 void main() {
+  group('ApiClient mutation', () {
+    test('PUT gửi JSON và giữ status 200', () async {
+      late http.Request captured;
+      final client = clientFor((request) async {
+        captured = request;
+        return jsonResponse({'success': true, 'data': {'quantity': 3}});
+      });
+
+      final response = await client.put('api/v1/cart/items/item-1', body: {
+        'quantity': 3,
+      });
+
+      expect(captured.method, 'PUT');
+      expect(jsonDecode(captured.body), {'quantity': 3});
+      expect(response.statusCode, 200);
+    });
+
+    test('DELETE 204 không body trả response rỗng hợp lệ', () async {
+      final client = clientFor((_) async => http.Response('', 204));
+
+      final response = await client.delete('api/v1/cart/items/item-1');
+
+      expect(response.statusCode, 204);
+      expect(response.data, isNull);
+      expect(response.meta, isEmpty);
+    });
+  });
+
   group('ApiClient.get - thành công', () {
     test('bóc envelope: data và meta', () async {
       final client = clientFor(

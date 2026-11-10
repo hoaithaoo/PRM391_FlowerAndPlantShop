@@ -413,7 +413,7 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
               const SizedBox(height: 26),
               const CheckoutSectionHeader(
                 title: 'Người nhận hoa',
-                subtitle: 'Fleuré liên hệ số này khi hoa đã sẵn sàng.',
+                subtitle: 'Nhà Có Hoa liên hệ số này khi hoa đã sẵn sàng.',
               ),
               const SizedBox(height: 12),
               LabeledCheckoutField(
@@ -430,7 +430,7 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
               const SizedBox(height: 26),
               const CheckoutSectionHeader(
                 title: 'Thời gian ghé nhận',
-                subtitle: 'Chọn khung giờ để Fleuré chuẩn bị chu đáo.',
+                subtitle: 'Chọn khung giờ để Nhà Có Hoa chuẩn bị chu đáo.',
               ),
               const SizedBox(height: 12),
               Row(

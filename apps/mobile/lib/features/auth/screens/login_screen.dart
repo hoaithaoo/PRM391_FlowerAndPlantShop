@@ -80,16 +80,6 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  /// Màn này là màn gốc nên không có route bên dưới để quay về; app chưa có
-  /// trang chủ nên luôn báo đang phát triển (không pop để tránh thoát app).
-  void _onExplore() => _showMessage('Trang chủ đang được phát triển.');
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -119,7 +109,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Đăng nhập để tiếp tục mua sắm tại Fleuré.',
+          'Đăng nhập để tiếp tục mua sắm tại Nhà Có Hoa.',
           style: AuthTextStyles.body,
         ),
         const SizedBox(height: 28),
@@ -144,8 +134,6 @@ class _LoginScreenState extends State<LoginScreen> {
           onPressed: state.isBusy ? null : _onGoogle,
         ),
         const SizedBox(height: 24),
-        _buildExploreLink(),
-        const SizedBox(height: 8),
         _buildRegisterRow(),
         const Padding(padding: EdgeInsets.only(top: 19), child: _LoginTerms()),
       ],
@@ -156,12 +144,12 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const LoginFieldLabel('Số điện thoại hoặc Email'),
+        const LoginFieldLabel('Email'),
         const SizedBox(height: 6),
         AuthTextField(
           key: const Key('login_identifier_field'),
           controller: _controller.identifierController,
-          hintText: 'Nhập số điện thoại hoặc email của bạn',
+          hintText: 'Nhập email của bạn',
           prefixIcon: Icons.alternate_email,
           height: 54,
           radius: 14,
@@ -248,41 +236,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildExploreLink() {
-    return Center(
-      child: InkWell(
-        key: const Key('login_explore_link'),
-        onTap: _onExplore,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 12),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Flexible(
-                child: Text(
-                  'Khám phá cửa hàng mà không cần đăng nhập',
-                  textAlign: TextAlign.center,
-                  style: AuthFonts.sans(
-                    fontSize: 14,
-                    color: AuthPalette.muted,
-                    height: 1.5,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(
-                Icons.chevron_right,
-                size: 14,
-                color: AuthPalette.muted,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildRegisterRow() {
     return Center(
       child: Wrap(
@@ -327,8 +280,8 @@ class _LoginTerms extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Text(
-      'Bằng việc tiếp tục, bạn đồng ý với các điều khoản dịch vụ và chính sách '
-      'chăm sóc hoa của Fleuré.',
+      'Bằng việc tiếp tục, bạn đồng ý với Điều khoản dịch vụ và '
+      'Chính sách bảo mật của Nhà Có Hoa.',
       textAlign: TextAlign.center,
       style: AuthFonts.sans(
         fontSize: 12,

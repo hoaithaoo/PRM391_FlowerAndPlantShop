@@ -31,6 +31,7 @@ class _AuthSessionGateState extends State<AuthSessionGate> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _checkSession();
     _recoverySub?.cancel();
     _signedInSub?.cancel();
     final repository = AuthScope.of(context);
@@ -52,6 +53,10 @@ class _AuthSessionGateState extends State<AuthSessionGate> {
     _recoverySub?.cancel();
     _signedInSub?.cancel();
     super.dispose();
+  }
+
+  void _checkSession() {
+    unawaited(AuthScope.of(context).refreshSessionIfExpired());
   }
 
   @override

@@ -257,7 +257,6 @@ abstract final class _Palette {
   static const card = Color(0xFFFFFDF9);
   static const chip = Color(0xFFF6F3ED);
   static const iconCircle = Color(0xFFF0EEE8);
-  static const sage = Color(0xFFE4EBE4);
   static const ink = Color(0xFF242623);
   static const muted = Color(0xFF77736D);
   static const moss = Color(0xFF566252);
@@ -298,7 +297,10 @@ class _AccountHeader extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Image.asset('assets/account/logo.png', height: 32),
+          Text(
+            'Nhà Có Hoa',
+            style: AppTextStyles.brandLogo.copyWith(fontSize: 26),
+          ),
           CircleAvatar(
             radius: 16,
             backgroundColor: _Palette.chip,
@@ -359,11 +361,6 @@ class _ProfileCard extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          const Positioned(
-            right: -24,
-            bottom: -24,
-            child: Opacity(opacity: 0.1, child: _Asset('motif')),
-          ),
           Padding(
             padding: const EdgeInsets.all(20),
             child: Row(
@@ -488,25 +485,15 @@ class _Avatar extends StatelessWidget {
                 color: _Palette.moss,
               ),
             ),
-            Positioned(
-              right: -4,
-              bottom: -4,
-              child: Container(
-                width: 24,
-                height: 24,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: _Palette.sage,
-                  shape: BoxShape.circle,
+            if (uploading)
+              const Positioned.fill(
+                child: Center(
+                  child: SizedBox.square(
+                    dimension: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
                 ),
-                child: uploading
-                    ? const SizedBox.square(
-                        dimension: 12,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const _Asset('badge_leaf'),
               ),
-            ),
           ],
         ),
       ),
@@ -819,7 +806,7 @@ class _BrandFooter extends StatelessWidget {
           const _Asset('footer_leaf'),
           const SizedBox(width: 6),
           Text(
-            'FLEURÉ BOTANICAL ATELIER',
+            'NHÀ CÓ HOA',
             style: AppFonts.sans(
               fontSize: 11,
               fontWeight: FontWeight.w400,

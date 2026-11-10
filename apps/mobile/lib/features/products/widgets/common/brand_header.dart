@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
+import '../../../notifications/state/notification_scope.dart';
+
 /// Thanh header 64px dùng chung (Penpot board "Header").
 ///
 /// Trái: nút quay lại (tuỳ chọn) + logo "Nhà Có Hoa" + tiêu đề (tuỳ chọn).
@@ -11,7 +13,7 @@ class BrandHeader extends StatelessWidget implements PreferredSizeWidget {
     this.onBack,
     this.title,
     this.onShare,
-    this.showNotificationDot = true,
+    this.showNotificationDot,
   });
 
   /// Có giá trị thì hiện nút quay lại.
@@ -22,7 +24,7 @@ class BrandHeader extends StatelessWidget implements PreferredSizeWidget {
 
   /// Có giá trị thì hiện nút chia sẻ thay cho nút thông báo.
   final VoidCallback? onShare;
-  final bool showNotificationDot;
+  final bool? showNotificationDot;
 
   static const height = 64.0;
 
@@ -32,6 +34,7 @@ class BrandHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final title = this.title;
+    final notificationScope = NotificationScope.maybeOf(context);
     return Container(
       height: height + MediaQuery.paddingOf(context).top,
       padding: EdgeInsets.only(
@@ -102,7 +105,12 @@ class BrandHeader extends StatelessWidget implements PreferredSizeWidget {
               ),
             )
           else
-            _NotificationButton(showDot: showNotificationDot),
+            _NotificationButton(
+              showDot:
+                  showNotificationDot ??
+                  (notificationScope?.notifier?.state.unreadCount ?? 0) > 0,
+              onPressed: notificationScope?.onOpen,
+            ),
           if (title == null) ...[const SizedBox(width: 4), const _Avatar()],
         ],
       ),
@@ -111,15 +119,16 @@ class BrandHeader extends StatelessWidget implements PreferredSizeWidget {
 }
 
 class _NotificationButton extends StatelessWidget {
-  const _NotificationButton({required this.showDot});
+  const _NotificationButton({required this.showDot, this.onPressed});
 
   final bool showDot;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
       key: const Key('header-notifications'),
-      onPressed: () {},
+      onPressed: onPressed,
       tooltip: 'Thông báo',
       icon: Stack(
         clipBehavior: Clip.none,

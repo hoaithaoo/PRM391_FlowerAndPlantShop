@@ -8,7 +8,10 @@ class CheckoutFlowController extends ChangeNotifier {
     List<PickupBranch> branches = const <PickupBranch>[],
   }) : _addresses = List<CheckoutAddress>.of(addresses),
        _branches = List<PickupBranch>.of(branches),
-       _selectedAddressId = addresses.firstOrNull?.id,
+       _selectedAddressId =
+           (addresses.where((item) => item.isDefault).firstOrNull ??
+                   addresses.firstOrNull)
+               ?.id,
        _selectedBranchId = branches.firstOrNull?.id;
 
   final List<CheckoutAddress> _addresses;
@@ -70,6 +73,14 @@ class CheckoutFlowController extends ChangeNotifier {
       _addresses[index] = address;
     }
     _selectedAddressId = address.id;
+    notifyListeners();
+  }
+
+  void removeAddress(String id) {
+    _addresses.removeWhere((item) => item.id == id);
+    if (_selectedAddressId == id) {
+      _selectedAddressId = _addresses.isEmpty ? null : _addresses.first.id;
+    }
     notifyListeners();
   }
 

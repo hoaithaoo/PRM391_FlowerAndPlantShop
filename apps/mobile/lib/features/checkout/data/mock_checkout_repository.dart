@@ -50,36 +50,36 @@ class MockCheckoutRepository implements CheckoutRepository {
     num? subtotal,
     num? shippingFee,
   }) async => <Voucher>[
-        Voucher(
-          code: 'FREESHIP15K',
-          type: 'FIXED',
-          scope: Voucher.shippingScope,
-          value: 15000,
-          minOrderAmount: 200000,
-          endsAt: DateTime.now().add(const Duration(days: 90)),
-          eligible: true,
-          discountAmount: 15000,
-        ),
-        Voucher(
-          code: 'HOA50K',
-          type: 'FIXED',
-          value: 50000,
-          minOrderAmount: 300000,
-          endsAt: DateTime.now().add(const Duration(days: 90)),
-          eligible: true,
-          discountAmount: 50000,
-        ),
-        Voucher(
-          code: 'HOA20',
-          type: 'PERCENT',
-          value: 20,
-          maxDiscount: 100000,
-          minOrderAmount: 200000,
-          endsAt: DateTime.now().add(const Duration(days: 90)),
-          eligible: true,
-          discountAmount: 40000,
-        ),
-      ];
+    Voucher(
+      code: 'FREESHIP15K',
+      type: 'FIXED',
+      scope: Voucher.shippingScope,
+      value: 15000,
+      minOrderAmount: 200000,
+      endsAt: DateTime.now().add(const Duration(days: 90)),
+      eligible: true,
+      discountAmount: 15000,
+    ),
+    Voucher(
+      code: 'HOA50K',
+      type: 'FIXED',
+      value: 50000,
+      minOrderAmount: 300000,
+      endsAt: DateTime.now().add(const Duration(days: 90)),
+      eligible: true,
+      discountAmount: 50000,
+    ),
+    Voucher(
+      code: 'HOA20',
+      type: 'PERCENT',
+      value: 20,
+      maxDiscount: 100000,
+      minOrderAmount: 200000,
+      endsAt: DateTime.now().add(const Duration(days: 90)),
+      eligible: true,
+      discountAmount: 40000,
+    ),
+  ];
 
   @override
   Future<Voucher> validateVoucher(

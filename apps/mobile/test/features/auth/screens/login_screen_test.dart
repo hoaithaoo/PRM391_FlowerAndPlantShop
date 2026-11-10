@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_flower_mobile/features/auth/auth.dart';
 import 'package:plant_flower_mobile/features/auth/widgets/auth_common.dart';
-import 'package:plant_flower_mobile/features/auth/widgets/login_widgets.dart';
 
 import '../support/auth_test_harness.dart';
 
@@ -11,7 +10,7 @@ const _pwField = 'login_password_field';
 const _idError = 'login_identifier_error';
 const _pwError = 'login_password_error';
 
-const _emptyId = 'Vui lòng nhập số điện thoại hoặc email.';
+const _emptyId = 'Vui lòng nhập địa chỉ email.';
 const _emptyPw = 'Vui lòng nhập mật khẩu.';
 const _phoneUnsupported =
     'Đăng nhập bằng số điện thoại chưa được hỗ trợ, vui lòng dùng email.';
@@ -38,19 +37,16 @@ void main() {
       await openLogin(tester, repo);
 
       expect(find.byType(LoginScreen), findsOneWidget);
-      expect(find.text('Fleuré'), findsOneWidget);
+      expect(find.text('Nhà Có Hoa'), findsOneWidget);
       expect(find.text('BOTANICAL'), findsOneWidget);
       expect(find.text('Chào mừng bạn'), findsOneWidget);
       expect(
-        find.text('Đăng nhập để tiếp tục mua sắm tại Fleuré.'),
+        find.text('Đăng nhập để tiếp tục mua sắm tại Nhà Có Hoa.'),
         findsOneWidget,
       );
-      expect(find.text('Số điện thoại hoặc Email'), findsOneWidget);
+      expect(find.text('Email'), findsOneWidget);
       expect(find.text('Mật khẩu'), findsOneWidget);
-      expect(
-        find.text('Nhập số điện thoại hoặc email của bạn'),
-        findsOneWidget,
-      );
+      expect(find.text('Nhập email của bạn'), findsOneWidget);
       expect(find.text('Nhập mật khẩu của bạn'), findsOneWidget);
       expect(find.text('Quên mật khẩu?'), findsOneWidget);
       expect(find.text('Đăng nhập'), findsOneWidget);
@@ -58,12 +54,15 @@ void main() {
       expect(find.text('Đăng nhập với Google'), findsOneWidget);
       expect(
         find.text('Khám phá cửa hàng mà không cần đăng nhập'),
-        findsOneWidget,
+        findsNothing,
       );
       expect(find.text('Chưa có tài khoản?'), findsOneWidget);
       expect(find.text('Đăng ký ngay'), findsOneWidget);
       expect(
-        find.textContaining('Bằng việc tiếp tục, bạn đồng ý với'),
+        find.text(
+          'Bằng việc tiếp tục, bạn đồng ý với Điều khoản dịch vụ và '
+          'Chính sách bảo mật của Nhà Có Hoa.',
+        ),
         findsOneWidget,
       );
     });
@@ -510,42 +509,6 @@ void main() {
       expect(find.byType(ForgotPasswordScreen), findsOneWidget);
     });
 
-    authTestWidgets(
-      'Khám phá cửa hàng: SnackBar, không pop dù có route trước',
-      (tester, repo) async {
-        await openLogin(tester, repo);
-        await tapKey(tester, 'login_explore_link');
-        await tester.pumpAndSettle();
-
-        expect(snackText('Trang chủ đang được phát triển.'), findsOneWidget);
-        expect(find.byType(LoginScreen), findsOneWidget);
-      },
-    );
-
-    authTestWidgets('Khám phá cửa hàng: SnackBar khi là route đầu', (
-      tester,
-      repo,
-    ) async {
-      await pumpAuthApp(tester, repo, home: const LoginScreen());
-      await tapKey(tester, 'login_explore_link');
-      await tester.pump();
-
-      expect(snackText('Trang chủ đang được phát triển.'), findsOneWidget);
-      expect(find.byType(LoginScreen), findsOneWidget);
-    });
-
-    authTestWidgets('bấm Khám phá nhiều lần chỉ giữ một SnackBar', (
-      tester,
-      repo,
-    ) async {
-      await pumpAuthApp(tester, repo, home: const LoginScreen());
-      await tapKey(tester, 'login_explore_link');
-      await tapKey(tester, 'login_explore_link');
-      await tester.pumpAndSettle();
-
-      expect(find.byType(SnackBar), findsOneWidget);
-    });
-
     authTestWidgets('Đăng ký ngay mở màn đăng ký', (tester, repo) async {
       await openLogin(tester, repo);
       await tapKey(tester, 'login_register_link');
@@ -617,7 +580,7 @@ void main() {
           );
 
           for (final inner in [
-            find.byType(FleureMark),
+            find.text('Nhà Có Hoa'),
             find.byType(AuthPill),
           ]) {
             final fitted = find.ancestor(

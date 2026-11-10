@@ -40,12 +40,12 @@ class CartItem {
       id: json['id'] as String,
       productId: json['productId'] as String,
       name: json['name'] as String,
-      // GET /cart hiện chỉ trả id, productId, name, price, quantity, subtotal.
       variant: json['variant'] as String? ?? '',
       unitPrice: _parseInteger(json['unitPrice'] ?? json['price'], 'price'),
-      // ponytail: API chưa trả tồn kho, server chặn bằng 409 PRODUCT_OUT_OF_STOCK.
-      stock: json['stock'] as int? ?? _unknownStock,
-      quantity: json['quantity'] as int,
+      // GET /cart chưa trả tồn kho; backend vẫn là nguồn xác thực và sẽ trả
+      // PRODUCT_OUT_OF_STOCK khi số lượng vượt tồn kho thực tế.
+      stock: (json['stock'] as num?)?.toInt() ?? _unknownStock,
+      quantity: (json['quantity'] as num).toInt(),
       imageUrl: json['imageUrl'] as String?,
     );
   }
@@ -74,7 +74,7 @@ class CartSnapshot {
           CartItem.fromJson(Map<String, dynamic>.from(item as Map)),
       ],
       subtotal: _parseInteger(json['subtotal'], 'subtotal'),
-      totalQuantity: json['totalQuantity'] as int,
+      totalQuantity: (json['totalQuantity'] as num).toInt(),
     );
   }
 }

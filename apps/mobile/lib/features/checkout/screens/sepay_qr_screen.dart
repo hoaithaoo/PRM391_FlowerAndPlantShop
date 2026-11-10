@@ -17,30 +17,35 @@ class SepayQrScreen extends StatefulWidget {
     super.key,
     required this.order,
     required this.repository,
+    this.pollInterval = const Duration(seconds: 3),
   });
 
   final PlacedOrder order;
   final CheckoutRepository repository;
+  final Duration pollInterval;
 
   @override
   State<SepayQrScreen> createState() => _SepayQrScreenState();
 }
 
-class _SepayQrScreenState extends State<SepayQrScreen> {
+class _SepayQrScreenState extends State<SepayQrScreen>
+    with WidgetsBindingObserver {
   static const _initialSeconds = 15 * 60;
-  static const _pollInterval = Duration(seconds: 3);
 
   late final Timer _countdown;
   Timer? _poll;
   int _remainingSeconds = _initialSeconds;
   bool _checking = false;
   bool _underReview = false;
+  bool _appActive = true;
+  bool _terminalHandled = false;
 
   String get _paymentId => widget.order.result.payment!.id;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _countdown = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _remainingSeconds == 0) return;
       setState(() => _remainingSeconds--);
@@ -49,20 +54,34 @@ class _SepayQrScreenState extends State<SepayQrScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    _appActive = state == AppLifecycleState.resumed;
+    if (_appActive) {
+      _startPolling(checkImmediately: true);
+    } else {
+      _poll?.cancel();
+      _poll = null;
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _countdown.cancel();
     _poll?.cancel();
     super.dispose();
   }
 
-  void _startPolling() {
+  void _startPolling({bool checkImmediately = false}) {
+    if (!_appActive || _terminalHandled || _underReview) return;
     _poll?.cancel();
-    _poll = Timer.periodic(_pollInterval, (_) => _checkStatus());
+    if (checkImmediately) unawaited(_checkStatus());
+    _poll = Timer.periodic(widget.pollInterval, (_) => _checkStatus());
   }
 
   /// Trả về trạng thái server, `null` nếu lần gọi lỗi hoặc đang có lần gọi khác.
   Future<String?> _checkStatus() async {
-    if (_checking) return null;
+    if (_checking || !_appActive || _terminalHandled) return null;
     _checking = true;
     try {
       final status = await widget.repository.getPaymentStatus(_paymentId);
@@ -79,6 +98,7 @@ class _SepayQrScreenState extends State<SepayQrScreen> {
   void _applyStatus(String status) {
     switch (status) {
       case 'PAID':
+        _terminalHandled = true;
         _poll?.cancel();
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
@@ -86,6 +106,7 @@ class _SepayQrScreenState extends State<SepayQrScreen> {
           ),
         );
       case 'EXPIRED' || 'FAILED':
+        _terminalHandled = true;
         _poll?.cancel();
         Navigator.of(context).pushReplacement(
           MaterialPageRoute<void>(
@@ -128,7 +149,7 @@ class _SepayQrScreenState extends State<SepayQrScreen> {
         ),
       ),
     );
-    if (mounted) _startPolling();
+    if (mounted) _startPolling(checkImmediately: true);
   }
 
   Future<void> _copy(String value, String label) async {
@@ -174,7 +195,7 @@ class _SepayQrScreenState extends State<SepayQrScreen> {
                   ? 'Đã nhận giao dịch nhưng số tiền hoặc thời gian chưa khớp. Cửa hàng sẽ liên hệ với bạn.'
                   : expired
                   ? 'Đang cập nhật trạng thái từ máy chủ.'
-                  : 'Giữ màn hình này mở. Fleuré sẽ nhận tín hiệu ngay khi giao dịch hoàn tất.',
+                  : 'Giữ màn hình này mở. Nhà Có Hoa sẽ nhận tín hiệu ngay khi giao dịch hoàn tất.',
               color: expired || _underReview
                   ? CheckoutPalette.errorSurface
                   : CheckoutPalette.forest50,

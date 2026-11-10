@@ -35,10 +35,7 @@ void main() {
     test('trống: invalid, đặt lỗi cả hai ô, không gọi repo', () async {
       final result = await c.submit();
       expect(result.status, LoginResultStatus.invalid);
-      expect(
-        c.state.identifierError,
-        'Vui lòng nhập số điện thoại hoặc email.',
-      );
+      expect(c.state.identifierError, 'Vui lòng nhập địa chỉ email.');
       expect(c.state.passwordError, 'Vui lòng nhập mật khẩu.');
       expect(repo.calls, isEmpty);
     });

@@ -429,7 +429,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(height: 24),
               CheckoutSectionHeader(
                 title: 'Thông tin giao hoa',
-                subtitle: 'Fleuré giao tận tay người bạn yêu thương.',
+                subtitle: 'Nhà Có Hoa giao tận tay người bạn yêu thương.',
                 trailing: TextButton(
                   onPressed: _loadingAddresses ? null : _openAddressBook,
                   child: const Text('Thay đổi'),

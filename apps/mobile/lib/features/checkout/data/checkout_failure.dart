@@ -1,12 +1,13 @@
 class CheckoutFailure implements Exception {
-  const CheckoutFailure({required this.code, this.statusCode});
+  const CheckoutFailure({required this.code, this.statusCode, this.message});
 
-  const CheckoutFailure.network()
+  const CheckoutFailure.network({this.message})
     : code = CheckoutErrorCode.network,
       statusCode = null;
 
   final String code;
   final int? statusCode;
+  final String? message;
 }
 
 abstract final class CheckoutErrorCode {

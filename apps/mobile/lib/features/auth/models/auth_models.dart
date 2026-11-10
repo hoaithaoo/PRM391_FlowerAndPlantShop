@@ -24,9 +24,23 @@ class CompleteProfileRequest {
     required this.fullName,
     required this.phone,
     required this.address,
+    this.latitude,
+    this.longitude,
   });
 
   final String fullName;
   final String phone;
   final String address;
+  final double? latitude;
+  final double? longitude;
+
+  bool get hasValidCoordinates =>
+      latitude != null &&
+      longitude != null &&
+      latitude!.isFinite &&
+      longitude!.isFinite &&
+      latitude! >= -90 &&
+      latitude! <= 90 &&
+      longitude! >= -180 &&
+      longitude! <= 180;
 }

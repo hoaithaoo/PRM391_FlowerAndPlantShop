@@ -6,6 +6,7 @@ import 'package:plant_flower_mobile/features/auth/auth.dart';
 import 'package:plant_flower_mobile/features/cart/state/cart_scope.dart';
 import 'package:plant_flower_mobile/features/chatbot/data/mock_chatbot_repository.dart';
 import 'package:plant_flower_mobile/features/checkout/data/mock_checkout_repository.dart';
+import 'package:plant_flower_mobile/features/notifications/data/mock_notification_repository.dart';
 import 'package:plant_flower_mobile/features/products/data/mock_product_repository.dart';
 
 import '../support/cart_test_repository.dart';
@@ -19,6 +20,9 @@ void main() {
         cartRepository: TestCartRepository(),
         chatbotRepository: MockChatbotRepository(),
         checkoutRepository: const MockCheckoutRepository(),
+        notificationRepository: MockNotificationRepository(
+          delay: Duration.zero,
+        ),
       ),
     );
     await tester.pumpAndSettle();

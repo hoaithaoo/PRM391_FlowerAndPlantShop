@@ -49,7 +49,7 @@ interface GeminiProviderOptions {
 
 const SYSTEM_INSTRUCTION = `Bạn là trợ lý AI của dự án Plant & Flower Shop.
 Không bao giờ nêu tên mô hình, nhà cung cấp AI hoặc dịch vụ kỹ thuật đứng sau bạn. Khi được hỏi bạn là ai, chọn IDENTITY và chỉ tự giới thiệu là trợ lý AI của dự án/cửa hàng.
-Cửa hàng chỉ bán hoa, không bán cây cảnh hay phụ kiện. Khi chào hỏi hoặc giới thiệu khả năng hỗ trợ, chỉ nhắc đến hoa, không bao giờ nhắc đến cây cảnh hay phụ kiện. Phạm vi hợp lệ gồm sản phẩm hoa, kiến thức chăm sóc hoa có trong knowledgeChunks, chính sách cửa hàng, giỏ hàng của người dùng, đơn hàng/thanh toán đã xác minh và hỗ trợ lập bản nháp báo sự cố. Chọn INCIDENT cho câu trả lời chỉ dựa trên incidentContext; chọn ANSWER cho tư vấn sản phẩm/catalog. Câu hỏi ngoài phạm vi, kể cả hỏi mua hoặc tư vấn cây cảnh và phụ kiện, phải chọn OFF_TOPIC và không trả lời nội dung ngoài lề. Không đề xuất và không dùng ADD cho sản phẩm không phải hoa, kể cả khi sản phẩm đó có trong catalogProducts.
+Cửa hàng bán các mặt hàng có trong catalogProducts, thuộc mọi danh mục của cửa hàng. Phạm vi hợp lệ gồm tư vấn và mua mọi sản phẩm trong catalogProducts, kiến thức chăm sóc có trong knowledgeChunks, chính sách cửa hàng, giỏ hàng của người dùng, đơn hàng/thanh toán đã xác minh và hỗ trợ lập bản nháp báo sự cố. Chọn INCIDENT cho câu trả lời chỉ dựa trên incidentContext; chọn ANSWER cho tư vấn sản phẩm/catalog. Câu hỏi không liên quan đến cửa hàng phải chọn OFF_TOPIC và không trả lời nội dung ngoài lề. Nếu người dùng hỏi loại hàng không có trong catalogProducts, chọn NO_KNOWLEDGE.
 Chỉ sử dụng knowledgeChunks, catalogProducts, contextProduct, incidentContext, cartItems và lịch sử được cung cấp. Không dùng kiến thức bên ngoài và không tự tạo tên, đặc tính, giá, tồn kho hoặc mã sản phẩm. Nếu câu hỏi thuộc phạm vi nhưng không có đủ dữ liệu đã xác minh, chọn NO_KNOWLEDGE.
 Luôn trả lời bằng đúng ngôn ngữ người dùng viết tin nhắn hiện tại (tiếng Anh thì trả lời tiếng Anh, tiếng Nhật thì trả lời tiếng Nhật, v.v.), kể cả khi knowledgeChunks bằng tiếng Việt: diễn đạt lại thông tin sang ngôn ngữ đó nhưng giữ nguyên tên sản phẩm và giá. Quy tắc này áp dụng cho mọi responseType. Nếu người dùng yêu cầu dịch hoặc chuyển ngôn ngữ, chọn TRANSLATION và chỉ dịch câu trả lời gần nhất sang ngôn ngữ đích, không thêm thông tin mới.
 Chỉ suggestedProductIds có trong catalogProducts. Không hứa hoàn tiền và không nói rằng đơn hàng hoặc thanh toán đã được thay đổi. Nếu cần báo sự cố, actionDraft chỉ là bản nháp để người dùng xem lại và xác nhận. Chỉ đặt actionDraft khi responseType là INCIDENT.
@@ -85,7 +85,7 @@ export class GeminiChatbotProvider implements ChatbotProvider {
     const timeout = setTimeout(() => controller.abort(), this.options.timeoutMs);
 
     try {
-      const response = await this.fetchImpl(this.endpoint(), {
+      const send = () => this.fetchImpl(this.endpoint(), {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -122,6 +122,13 @@ export class GeminiChatbotProvider implements ChatbotProvider {
         }),
         signal: controller.signal,
       });
+
+      let response = await send();
+      // Gemini hay trả 503 "high demand" thoáng qua (nhất là request đầu tiên); thử lại một lần trong cùng timeout.
+      if (response.status === 503) {
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        response = await send();
+      }
 
       if (!response.ok) {
         throw this.providerError("Dịch vụ chatbot trả về trạng thái không thành công.");
@@ -247,8 +254,8 @@ function safeReply(
   }
   if (responseType === "OFF_TOPIC") {
     return vietnamese
-      ? "Xin lỗi, cửa hàng chỉ bán hoa nên tôi chỉ có thể hỗ trợ về hoa và dịch vụ của cửa hàng."
-      : "Sorry, this store only sells flowers, so I can only help with flowers and store services.";
+      ? "Xin lỗi, tôi chỉ có thể hỗ trợ về sản phẩm và dịch vụ của cửa hàng."
+      : "Sorry, I can only help with the store's products and services.";
   }
   if (responseType === "NO_KNOWLEDGE") {
     return vietnamese

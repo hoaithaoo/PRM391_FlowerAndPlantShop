@@ -84,13 +84,13 @@ abstract final class AuthValidators {
         : 'Vui lòng đồng ý với Điều khoản dịch vụ và Chính sách bảo mật.';
   }
 
-  /// Ô "Số điện thoại hoặc Email" ở màn đăng nhập.
+  /// Ô "Email" ở màn đăng nhập.
   ///
   /// Supabase hiện chỉ bật đăng nhập bằng email nên số điện thoại bị từ chối
   /// với thông báo rõ ràng thay vì báo sai định dạng.
   static String? loginIdentifier(String value) {
     final identifier = value.trim();
-    if (identifier.isEmpty) return 'Vui lòng nhập số điện thoại hoặc email.';
+    if (identifier.isEmpty) return 'Vui lòng nhập địa chỉ email.';
     if (isPhone(identifier)) {
       return 'Đăng nhập bằng số điện thoại chưa được hỗ trợ, vui lòng dùng email.';
     }
@@ -104,7 +104,6 @@ abstract final class AuthValidators {
   static String? loginPassword(String value) {
     return value.isEmpty ? 'Vui lòng nhập mật khẩu.' : null;
   }
-
 }
 
 /// Trạng thái từng điều kiện mật khẩu, dùng cho checklist ở màn đăng ký lỗi.

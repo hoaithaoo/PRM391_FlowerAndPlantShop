@@ -56,8 +56,8 @@ class OrderSuccessScreen extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               order.pickupTime == null
-                  ? 'Fleuré đang chuyển yêu cầu đến xưởng hoa và đội giao nhận.'
-                  : 'Fleuré sẽ chuẩn bị hoa trước giờ bạn ghé nhận.',
+                  ? 'Nhà Có Hoa đang chuyển yêu cầu đến xưởng hoa và đội giao nhận.'
+                  : 'Nhà Có Hoa sẽ chuẩn bị hoa trước giờ bạn ghé nhận.',
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: CheckoutPalette.charcoal500,

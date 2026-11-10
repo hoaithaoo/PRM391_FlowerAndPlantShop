@@ -41,7 +41,7 @@ class ApiClientCheckoutTransport implements CheckoutApiTransport {
     try {
       final response = await send();
       return CheckoutApiResponse(
-        statusCode: 200,
+        statusCode: response.statusCode,
         body: <String, dynamic>{'data': response.data},
       );
     } on ApiException catch (error) {

@@ -54,7 +54,7 @@ class PaymentSuccessScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'Cảm ơn bạn đã để Fleuré gửi thay một lời yêu thương.',
+              'Cảm ơn bạn đã để Nhà Có Hoa gửi thay một lời yêu thương.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: CheckoutPalette.charcoal500,
@@ -96,7 +96,7 @@ class PaymentSuccessScreen extends StatelessWidget {
                   : 'Thông tin nhận hoa',
               subtitle: order.pickupTime == null
                   ? 'Tài xế sẽ liên hệ trước khi giao.'
-                  : 'Fleuré sẽ chuẩn bị hoa trước giờ bạn ghé nhận.',
+                  : 'Nhà Có Hoa sẽ chuẩn bị hoa trước giờ bạn ghé nhận.',
             ),
             const SizedBox(height: 12),
             CheckoutSurfaceCard(
@@ -148,7 +148,7 @@ class PaymentSuccessScreen extends StatelessWidget {
               key: const Key('checkout-finish'),
               onPressed: () => _finish(context),
               icon: const Icon(Icons.local_florist_outlined),
-              label: const Text('Tiếp tục khám phá Fleuré'),
+              label: const Text('Tiếp tục khám phá Nhà Có Hoa'),
             ),
           ],
         ),

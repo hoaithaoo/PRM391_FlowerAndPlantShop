@@ -48,7 +48,13 @@ class CartScreen extends StatelessWidget {
             _CheckoutBar(
               subtotal: controller.subtotal,
               isBusy: controller.isMutating,
-              onCheckout: onCheckout,
+              onCheckout:
+                  onCheckout ??
+                  () => ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Chưa thể mở thanh toán lúc này.'),
+                    ),
+                  ),
             ),
         ],
       ),
@@ -163,7 +169,7 @@ class _NoticeBanner extends StatelessWidget {
           const SizedBox(width: 10),
           Expanded(
             child: Text(
-              'Mỗi tác phẩm hoa tươi được cắm thủ công bởi nghệ nhân Fleuré vào đúng ngày giao.',
+              'Mỗi tác phẩm hoa tươi được cắm thủ công bởi nghệ nhân Nhà Có Hoa vào đúng ngày giao.',
               style: AppTextStyles.caption.copyWith(
                 color: AppColors.textBody,
                 height: 1.45,
@@ -271,7 +277,11 @@ class _CartImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (item.imageAsset case final asset?) {
-      return Image.asset(asset, fit: BoxFit.cover);
+      return Image.asset(
+        asset,
+        fit: BoxFit.cover,
+        errorBuilder: (_, _, _) => const _CartImagePlaceholder(),
+      );
     }
     if (item.imageUrl case final url?) {
       return Image.network(
@@ -443,7 +453,7 @@ class _PromiseBanner extends StatelessWidget {
         const SizedBox(width: 6),
         Flexible(
           child: Text(
-            'Đóng gói an toàn · Tiêu chuẩn Fleuré Studio',
+            'Đóng gói an toàn · Tiêu chuẩn Nhà Có Hoa',
             textAlign: TextAlign.center,
             style: AppTextStyles.badge.copyWith(color: AppColors.statusPending),
           ),

@@ -66,7 +66,7 @@ void main() {
         await openRegister(tester, repo);
         await submitEmpty(tester);
 
-        expect(find.text('GIA NHẬP FLEURÉ PRIVÉ'), findsNothing);
+        expect(find.text('GIA NHẬP NHÀ CÓ HOA'), findsNothing);
         expect(find.text('Tạo tài khoản mới'), findsNothing);
         expect(byKey('register_google_button'), findsNothing);
         expect(find.text('Hoặc đăng ký nhanh bằng'), findsNothing);
@@ -80,7 +80,7 @@ void main() {
         expect(
           find.text(
             'Vui lòng kiểm tra và sửa lại các thông tin chưa chính xác bên dưới '
-            'để hoàn tất đăng ký Fleuré Privé.',
+            'để hoàn tất đăng ký Nhà Có Hoa.',
           ),
           findsOneWidget,
         );
@@ -96,7 +96,7 @@ void main() {
         expect(find.text('Cần hỗ trợ đăng ký?'), findsOneWidget);
         expect(
           find.text(
-            'Hỗ trợ riêng cho thành viên Privé: 1800 6868 (8:00 - 21:00)',
+            'Hỗ trợ riêng cho thành viên Nhà Có Hoa: 1800 6868 (8:00 - 21:00)',
           ),
           findsNWidgets(1),
         );
@@ -330,7 +330,7 @@ void main() {
       await settle(tester);
 
       expect(byKey('register_error_summary'), findsNothing);
-      expect(find.text('GIA NHẬP FLEURÉ PRIVÉ'), findsOneWidget);
+      expect(find.text('GIA NHẬP NHÀ CÓ HOA'), findsOneWidget);
       expect(byKey('register_google_button'), findsOneWidget);
       expect(isChecked(tester), isTrue);
       expect(textOf(tester, 'register_email_field'), 'phuongha@gmail.com');
@@ -451,7 +451,7 @@ void main() {
 
       expect(
         snackText(
-          'Hỗ trợ riêng cho thành viên Privé: 1800 6868 (8:00 - 21:00)',
+          'Hỗ trợ riêng cho thành viên Nhà Có Hoa: 1800 6868 (8:00 - 21:00)',
         ),
         findsOneWidget,
       );
@@ -503,7 +503,7 @@ void main() {
       expect(snackText('Đang cập nhật'), findsOneWidget);
       expect(isChecked(tester), isFalse);
       expect(
-        find.textContaining('Fleuré Privé.', findRichText: true),
+        find.textContaining('Nhà Có Hoa.', findRichText: true),
         findsWidgets,
       );
     });

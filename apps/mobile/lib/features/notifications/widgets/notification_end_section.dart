@@ -39,7 +39,7 @@ class NotificationEndSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Bạn đã xem hết thông báo gần đây của Fleuré. Chúc bạn có một ngày tràn ngập hương sắc.',
+            'Bạn đã xem hết thông báo gần đây của Nhà Có Hoa. Chúc bạn có một ngày tràn ngập hương sắc.',
             textAlign: TextAlign.center,
             style: NotificationTextStyles.caption,
           ),
