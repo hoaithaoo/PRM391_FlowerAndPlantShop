@@ -24,7 +24,20 @@ export const checkoutSchema = z.object({
       productId: z.string().uuid("Sản phẩm không hợp lệ."),
       quantity: z.number().int().min(1, "Số lượng phải từ 1 trở lên.").max(100, "Số lượng không được vượt quá 100."),
     }).strict().optional(),
+    // Chỉ thanh toán các món được chọn trong giỏ; bỏ trống = cả giỏ.
+    cartItemIds: z
+      .array(z.string().uuid("Sản phẩm trong giỏ không hợp lệ."))
+      .min(1, "Hãy chọn ít nhất một sản phẩm để thanh toán.")
+      .max(100, "Chọn tối đa 100 sản phẩm mỗi đơn.")
+      .optional(),
 }).strict().superRefine((input, ctx) => {
+    if (input.buyNow && input.cartItemIds) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["cartItemIds"],
+        message: "Mua ngay không dùng sản phẩm trong giỏ.",
+      });
+    }
     // Nhận tại quán lấy địa chỉ từ cửa hàng; giao hàng bắt buộc có địa chỉ và tọa độ.
     const required = input.pickupStoreId
       ? (["pickupAt"] as const)

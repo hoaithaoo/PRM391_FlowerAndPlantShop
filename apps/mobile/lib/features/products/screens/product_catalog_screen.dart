@@ -3,6 +3,7 @@ import 'package:plant_flower_shared/plant_flower_shared.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
 import '../../../app/main_shell.dart';
+import '../../favorites/state/favorite_scope.dart';
 import '../data/product_scope.dart';
 import '../product_routes.dart';
 import '../state/product_catalog_controller.dart';
@@ -37,9 +38,6 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
 
   final _scroll = ScrollController();
   final _searchText = TextEditingController();
-
-  // Yêu thích chỉ lưu trong phiên, chưa có API.
-  final _favorites = <String>{};
 
   ProductCatalogController? _controller;
   bool _loadMoreCheckScheduled = false;
@@ -127,10 +125,17 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
     _ctrl.applyPriceFilter(min: range.min, max: range.max);
   }
 
-  void _toggleFavorite(String productId) {
-    setState(() {
-      if (!_favorites.remove(productId)) _favorites.add(productId);
-    });
+  Future<void> _toggleFavorite(String productId) async {
+    final favorites = FavoriteScope.maybeOf(context);
+    if (favorites == null) return;
+    final ok = await favorites.toggle(productId);
+    if (!ok && mounted) {
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        const SnackBar(
+          content: Text('Chưa cập nhật được yêu thích. Vui lòng thử lại.'),
+        ),
+      );
+    }
   }
 
   Future<void> _openProduct(ProductSummary product) async {
@@ -146,6 +151,23 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
       child: Column(
         children: [
           const BrandHeader(),
+          // Chip danh mục ghim dưới header: cuộn danh sách vẫn đổi được danh mục.
+          ListenableBuilder(
+            listenable: _ctrl,
+            builder: (context, _) => Container(
+              key: const Key('catalog-category-bar'),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: const BoxDecoration(
+                color: AppColors.background,
+                border: Border(bottom: BorderSide(color: AppColors.border)),
+              ),
+              child: CatalogCategoryChips(
+                categories: _ctrl.state.categories,
+                selectedId: _ctrl.state.query.categoryId,
+                onSelected: _ctrl.selectCategory,
+              ),
+            ),
+          ),
           Expanded(
             child: ListenableBuilder(
               listenable: _ctrl,
@@ -181,16 +203,6 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
             onChanged: _ctrl.setSearchText,
             onSubmitted: _ctrl.submitSearch,
             onClear: _clearSearch,
-          ),
-        ),
-      ),
-      SliverPadding(
-        padding: const EdgeInsets.only(top: 12),
-        sliver: SliverToBoxAdapter(
-          child: CatalogCategoryChips(
-            categories: state.categories,
-            selectedId: query.categoryId,
-            onSelected: _ctrl.selectCategory,
           ),
         ),
       ),
@@ -286,7 +298,8 @@ class _ProductCatalogScreenState extends State<ProductCatalogScreen> {
 
     Widget card(ProductSummary product) => CatalogProductCard(
       product: product,
-      isFavorite: _favorites.contains(product.id),
+      isFavorite:
+          FavoriteScope.maybeOf(context)?.isFavorite(product.id) ?? false,
       onTap: () => _openProduct(product),
       onToggleFavorite: () => _toggleFavorite(product.id),
     );

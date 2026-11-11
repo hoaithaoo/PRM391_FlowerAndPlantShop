@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/app.dart';
 import 'features/auth/auth.dart';
 import 'features/cart/data/api_cart_repository.dart';
+import 'features/favorites/data/api_favorite_repository.dart';
 import 'features/chatbot/data/api_client_chatbot_transport.dart';
 import 'features/chatbot/data/chatbot_remote_data_source.dart';
 import 'features/chatbot/data/chatbot_repository_impl.dart';
@@ -17,6 +18,7 @@ import 'features/notifications/data/api_client_notification_transport.dart';
 import 'features/notifications/data/notification_remote_data_source.dart';
 import 'features/notifications/data/notification_repository_impl.dart';
 import 'features/products/data/api_product_repository.dart';
+import 'features/profile/data/profile_backend_sync.dart';
 import 'features/profile/data/profile_repository.dart';
 
 const _apiBaseUrl = String.fromEnvironment('API_BASE_URL');
@@ -40,11 +42,6 @@ Future<void> main() async {
   );
 
   final auth = Supabase.instance.client.auth;
-  final authRepository = SupabaseAuthRepository(
-    auth,
-    geocoder: NominatimAddressGeocoder(),
-  );
-
   // Tự làm mới access token khi hết hạn.
   Future<String?> refresh() async {
     try {
@@ -111,6 +108,10 @@ Future<void> main() async {
     apiClient,
     accessTokenProvider: accessTokenProvider,
   );
+  final favoriteRepository = ApiFavoriteRepository(
+    apiClient,
+    accessTokenProvider: accessTokenProvider,
+  );
   final chatbotRepository = ChatbotRepositoryImpl(
     ChatbotRemoteDataSource(
       transport: ApiClientChatbotTransport(apiClient),
@@ -136,11 +137,21 @@ Future<void> main() async {
     reviewImageUploader: reviewImageUploader,
   );
 
+  final authRepository = SupabaseAuthRepository(
+    auth,
+    geocoder: NominatimAddressGeocoder(),
+    profileSync: ProfileBackendSyncer(
+      profileRepository: profileRepository,
+      checkoutRepository: checkoutRepository,
+    ).call,
+  );
+
   runApp(
     PlantFlowerApp(
       authRepository: authRepository,
       productRepository: productRepository,
       cartRepository: cartRepository,
+      favoriteRepository: favoriteRepository,
       chatbotRepository: chatbotRepository,
       checkoutRepository: checkoutRepository,
       notificationRepository: notificationRepository,

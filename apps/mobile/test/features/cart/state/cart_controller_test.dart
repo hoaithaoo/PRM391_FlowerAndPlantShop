@@ -179,4 +179,85 @@ void main() {
     expect(controller.totalQuantity, 3);
     expect(controller.status, CartStatus.ready);
   });
+
+  group('chọn món để thanh toán', () {
+    CartItem item(String id, int price, int quantity) => CartItem(
+      id: id,
+      productId: 'p-$id',
+      name: 'Món $id',
+      variant: '',
+      unitPrice: price,
+      stock: 10,
+      quantity: quantity,
+    );
+
+    CartSnapshot twoItems() => CartSnapshot(
+      id: 'cart',
+      items: [item('a', 100000, 2), item('b', 50000, 1)],
+      subtotal: 250000,
+      totalQuantity: 3,
+    );
+
+    test(
+      'mặc định chọn cả giỏ, bỏ chọn thì tạm tính chỉ tính món còn chọn',
+      () async {
+        final repository = FakeCartRepository()..snapshot = twoItems();
+        final controller = CartController(repository: repository);
+        addTearDown(controller.dispose);
+        await controller.initialize();
+
+        expect(controller.isAllSelected, isTrue);
+        expect(controller.selectedSubtotal, 250000);
+
+        controller.toggleSelected('a');
+        expect(controller.isSelected('a'), isFalse);
+        expect(controller.isAllSelected, isFalse);
+        expect(controller.selectedItems.map((e) => e.id), ['b']);
+        expect(controller.selectedSubtotal, 50000);
+        expect(controller.subtotal, 250000);
+
+        controller.setAllSelected(false);
+        expect(controller.hasSelection, isFalse);
+        expect(controller.selectedSubtotal, 0);
+
+        controller.setAllSelected(true);
+        expect(controller.isAllSelected, isTrue);
+      },
+    );
+
+    test(
+      'món mới thêm vào được chọn sẵn, món đã xoá bị bỏ khỏi lựa chọn',
+      () async {
+        final repository = FakeCartRepository()..snapshot = twoItems();
+        final controller = CartController(repository: repository);
+        addTearDown(controller.dispose);
+        await controller.initialize();
+        controller.toggleSelected('a');
+
+        repository.snapshot = CartSnapshot(
+          id: 'cart',
+          items: [item('b', 50000, 1), item('c', 20000, 1)],
+          subtotal: 70000,
+          totalQuantity: 2,
+        );
+        await controller.initialize();
+
+        expect(controller.isAllSelected, isTrue);
+        expect(controller.selectedItems.map((e) => e.id), ['b', 'c']);
+      },
+    );
+
+    test('reset xoá lựa chọn cũ', () async {
+      final repository = FakeCartRepository()..snapshot = twoItems();
+      final controller = CartController(repository: repository);
+      addTearDown(controller.dispose);
+      await controller.initialize();
+      controller.toggleSelected('a');
+
+      controller.reset();
+      await controller.initialize();
+
+      expect(controller.isAllSelected, isTrue);
+    });
+  });
 }

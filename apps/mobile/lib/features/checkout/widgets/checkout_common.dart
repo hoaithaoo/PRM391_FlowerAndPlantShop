@@ -2,12 +2,44 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
+import '../../auth/utils/auth_theme.dart';
 import '../models/checkout_flow_models.dart';
 import '../models/checkout_summary.dart';
 import '../models/voucher.dart';
 import '../utils/checkout_assets.dart';
 import '../utils/checkout_theme.dart';
 import '../utils/currency_formatter.dart';
+
+/// Đầu trang kiểu màn hồ sơ (Thông tin cá nhân): nút back, tiêu đề canh trái,
+/// nền kem. Dùng khi màn của luồng thanh toán được mở từ Tài khoản.
+class ProfileStyleAppBar extends StatelessWidget
+    implements PreferredSizeWidget {
+  const ProfileStyleAppBar({super.key, required this.title});
+
+  final String title;
+
+  /// Nền kem của các màn hồ sơ (`AuthPalette.background`).
+  static const background = Color(0xFFFCF9F3);
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      backgroundColor: background,
+      surfaceTintColor: Colors.transparent,
+      // CheckoutTheme canh giữa tiêu đề; màn hồ sơ canh trái.
+      centerTitle: false,
+      title: Text(title, style: AuthTextStyles.headerTitle),
+      leading: IconButton(
+        tooltip: 'Quay lại',
+        icon: const Icon(Icons.arrow_back),
+        onPressed: () => Navigator.of(context).maybePop(),
+      ),
+    );
+  }
+}
 
 class FleureAppBar extends StatelessWidget implements PreferredSizeWidget {
   const FleureAppBar({

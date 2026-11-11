@@ -8,10 +8,20 @@ import 'address_geocoder.dart';
 import 'auth_failure.dart';
 import 'auth_repository.dart';
 
+/// Đẩy hồ sơ vừa hoàn thiện sang backend (bảng profiles và Sổ địa chỉ).
+typedef ProfileBackendSync = Future<void> Function(
+  CompleteProfileRequest request,
+  GeoPoint? point,
+);
+
 /// Hiện thực [AuthRepository] bằng Supabase Auth.
 class SupabaseAuthRepository implements AuthRepository {
-  SupabaseAuthRepository(this._auth, {AddressGeocoder? geocoder})
-      : _geocoder = geocoder {
+  SupabaseAuthRepository(
+    this._auth, {
+    AddressGeocoder? geocoder,
+    ProfileBackendSync? profileSync,
+  })  : _geocoder = geocoder,
+        _profileSync = profileSync {
     _auth.onAuthStateChange.listen((state) {
       if (state.event == AuthChangeEvent.passwordRecovery) {
         _isInPasswordRecovery = true;
@@ -36,6 +46,7 @@ class SupabaseAuthRepository implements AuthRepository {
 
   final GoTrueClient _auth;
   final AddressGeocoder? _geocoder;
+  final ProfileBackendSync? _profileSync;
   bool _isInPasswordRecovery = false;
   final _passwordRecoveryController = StreamController<bool>.broadcast();
 
@@ -182,6 +193,9 @@ class SupabaseAuthRepository implements AuthRepository {
       final point = request.hasValidCoordinates
           ? GeoPoint(request.latitude!, request.longitude!)
           : await _geocoder?.geocode(request.address);
+      // Đồng bộ backend trước: lỗi thì metadata chưa đổi, hồ sơ vẫn
+      // "chưa hoàn tất" nên người dùng bấm lưu lại được.
+      await _profileSync?.call(request, point);
       await _auth.updateUser(
         UserAttributes(
           data: {

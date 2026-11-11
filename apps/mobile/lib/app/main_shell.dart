@@ -163,7 +163,7 @@ class AppBottomNav extends StatelessWidget {
         height: 64,
         margin: const EdgeInsets.symmetric(horizontal: 14),
         decoration: BoxDecoration(
-          color: AppColors.surface.withValues(alpha: 0.94),
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(200),
           border: Border.all(color: AppColors.border),
           boxShadow: const [

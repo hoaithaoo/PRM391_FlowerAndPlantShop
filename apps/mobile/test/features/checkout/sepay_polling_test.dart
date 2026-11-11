@@ -36,6 +36,50 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(repository.calls, callsAfterDispose);
   });
+
+  testWidgets(
+    'bấm "Tôi đã chuyển khoản" lúc poll đang chạy thì dùng kết quả PAID của lần đó',
+    (tester) async {
+      final repository = _SlowPaidRepository();
+      tester.view.physicalSize = const Size(390, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SepayQrScreen(
+            order: _placedOrder,
+            repository: repository,
+            pollInterval: const Duration(milliseconds: 10),
+          ),
+        ),
+      );
+      // Lần poll đầu đang chờ server (300ms) thì người dùng bấm xác nhận.
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.ensureVisible(find.byKey(const Key('sepay-confirm-transfer')));
+      await tester.tap(find.byKey(const Key('sepay-confirm-transfer')));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+
+      expect(repository.calls, 1);
+      expect(find.text('Thanh toán hoàn tất'), findsOneWidget);
+      expect(
+        find.text('Chưa nhận được giao dịch. Vui lòng chờ thêm ít phút.'),
+        findsNothing,
+      );
+    },
+  );
+}
+
+class _SlowPaidRepository extends MockCheckoutRepository {
+  int calls = 0;
+
+  @override
+  Future<String> getPaymentStatus(String paymentId) async {
+    calls++;
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    return 'PAID';
+  }
 }
 
 const _address = CheckoutAddress(

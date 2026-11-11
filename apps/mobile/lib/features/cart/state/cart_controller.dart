@@ -24,6 +24,10 @@ class CartController extends ChangeNotifier {
   int _subtotal = 0;
   int _totalQuantity = 0;
 
+  /// Lưu món bị bỏ chọn (không lưu món được chọn) để món mới thêm vào
+  /// giỏ mặc định được chọn.
+  Set<String> _deselected = const {};
+
   UnmodifiableListView<CartItem> get items => UnmodifiableListView(_items);
   CartStatus get status => _status;
   String? get errorMessage => _errorMessage;
@@ -33,6 +37,29 @@ class CartController extends ChangeNotifier {
   bool get isEmpty => _items.isEmpty;
   int get totalQuantity => _totalQuantity;
   int get subtotal => _subtotal;
+
+  bool isSelected(String itemId) => !_deselected.contains(itemId);
+  List<CartItem> get selectedItems =>
+      _items.where((item) => isSelected(item.id)).toList(growable: false);
+  bool get hasSelection => _items.any((item) => isSelected(item.id));
+  bool get isAllSelected => _deselected.isEmpty;
+  int get selectedSubtotal =>
+      selectedItems.fold(0, (sum, item) => sum + item.subtotal);
+  int get selectedQuantity =>
+      selectedItems.fold(0, (sum, item) => sum + item.quantity);
+
+  void toggleSelected(String itemId) {
+    if (!_items.any((item) => item.id == itemId)) return;
+    _deselected = _deselected.contains(itemId)
+        ? ({..._deselected}..remove(itemId))
+        : {..._deselected, itemId};
+    notifyListeners();
+  }
+
+  void setAllSelected(bool selected) {
+    _deselected = selected ? const {} : {for (final item in _items) item.id};
+    notifyListeners();
+  }
 
   Future<void> initialize() async {
     final generation = ++_operationGeneration;
@@ -62,6 +89,7 @@ class CartController extends ChangeNotifier {
     _items = const [];
     _subtotal = 0;
     _totalQuantity = 0;
+    _deselected = const {};
     _status = CartStatus.initial;
     _errorMessage = null;
     notifyListeners();
@@ -130,6 +158,8 @@ class CartController extends ChangeNotifier {
     _items = List<CartItem>.unmodifiable(snapshot.items);
     _subtotal = snapshot.subtotal;
     _totalQuantity = snapshot.totalQuantity;
+    final ids = {for (final item in _items) item.id};
+    _deselected = _deselected.where(ids.contains).toSet();
     _errorMessage = null;
   }
 }

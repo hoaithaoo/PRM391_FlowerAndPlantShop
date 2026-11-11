@@ -1,5 +1,5 @@
 -- CreateTable
-CREATE TABLE "product_reviews" (
+CREATE TABLE IF NOT EXISTS "product_reviews" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "product_id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
@@ -17,22 +17,40 @@ CREATE TABLE "product_reviews" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "product_reviews_order_id_product_id_key" ON "product_reviews"("order_id", "product_id");
+CREATE UNIQUE INDEX IF NOT EXISTS "product_reviews_order_id_product_id_key" ON "product_reviews"("order_id", "product_id");
 
 -- CreateIndex
-CREATE INDEX "product_reviews_product_id_is_hidden_created_at_idx" ON "product_reviews"("product_id", "is_hidden", "created_at");
+CREATE INDEX IF NOT EXISTS "product_reviews_product_id_is_hidden_created_at_idx" ON "product_reviews"("product_id", "is_hidden", "created_at");
 
 -- CreateIndex
-CREATE INDEX "product_reviews_user_id_idx" ON "product_reviews"("user_id");
+CREATE INDEX IF NOT EXISTS "product_reviews_user_id_idx" ON "product_reviews"("user_id");
 
 -- AddForeignKey
-ALTER TABLE "product_reviews" ADD CONSTRAINT "product_reviews_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'product_reviews_product_id_fkey' AND conrelid = 'public.product_reviews'::regclass) THEN
+    ALTER TABLE "product_reviews" ADD CONSTRAINT "product_reviews_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
 
 -- AddForeignKey
-ALTER TABLE "product_reviews" ADD CONSTRAINT "product_reviews_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'product_reviews_user_id_fkey' AND conrelid = 'public.product_reviews'::regclass) THEN
+    ALTER TABLE "product_reviews" ADD CONSTRAINT "product_reviews_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
 
 -- AddForeignKey
-ALTER TABLE "product_reviews" ADD CONSTRAINT "product_reviews_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'product_reviews_order_id_fkey' AND conrelid = 'public.product_reviews'::regclass) THEN
+    ALTER TABLE "product_reviews" ADD CONSTRAINT "product_reviews_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
 
 -- Chỉ backend (Prisma) truy cập bảng này, giống các bảng khác.
 ALTER TABLE "product_reviews" ENABLE ROW LEVEL SECURITY;
@@ -50,6 +68,7 @@ BEGIN
     VALUES ('review-images', 'review-images', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/webp'])
     ON CONFLICT (id) DO NOTHING;
 
+    EXECUTE 'DROP POLICY IF EXISTS "review_images_insert_own" ON storage.objects';
     EXECUTE $policy$
       CREATE POLICY "review_images_insert_own" ON storage.objects FOR INSERT TO authenticated
       WITH CHECK (bucket_id = 'review-images' AND (storage.foldername(name))[1] = auth.uid()::text)

@@ -14,6 +14,7 @@ abstract final class CheckoutErrorCode {
   static const productOutOfStock = 'PRODUCT_OUT_OF_STOCK';
   static const checkoutConflict = 'CHECKOUT_CONFLICT';
   static const cartEmpty = 'CART_EMPTY';
+  static const cartItemNotFound = 'CART_ITEM_NOT_FOUND';
   static const storeNotFound = 'STORE_NOT_FOUND';
   static const pickupTimeInvalid = 'PICKUP_TIME_INVALID';
   static const forbidden = 'FORBIDDEN';

@@ -23,6 +23,7 @@ class PickupCheckoutScreen extends StatefulWidget {
     required this.onVoucherChanged,
     this.voucher,
     this.buyNow,
+    this.cartItemIds,
   });
 
   final CheckoutFlowController controller;
@@ -33,6 +34,9 @@ class PickupCheckoutScreen extends StatefulWidget {
   /// Giữ voucher đồng bộ với màn giao hàng nằm bên dưới.
   final ValueChanged<Voucher?> onVoucherChanged;
   final CheckoutBuyNow? buyNow;
+
+  /// Món được chọn trong giỏ; null nghĩa là cả giỏ.
+  final List<String>? cartItemIds;
 
   /// Màn checkout gửi đơn và điều hướng. [branch] là cửa hàng dưới dạng địa chỉ
   /// để các màn kết quả dùng chung; [pickupTime] là chuỗi hiển thị cho khách.
@@ -284,6 +288,7 @@ class _PickupCheckoutScreenState extends State<PickupCheckoutScreen> {
         note: widget.controller.pickupNote,
         voucherCode: _voucher?.code,
         buyNow: widget.buyNow,
+        cartItemIds: widget.cartItemIds,
         pickupStoreId: branch.id,
         pickupAt: _pickupAt,
       ),

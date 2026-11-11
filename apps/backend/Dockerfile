@@ -24,4 +24,6 @@ COPY --from=build /prod/backend ./
 EXPOSE 5000
 # Chạy migration (idempotent) trước khi bật API, nên nền tảng deploy không cần
 # cấu hình Docker Command riêng.
-CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma && exec node dist/server.js"]
+# resolve: gỡ bản ghi failed của 20261111120000_incident_reports (P3018 ngày
+# 2026-11-11, migration nay đã idempotent); lỗi khi không có gì để gỡ thì bỏ qua.
+CMD ["sh", "-c", "(./node_modules/.bin/prisma migrate resolve --schema prisma/schema.prisma --rolled-back 20261111120000_incident_reports || true) && ./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma && exec node dist/server.js"]

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
 import '../../../notifications/state/notification_scope.dart';
+import '../../../profile/state/current_avatar.dart';
 
 /// Thanh header 64px dùng chung (Penpot board "Header").
 ///
@@ -111,7 +112,7 @@ class BrandHeader extends StatelessWidget implements PreferredSizeWidget {
                   (notificationScope?.notifier?.state.unreadCount ?? 0) > 0,
               onPressed: notificationScope?.onOpen,
             ),
-          if (title == null) ...[const SizedBox(width: 4), const _Avatar()],
+          if (title == null) ...[const SizedBox(width: 4), const UserAvatar()],
         ],
       ),
     );
@@ -149,28 +150,6 @@ class _NotificationButton extends StatelessWidget {
               ),
             ),
         ],
-      ),
-    );
-  }
-}
-
-class _Avatar extends StatelessWidget {
-  const _Avatar();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: AppColors.accentLight,
-        shape: BoxShape.circle,
-        border: Border.all(color: AppColors.accentBorder),
-      ),
-      child: const Icon(
-        Icons.person_outline,
-        size: 18,
-        color: AppColors.accent,
       ),
     );
   }

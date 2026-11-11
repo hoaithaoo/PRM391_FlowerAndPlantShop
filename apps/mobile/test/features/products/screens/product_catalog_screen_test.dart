@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plant_flower_mobile/features/profile/state/current_avatar.dart';
 import 'package:plant_flower_mobile/features/products/data/mock_product_repository.dart';
 import 'package:plant_flower_mobile/features/products/data/product_repository.dart';
 import 'package:plant_flower_mobile/features/products/screens/product_catalog_screen.dart';
@@ -78,7 +79,14 @@ Future<void> _pumpCatalog(
 }
 
 ScrollPosition _position(WidgetTester tester) =>
-    tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+    tester
+        .state<ScrollableState>(
+          find.descendant(
+            of: find.byType(CustomScrollView),
+            matching: find.byType(Scrollable),
+          ).first,
+        )
+        .position;
 
 /// Kéo danh sách xuống cho tới khi [done] đúng (tối đa 80 lần).
 ///
@@ -162,7 +170,7 @@ void main() {
       await _pumpCatalog(tester);
 
       expect(
-        find.byWidgetPredicate((w) => w.runtimeType.toString() == '_Avatar'),
+        find.byType(UserAvatar),
         findsOneWidget,
       );
       final logos = tester.widgetList<Text>(find.text('Nhà Có Hoa')).toList();

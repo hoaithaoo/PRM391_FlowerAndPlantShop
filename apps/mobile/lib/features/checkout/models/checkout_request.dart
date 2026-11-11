@@ -25,6 +25,7 @@ class CheckoutRequest {
     this.voucherCode,
     this.shippingVoucherCode,
     this.buyNow,
+    this.cartItemIds,
     this.pickupStoreId,
     this.pickupAt,
   });
@@ -39,6 +40,9 @@ class CheckoutRequest {
   final String? voucherCode;
   final String? shippingVoucherCode;
   final CheckoutBuyNow? buyNow;
+
+  /// Món được chọn trong giỏ; null nghĩa là thanh toán cả giỏ.
+  final List<String>? cartItemIds;
 
   /// Có giá trị nghĩa là nhận tại quán; server tự lấy địa chỉ cửa hàng.
   final String? pickupStoreId;
@@ -58,6 +62,7 @@ class CheckoutRequest {
       if (shippingVoucherCode != null)
         'shippingVoucherCode': shippingVoucherCode,
       if (buyNow != null) 'buyNow': buyNow!.toJson(),
+      if (cartItemIds != null) 'cartItemIds': cartItemIds,
       if (pickupStoreId != null) 'pickupStoreId': pickupStoreId,
       if (pickupAt != null) 'pickupAt': pickupAt!.toUtc().toIso8601String(),
     };

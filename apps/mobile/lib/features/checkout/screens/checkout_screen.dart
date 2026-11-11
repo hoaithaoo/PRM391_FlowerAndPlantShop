@@ -25,6 +25,7 @@ class CheckoutScreen extends StatefulWidget {
     required this.summary,
     this.onCartChanged,
     this.buyNow,
+    this.cartItemIds,
   });
 
   final CheckoutRepository repository;
@@ -37,6 +38,9 @@ class CheckoutScreen extends StatefulWidget {
 
   /// Có giá trị nghĩa là mua ngay: giỏ hàng giữ nguyên.
   final CheckoutBuyNow? buyNow;
+
+  /// Món được chọn trong giỏ; null nghĩa là cả giỏ.
+  final List<String>? cartItemIds;
 
   @override
   State<CheckoutScreen> createState() => _CheckoutScreenState();
@@ -228,6 +232,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         voucherCode: _voucher?.code,
         shippingVoucherCode: _shippingVoucher?.code,
         buyNow: widget.buyNow,
+        cartItemIds: widget.cartItemIds,
       ),
       address: address,
       cardMessage: cardMessage,
@@ -244,6 +249,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           voucher: _voucher,
           onVoucherChanged: (voucher) => setState(() => _voucher = voucher),
           buyNow: widget.buyNow,
+          cartItemIds: widget.cartItemIds,
           onPlaceOrder: (request, branch, pickupTime) =>
               _submitOrder(request, address: branch, pickupTime: pickupTime),
         ),

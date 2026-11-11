@@ -15,9 +15,13 @@ class EditAddressScreen extends StatefulWidget {
     this.isCreating = false,
     this.locationService = const LocationService(),
     this.administrativeService,
+    this.profileStyle = false,
   });
 
   final CheckoutAddress address;
+
+  /// Mở từ Sổ địa chỉ của màn hồ sơ: dùng đầu trang và nền kem giống hồ sơ.
+  final bool profileStyle;
   final bool isCreating;
   final LocationService locationService;
   final VietnamAdministrativeService? administrativeService;
@@ -409,10 +413,17 @@ class _EditAddressScreenState extends State<EditAddressScreen> {
   Widget build(BuildContext context) {
     return CheckoutTheme(
       child: Scaffold(
-        appBar: FleureAppBar(
-          title: widget.isCreating ? 'Thêm địa chỉ' : 'Chỉnh sửa địa chỉ',
-          showProfile: false,
-        ),
+        backgroundColor: widget.profileStyle
+            ? ProfileStyleAppBar.background
+            : null,
+        appBar: widget.profileStyle
+            ? ProfileStyleAppBar(
+                title: widget.isCreating ? 'Thêm địa chỉ' : 'Chỉnh sửa địa chỉ',
+              )
+            : FleureAppBar(
+                title: widget.isCreating ? 'Thêm địa chỉ' : 'Chỉnh sửa địa chỉ',
+                showProfile: false,
+              ),
         body: Form(
           key: _formKey,
           child: CheckoutContent(

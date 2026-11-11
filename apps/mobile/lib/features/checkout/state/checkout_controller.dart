@@ -128,6 +128,12 @@ class CheckoutController extends ChangeNotifier {
         errorCode: failure.code,
         errorMessage: 'Giỏ hàng của bạn đang trống.',
       ),
+      CheckoutErrorCode.cartItemNotFound => CheckoutState(
+        status: CheckoutStatus.error,
+        errorCode: failure.code,
+        errorMessage:
+            'Một số sản phẩm đã chọn không còn trong giỏ. Vui lòng quay lại giỏ hàng.',
+      ),
       CheckoutErrorCode.storeNotFound => CheckoutState(
         status: CheckoutStatus.error,
         errorCode: failure.code,

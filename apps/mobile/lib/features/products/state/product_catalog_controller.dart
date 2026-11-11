@@ -98,7 +98,8 @@ class ProductCatalogController extends ChangeNotifier {
     ]);
   }
 
-  /// Kéo để làm mới: giữ danh sách cũ cho tới khi có kết quả mới.
+  /// Kéo để làm mới: tải lại cả danh mục, giữ danh sách cũ cho tới khi có
+  /// kết quả mới.
   ///
   /// Trả về false khi thất bại (danh sách cũ, nếu có, được giữ nguyên).
   ///
@@ -110,12 +111,14 @@ class ProductCatalogController extends ChangeNotifier {
         _state.copyWith(query: _state.query.copyWith(search: _pendingSearch)),
       );
     }
-    if (_state.categories.isEmpty) unawaited(_loadCategories());
     final token = ++_token;
     final query = _state.query;
     _set(_state.copyWith(loadingMore: false, loadMoreError: null));
     try {
-      final result = await repository.listProducts(query, page: 1, limit: pageSize);
+      final products = repository.listProducts(query, page: 1, limit: pageSize);
+      // Luôn tải lại category để thấy ngay danh mục admin vừa thêm/sửa/ẩn.
+      unawaited(_loadCategories(dropMissingSelection: true));
+      final result = await products;
       if (_isStale(token)) return true;
       _set(_readyState(result));
       return true;
@@ -163,10 +166,17 @@ class ProductCatalogController extends ChangeNotifier {
     unawaited(_loadFirstPage());
   }
 
-  Future<void> _loadCategories() async {
+  Future<void> _loadCategories({bool dropMissingSelection = false}) async {
     try {
       final categories = await repository.listCategories();
       _set(_state.copyWith(categories: categories));
+      // Danh mục đang lọc vừa bị admin ẩn/xoá: quay về "Tất cả".
+      final selected = _state.query.categoryId;
+      if (dropMissingSelection &&
+          selected != null &&
+          !categories.any((c) => c.id == selected)) {
+        selectCategory(null);
+      }
     } catch (_) {
       // Lỗi category không chặn danh sách: chỉ còn chip "Tất cả".
     }
@@ -191,7 +201,11 @@ class ProductCatalogController extends ChangeNotifier {
       _state = loading;
     }
     try {
-      final result = await repository.listProducts(query, page: 1, limit: pageSize);
+      final result = await repository.listProducts(
+        query,
+        page: 1,
+        limit: pageSize,
+      );
       if (_isStale(token)) return;
       _set(_readyState(result));
     } catch (error) {
@@ -230,7 +244,9 @@ class ProductCatalogController extends ChangeNotifier {
       );
     } catch (error) {
       if (_isStale(token)) return;
-      _set(_state.copyWith(loadingMore: false, loadMoreError: _asFailure(error)));
+      _set(
+        _state.copyWith(loadingMore: false, loadMoreError: _asFailure(error)),
+      );
     }
   }
 
