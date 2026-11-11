@@ -12,10 +12,11 @@ const _debounce = Duration(milliseconds: 400);
 
 MockProductRepository _mockRepo({int count = 45}) => MockProductRepository(
   latency: Duration.zero,
-  categories: const [testCategory, Category(id: 'cat-2', name: 'Cây cảnh')],
-  products: [
-    ...generateProducts(count),
+  categories: const [
+    testCategory,
+    Category(id: 'cat-2', name: 'Cây cảnh'),
   ],
+  products: [...generateProducts(count)],
 );
 
 ProductCatalogController _controller(
@@ -249,23 +250,26 @@ void main() {
       });
     });
 
-    test('gõ rồi xoá về giá trị cũ trước khi hết debounce thì không request', () {
-      fakeAsync((async) {
-        final repo = _mockRepo();
-        final controller = _controller(repo);
-        controller.initialize();
-        async.flushMicrotasks();
+    test(
+      'gõ rồi xoá về giá trị cũ trước khi hết debounce thì không request',
+      () {
+        fakeAsync((async) {
+          final repo = _mockRepo();
+          final controller = _controller(repo);
+          controller.initialize();
+          async.flushMicrotasks();
 
-        controller.setSearchText('abc');
-        async.elapse(const Duration(milliseconds: 200));
-        controller.setSearchText('');
-        async.elapse(const Duration(seconds: 2));
-        async.flushMicrotasks();
+          controller.setSearchText('abc');
+          async.elapse(const Duration(milliseconds: 200));
+          controller.setSearchText('');
+          async.elapse(const Duration(seconds: 2));
+          async.flushMicrotasks();
 
-        expect(repo.listProductsCalls, 1);
-        expect(controller.state.query.search, isNull);
-      });
-    });
+          expect(repo.listProductsCalls, 1);
+          expect(controller.state.query.search, isNull);
+        });
+      },
+    );
 
     test('text toàn khoảng trắng giống search hiện tại (null) nên bỏ qua', () {
       fakeAsync((async) {
@@ -641,41 +645,40 @@ void main() {
       expect(controller.state.items.map((e) => e.id), ['a', 'b', 'c']);
     });
 
-    test('lỗi tải thêm giữ danh sách, đặt loadMoreError, chặn loadMore tự động', () async {
-      final repo = ControlledProductRepository();
-      final controller = _controller(repo);
-      final init = controller.initialize();
-      await pumpEventQueue();
-      repo.calls[0].complete(
-        pageOf([summary('a')], total: 3, totalPages: 3),
-      );
-      await init;
+    test(
+      'lỗi tải thêm giữ danh sách, đặt loadMoreError, chặn loadMore tự động',
+      () async {
+        final repo = ControlledProductRepository();
+        final controller = _controller(repo);
+        final init = controller.initialize();
+        await pumpEventQueue();
+        repo.calls[0].complete(pageOf([summary('a')], total: 3, totalPages: 3));
+        await init;
 
-      final more = controller.loadMore();
-      await pumpEventQueue();
-      repo.calls[1].fail(const ProductFailure('Rớt mạng', offline: true));
-      await more;
+        final more = controller.loadMore();
+        await pumpEventQueue();
+        repo.calls[1].fail(const ProductFailure('Rớt mạng', offline: true));
+        await more;
 
-      final state = controller.state;
-      expect(state.status, CatalogStatus.ready);
-      expect(state.items.map((e) => e.id), ['a']);
-      expect(state.loadingMore, isFalse);
-      expect(state.loadMoreError?.message, 'Rớt mạng');
-      expect(state.canLoadMore, isFalse);
+        final state = controller.state;
+        expect(state.status, CatalogStatus.ready);
+        expect(state.items.map((e) => e.id), ['a']);
+        expect(state.loadingMore, isFalse);
+        expect(state.loadMoreError?.message, 'Rớt mạng');
+        expect(state.canLoadMore, isFalse);
 
-      // loadMore tự động không chạy lại khi đang lỗi
-      await controller.loadMore();
-      expect(repo.calls, hasLength(2));
-    });
+        // loadMore tự động không chạy lại khi đang lỗi
+        await controller.loadMore();
+        expect(repo.calls, hasLength(2));
+      },
+    );
 
     test('retryLoadMore thử lại đúng trang đang lỗi và xoá lỗi', () async {
       final repo = ControlledProductRepository();
       final controller = _controller(repo);
       final init = controller.initialize();
       await pumpEventQueue();
-      repo.calls[0].complete(
-        pageOf([summary('a')], total: 2, totalPages: 2),
-      );
+      repo.calls[0].complete(pageOf([summary('a')], total: 2, totalPages: 2));
       await init;
       final more = controller.loadMore();
       await pumpEventQueue();
@@ -837,13 +840,13 @@ void main() {
   group('refresh', () {
     Future<(ControlledProductRepository, ProductCatalogController)>
     readyController() async {
-      final repo = ControlledProductRepository(categories: const [testCategory]);
+      final repo = ControlledProductRepository(
+        categories: const [testCategory],
+      );
       final controller = _controller(repo);
       final init = controller.initialize();
       await pumpEventQueue();
-      repo.calls[0].complete(
-        pageOf([summary('a'), summary('b')], total: 2),
-      );
+      repo.calls[0].complete(pageOf([summary('a'), summary('b')], total: 2));
       await init;
       return (repo, controller);
     }
@@ -915,14 +918,61 @@ void main() {
       expect(repo.listCategoriesCalls, 2);
     });
 
+    test('refresh luôn tải lại category (admin vừa đổi danh mục)', () async {
+      final repo = ControlledProductRepository(
+        categories: const [testCategory],
+      );
+      final controller = _controller(repo);
+      final init = controller.initialize();
+      await pumpEventQueue();
+      repo.calls[0].complete(pageOf([summary('a')]));
+      await init;
+
+      const renamed = Category(id: 'new-cat', name: 'Hoa cưới');
+      repo.categories = const [testCategory, renamed];
+      final refresh = controller.refresh();
+      await pumpEventQueue();
+      repo.calls[1].complete(pageOf([summary('a')]));
+      await refresh;
+
+      expect(controller.state.categories, [testCategory, renamed]);
+      expect(repo.listCategoriesCalls, 2);
+    });
+
+    test('danh mục đang lọc bị ẩn thì quay về "Tất cả"', () async {
+      final repo = ControlledProductRepository(
+        categories: const [testCategory],
+      );
+      final controller = _controller(repo);
+      final init = controller.initialize();
+      await pumpEventQueue();
+      repo.calls[0].complete(pageOf([summary('a')]));
+      await init;
+      controller.selectCategory(testCategory.id);
+      await pumpEventQueue();
+      repo.calls[1].complete(pageOf([summary('a')]));
+      await pumpEventQueue();
+      expect(controller.state.query.categoryId, testCategory.id);
+
+      repo.categories = const [];
+      final refresh = controller.refresh();
+      await pumpEventQueue();
+      for (final call in repo.calls.where((c) => !c.isCompleted)) {
+        call.complete(pageOf([summary('a')]));
+      }
+      await refresh;
+      await pumpEventQueue();
+
+      expect(controller.state.categories, isEmpty);
+      expect(controller.state.query.categoryId, isNull);
+    });
+
     test('đang tải thêm thì refresh xoá trạng thái loadingMore', () async {
       final repo = ControlledProductRepository();
       final controller = _controller(repo);
       final init = controller.initialize();
       await pumpEventQueue();
-      repo.calls[0].complete(
-        pageOf([summary('a')], total: 2, totalPages: 2),
-      );
+      repo.calls[0].complete(pageOf([summary('a')], total: 2, totalPages: 2));
       await init;
 
       final more = controller.loadMore();
@@ -949,27 +999,24 @@ void main() {
   });
 
   group('refresh khi đang gõ tìm kiếm', () {
-    test(
-      'từ khoá đang chờ debounce không bị mất khi kéo để làm mới',
-      () {
-        fakeAsync((async) {
-          final repo = _mockRepo();
-          final controller = _controller(repo);
-          controller.initialize();
-          async.flushMicrotasks();
+    test('từ khoá đang chờ debounce không bị mất khi kéo để làm mới', () {
+      fakeAsync((async) {
+        final repo = _mockRepo();
+        final controller = _controller(repo);
+        controller.initialize();
+        async.flushMicrotasks();
 
-          // Ô tìm kiếm đang hiện "tulip" nhưng debounce chưa chạy xong
-          controller.setSearchText('tulip');
-          controller.refresh();
-          async.flushMicrotasks();
-          async.elapse(const Duration(seconds: 2));
-          async.flushMicrotasks();
+        // Ô tìm kiếm đang hiện "tulip" nhưng debounce chưa chạy xong
+        controller.setSearchText('tulip');
+        controller.refresh();
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 2));
+        async.flushMicrotasks();
 
-          // Kỳ vọng: danh sách khớp với chữ trong ô tìm kiếm
-          expect(controller.state.query.search, 'tulip');
-        });
-      },
-    );
+        // Kỳ vọng: danh sách khớp với chữ trong ô tìm kiếm
+        expect(controller.state.query.search, 'tulip');
+      });
+    });
   });
 
   group('dispose', () {
@@ -1006,9 +1053,7 @@ void main() {
       final controller = ProductCatalogController(repository: repo);
       final init = controller.initialize();
       await pumpEventQueue();
-      repo.calls[0].complete(
-        pageOf([summary('a')], total: 2, totalPages: 2),
-      );
+      repo.calls[0].complete(pageOf([summary('a')], total: 2, totalPages: 2));
       await init;
       final more = controller.loadMore();
       await pumpEventQueue();

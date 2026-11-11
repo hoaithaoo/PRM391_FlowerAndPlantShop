@@ -35,7 +35,7 @@ class _SepayQrScreenState extends State<SepayQrScreen>
   late final Timer _countdown;
   Timer? _poll;
   int _remainingSeconds = _initialSeconds;
-  bool _checking = false;
+  Future<String?>? _inFlight;
   bool _underReview = false;
   bool _appActive = true;
   bool _terminalHandled = false;
@@ -79,10 +79,15 @@ class _SepayQrScreenState extends State<SepayQrScreen>
     _poll = Timer.periodic(widget.pollInterval, (_) => _checkStatus());
   }
 
-  /// Trả về trạng thái server, `null` nếu lần gọi lỗi hoặc đang có lần gọi khác.
-  Future<String?> _checkStatus() async {
-    if (_checking || !_appActive || _terminalHandled) return null;
-    _checking = true;
+  /// Trả về trạng thái server, `null` nếu lần gọi lỗi. Đang có lần hỏi khác
+  /// thì dùng chung kết quả của lần đó, để bấm "Tôi đã chuyển khoản" đúng lúc
+  /// poll đang chạy không báo nhầm "chưa nhận được".
+  Future<String?> _checkStatus() {
+    if (!_appActive || _terminalHandled) return Future.value(null);
+    return _inFlight ??= _fetchStatus().whenComplete(() => _inFlight = null);
+  }
+
+  Future<String?> _fetchStatus() async {
     try {
       final status = await widget.repository.getPaymentStatus(_paymentId);
       if (mounted) _applyStatus(status);
@@ -90,8 +95,6 @@ class _SepayQrScreenState extends State<SepayQrScreen>
     } catch (_) {
       // Lỗi mạng tạm thời: lần poll sau thử lại.
       return null;
-    } finally {
-      _checking = false;
     }
   }
 
@@ -129,11 +132,17 @@ class _SepayQrScreenState extends State<SepayQrScreen>
     final messenger = ScaffoldMessenger.of(context);
     final status = await _checkStatus();
     if (!mounted || (status != 'PENDING' && status != null)) return;
-    messenger.showSnackBar(
-      const SnackBar(
-        content: Text('Chưa nhận được giao dịch. Vui lòng chờ thêm ít phút.'),
-      ),
-    );
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            status == null
+                ? 'Chưa kiểm tra được trạng thái. Vui lòng thử lại sau ít giây.'
+                : 'Chưa nhận được giao dịch. Vui lòng chờ thêm ít phút.',
+          ),
+        ),
+      );
   }
 
   Future<void> _showFailure() async {

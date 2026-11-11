@@ -104,120 +104,148 @@ class _DeliveryLocationPickerScreenState
         ),
       ),
       body: LayoutBuilder(
-          builder: (context, constraints) => Column(
+        builder: (context, constraints) => Column(
+          children: [
+            Padding(
+              // Thẳng mép với tiêu đề AppBar (nút back 56 + khoảng 16).
+              padding: const EdgeInsetsDirectional.fromSTEB(72, 0, 20, 12),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  'Kéo bản đồ để đặt ghim đúng nơi nhận hàng.',
+                  style: AuthFonts.sans(fontSize: 13, color: AuthPalette.sage),
+                ),
+              ),
+            ),
+            Expanded(
+              child: Stack(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
-                    child: Text('Kéo bản đồ để đặt ghim đúng nơi nhận hàng.',
-                        style: AuthFonts.sans(
-                            fontSize: 13, color: AuthPalette.sage)),
-                  ),
-                  Expanded(
-                    child: Stack(
-                      children: [
-                        FlutterMap(
-                          key: const Key('delivery_location_map'),
-                          mapController: _map,
-                          options: MapOptions(
-                            initialCenter: initial == null
-                                ? const LatLng(10.7769, 106.7009)
-                                : LatLng(initial.latitude, initial.longitude),
-                            initialZoom: initial == null ? 12 : 17,
-                            minZoom: 4,
-                            maxZoom: 19,
-                            interactionOptions: const InteractionOptions(
-                              flags:
-                                  InteractiveFlag.all & ~InteractiveFlag.rotate,
+                  FlutterMap(
+                    key: const Key('delivery_location_map'),
+                    mapController: _map,
+                    options: MapOptions(
+                      initialCenter: initial == null
+                          ? const LatLng(10.7769, 106.7009)
+                          : LatLng(initial.latitude, initial.longitude),
+                      initialZoom: initial == null ? 12 : 17,
+                      minZoom: 4,
+                      maxZoom: 19,
+                      interactionOptions: const InteractionOptions(
+                        flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                      ),
+                      onMapReady: () {
+                        if (widget.useCurrentLocation) {
+                          unawaited(_locate());
+                        }
+                      },
+                      onPositionChanged: (camera, hasGesture) {
+                        if (hasGesture) {
+                          _clearManualEntry();
+                          _picker.moveCenter(_point(camera.center));
+                        }
+                      },
+                      onTap: (_, point) => _pickAt(point),
+                    ),
+                    children: [
+                      const StreetMapLayer(),
+                      RichAttributionWidget(
+                        attributions: [
+                          TextSourceAttribution(
+                            '© OpenMapTiles',
+                            onTap: () => launchUrl(
+                              Uri.parse('https://openmaptiles.org/'),
                             ),
-                            onMapReady: () {
-                              if (widget.useCurrentLocation) {
-                                unawaited(_locate());
-                              }
-                            },
-                            onPositionChanged: (camera, hasGesture) {
-                              if (hasGesture) {
-                                _clearManualEntry();
-                                _picker.moveCenter(_point(camera.center));
-                              }
-                            },
-                            onTap: (_, point) => _pickAt(point),
                           ),
-                          children: [
-                            const StreetMapLayer(),
-                            RichAttributionWidget(attributions: [
-                              TextSourceAttribution('© OpenMapTiles',
-                                  onTap: () => launchUrl(
-                                      Uri.parse('https://openmaptiles.org/'))),
-                              TextSourceAttribution(
-                                  '© OpenStreetMap contributors',
-                                  onTap: () => launchUrl(Uri.parse(
-                                      'https://www.openstreetmap.org/copyright'))),
-                            ]),
-                          ],
-                        ),
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: Center(
-                              child: Transform.translate(
-                                offset: const Offset(0, -24),
-                                child: const Icon(Icons.location_pin,
-                                    size: 48, color: AuthPalette.forest),
+                          TextSourceAttribution(
+                            '© OpenStreetMap contributors',
+                            onTap: () => launchUrl(
+                              Uri.parse(
+                                'https://www.openstreetmap.org/copyright',
                               ),
                             ),
                           ),
-                        ),
-                        if (MediaQuery.viewInsetsOf(context).bottom == 0)
-                          Positioned(
-                            bottom: 52,
-                            right: 16,
-                            child: Column(children: [
-                              _mapButton(
-                                key: const Key('delivery_location_recenter'),
-                                tooltip: 'Về vị trí hiện tại',
-                                icon: Icons.my_location,
-                                onPressed: _picker.locating ? null : _locate,
-                              ),
-                              const SizedBox(height: 8),
-                              _mapButton(
-                                  tooltip: 'Phóng to',
-                                  icon: Icons.add,
-                                  onPressed: () => _map.move(_map.camera.center,
-                                      math.min(19.0, _map.camera.zoom + 1))),
-                              const SizedBox(height: 8),
-                              _mapButton(
-                                  tooltip: 'Thu nhỏ',
-                                  icon: Icons.remove,
-                                  onPressed: () => _map.move(_map.camera.center,
-                                      math.max(4.0, _map.camera.zoom - 1))),
-                            ]),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Center(
+                        child: Transform.translate(
+                          offset: const Offset(0, -24),
+                          child: const Icon(
+                            Icons.location_pin,
+                            size: 48,
+                            color: AuthPalette.forest,
                           ),
-                      ],
-                    ),
-                  ),
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                        maxHeight: constraints.maxHeight *
-                            (MediaQuery.viewInsetsOf(context).bottom > 0
-                                ? .68
-                                : .5)),
-                    child: SafeArea(
-                      top: false,
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Flexible(
-                            fit: FlexFit.loose,
-                            child: SingleChildScrollView(
-                              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                              child: _buildConfirmation(),
-                            )),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-                          child: _confirmationAction(),
                         ),
-                      ]),
+                      ),
                     ),
                   ),
+                  if (MediaQuery.viewInsetsOf(context).bottom == 0)
+                    Positioned(
+                      bottom: 52,
+                      right: 16,
+                      child: Column(
+                        children: [
+                          _mapButton(
+                            key: const Key('delivery_location_recenter'),
+                            tooltip: 'Về vị trí hiện tại',
+                            icon: Icons.my_location,
+                            onPressed: _picker.locating ? null : _locate,
+                          ),
+                          const SizedBox(height: 8),
+                          _mapButton(
+                            tooltip: 'Phóng to',
+                            icon: Icons.add,
+                            onPressed: () => _map.move(
+                              _map.camera.center,
+                              math.min(19.0, _map.camera.zoom + 1),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _mapButton(
+                            tooltip: 'Thu nhỏ',
+                            icon: Icons.remove,
+                            onPressed: () => _map.move(
+                              _map.camera.center,
+                              math.max(4.0, _map.camera.zoom - 1),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
-              )),
+              ),
+            ),
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: constraints.maxHeight *
+                    (MediaQuery.viewInsetsOf(context).bottom > 0 ? .68 : .5),
+              ),
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      fit: FlexFit.loose,
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                        child: _buildConfirmation(),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                      child: _confirmationAction(),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -233,31 +261,39 @@ class _DeliveryLocationPickerScreenState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Địa chỉ tại ghim',
-            style: AuthFonts.sans(fontWeight: FontWeight.w600)),
+        Text(
+          'Địa chỉ tại ghim',
+          style: AuthFonts.sans(fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 10),
         Semantics(
-            liveRegion: true,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (busy) ...[
-                  const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2)),
-                  const SizedBox(width: 10),
-                ],
-                Expanded(
-                    child: Text(status,
-                        key: const Key('delivery_location_address'),
-                        style: AuthFonts.sans(
-                            fontSize: 13,
-                            height: 1.6,
-                            color: _picker.error == null
-                                ? AuthPalette.ink
-                                : AuthPalette.error))),
+          liveRegion: true,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (busy) ...[
+                const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 10),
               ],
-            )),
+              Expanded(
+                child: Text(
+                  status,
+                  key: const Key('delivery_location_address'),
+                  style: AuthFonts.sans(
+                    fontSize: 13,
+                    height: 1.6,
+                    color: _picker.error == null
+                        ? AuthPalette.ink
+                        : AuthPalette.error,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
         if (_picker.error != null) ...[
           if (widget.service.supportsSettings &&
               (_picker.locationFailure == LocationFailure.deniedForever ||
@@ -269,22 +305,26 @@ class _DeliveryLocationPickerScreenState
                       ? widget.service.openAppSettings
                       : widget.service.openLocationSettings,
               child: Text(
-                  _picker.locationFailure == LocationFailure.deniedForever
-                      ? 'Mở cài đặt quyền vị trí'
-                      : 'Bật dịch vụ định vị'),
+                _picker.locationFailure == LocationFailure.deniedForever
+                    ? 'Mở cài đặt quyền vị trí'
+                    : 'Bật dịch vụ định vị',
+              ),
             )
           else if (_picker.coordinates != null &&
               _picker.locationFailure == null)
-            Wrap(children: [
-              TextButton(
+            Wrap(
+              children: [
+                TextButton(
                   onPressed: _picker.retryAddress,
-                  child: const Text('Thử lại')),
-              TextButton(
-                key: const Key('delivery_location_enter_address'),
-                onPressed: () => setState(() => _manualEntry = true),
-                child: const Text('Nhập địa chỉ cho ghim này'),
-              ),
-            ]),
+                  child: const Text('Thử lại'),
+                ),
+                TextButton(
+                  key: const Key('delivery_location_enter_address'),
+                  onPressed: () => setState(() => _manualEntry = true),
+                  child: const Text('Nhập địa chỉ cho ghim này'),
+                ),
+              ],
+            ),
         ],
         if (_manualEntry) ...[
           const SizedBox(height: 12),
@@ -306,9 +346,13 @@ class _DeliveryLocationPickerScreenState
           Padding(
             padding: const EdgeInsets.only(top: 8),
             child: Text(
-                'GPS có thể lệch khoảng ${_picker.coordinates!.accuracy.round()} m. Kéo bản đồ để chỉnh ghim.',
-                style: AuthFonts.sans(
-                    fontSize: 12, color: AuthPalette.sage, height: 1.5)),
+              'GPS có thể lệch khoảng ${_picker.coordinates!.accuracy.round()} m. Kéo bản đồ để chỉnh ghim.',
+              style: AuthFonts.sans(
+                fontSize: 12,
+                color: AuthPalette.sage,
+                height: 1.5,
+              ),
+            ),
           ),
       ],
     );
@@ -324,11 +368,12 @@ class _DeliveryLocationPickerScreenState
             : null,
       );
 
-  Widget _mapButton(
-      {Key? key,
-      required String tooltip,
-      required IconData icon,
-      required VoidCallback? onPressed}) {
+  Widget _mapButton({
+    Key? key,
+    required String tooltip,
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
     return Material(
       color: AuthPalette.surface,
       borderRadius: BorderRadius.circular(14),

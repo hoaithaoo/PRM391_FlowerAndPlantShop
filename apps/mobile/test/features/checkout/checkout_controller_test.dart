@@ -90,6 +90,20 @@ void main() {
     completer.complete(_result);
     expect(await first, same(_result));
   });
+
+  test('chỉ gửi cartItemIds khi khách chọn một phần giỏ', () {
+    expect(_request.toJson().containsKey('cartItemIds'), isFalse);
+    const partial = CheckoutRequest(
+      receiverName: 'Nguyễn Bình',
+      phone: '0901234567',
+      address: '1 Nguyễn Huệ, TP.HCM',
+      latitude: 10.77,
+      longitude: 106.70,
+      paymentMethod: PaymentMethod.cod,
+      cartItemIds: ['item-1', 'item-2'],
+    );
+    expect(partial.toJson()['cartItemIds'], ['item-1', 'item-2']);
+  });
 }
 
 class _RecordingRepository extends MockCheckoutRepository {

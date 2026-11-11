@@ -1,11 +1,24 @@
+-- Idempotent: production DB had part of this schema before the migration was recorded.
 -- CreateEnum
-CREATE TYPE "IncidentCategory" AS ENUM ('DAMAGED_PRODUCT', 'WRONG_ITEM', 'DELIVERY', 'PAYMENT', 'QUALITY', 'SERVICE', 'OTHER');
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'IncidentCategory') THEN
+    CREATE TYPE "IncidentCategory" AS ENUM ('DAMAGED_PRODUCT', 'WRONG_ITEM', 'DELIVERY', 'PAYMENT', 'QUALITY', 'SERVICE', 'OTHER');
+  END IF;
+END;
+$$;
 
 -- CreateEnum
-CREATE TYPE "IncidentStatus" AS ENUM ('OPEN', 'IN_PROGRESS', 'RESOLVED', 'REJECTED');
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'IncidentStatus') THEN
+    CREATE TYPE "IncidentStatus" AS ENUM ('OPEN', 'IN_PROGRESS', 'RESOLVED', 'REJECTED');
+  END IF;
+END;
+$$;
 
 -- CreateTable
-CREATE TABLE "incident_reports" (
+CREATE TABLE IF NOT EXISTS "incident_reports" (
     "id" UUID NOT NULL DEFAULT gen_random_uuid(),
     "code" TEXT NOT NULL,
     "user_id" UUID NOT NULL,
@@ -23,19 +36,31 @@ CREATE TABLE "incident_reports" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "incident_reports_code_key" ON "incident_reports"("code");
+CREATE UNIQUE INDEX IF NOT EXISTS "incident_reports_code_key" ON "incident_reports"("code");
 
 -- CreateIndex
-CREATE INDEX "incident_reports_user_id_created_at_idx" ON "incident_reports"("user_id", "created_at");
+CREATE INDEX IF NOT EXISTS "incident_reports_user_id_created_at_idx" ON "incident_reports"("user_id", "created_at");
 
 -- CreateIndex
-CREATE INDEX "incident_reports_status_created_at_idx" ON "incident_reports"("status", "created_at");
+CREATE INDEX IF NOT EXISTS "incident_reports_status_created_at_idx" ON "incident_reports"("status", "created_at");
 
 -- AddForeignKey
-ALTER TABLE "incident_reports" ADD CONSTRAINT "incident_reports_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'incident_reports_user_id_fkey' AND conrelid = 'public.incident_reports'::regclass) THEN
+    ALTER TABLE "incident_reports" ADD CONSTRAINT "incident_reports_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "profiles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
 
 -- AddForeignKey
-ALTER TABLE "incident_reports" ADD CONSTRAINT "incident_reports_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "orders"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'incident_reports_order_id_fkey' AND conrelid = 'public.incident_reports'::regclass) THEN
+    ALTER TABLE "incident_reports" ADD CONSTRAINT "incident_reports_order_id_fkey" FOREIGN KEY ("order_id") REFERENCES "orders"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
 
 -- Chỉ backend (Prisma) truy cập bảng này, giống các bảng khác.
 ALTER TABLE "incident_reports" ENABLE ROW LEVEL SECURITY;

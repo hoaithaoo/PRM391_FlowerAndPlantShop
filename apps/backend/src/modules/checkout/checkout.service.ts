@@ -490,10 +490,14 @@ export class CheckoutService {
       return [{ id: null, quantity: input.buyNow.quantity, product }];
     }
 
+    const selectedIds = input.cartItemIds
+      ? [...new Set(input.cartItemIds)]
+      : undefined;
     const cart = await tx.cart.findUnique({
       where: { userId },
       select: {
         items: {
+          ...(selectedIds ? { where: { id: { in: selectedIds } } } : {}),
           orderBy: { productId: "asc" },
           select: {
             id: true,
@@ -508,6 +512,14 @@ export class CheckoutService {
         422,
         ErrorCodes.CART_EMPTY,
         "Giỏ hàng đang trống, không thể checkout."
+      );
+    }
+    // Món đã chọn bị xoá khỏi giỏ (ở thiết bị khác) thì không đặt thiếu âm thầm.
+    if (selectedIds && cart.items.length !== selectedIds.length) {
+      throw new AppError(
+        409,
+        ErrorCodes.CART_ITEM_NOT_FOUND,
+        "Một số sản phẩm đã chọn không còn trong giỏ hàng. Vui lòng tải lại giỏ."
       );
     }
     return cart.items;

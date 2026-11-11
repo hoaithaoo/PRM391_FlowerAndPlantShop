@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:plant_flower_mobile/features/profile/state/current_avatar.dart';
 import 'package:plant_flower_mobile/app/main_shell.dart';
 import 'package:plant_flower_mobile/features/products/data/mock_product_repository.dart';
 import 'package:plant_flower_mobile/features/products/data/product_repository.dart';
@@ -88,7 +89,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        _inHome(find.byWidgetPredicate((w) => w.runtimeType.toString() == '_Avatar')),
+        _inHome(find.byType(UserAvatar)),
         findsOneWidget,
       );
       final logo = tester.widget<Text>(_inHome(find.text('Nhà Có Hoa')));

@@ -97,9 +97,13 @@ Finder get homeScrollable => find
     .descendant(of: find.byType(HomeScreen), matching: find.byType(Scrollable))
     .first;
 
+// Danh sách sản phẩm (không phải hàng chip danh mục cuộn ngang ghim ở trên).
 Finder get catalogScrollable => find
     .descendant(
-      of: find.byType(ProductCatalogScreen),
+      of: find.descendant(
+        of: find.byType(ProductCatalogScreen),
+        matching: find.byType(CustomScrollView),
+      ),
       matching: find.byType(Scrollable),
     )
     .first;

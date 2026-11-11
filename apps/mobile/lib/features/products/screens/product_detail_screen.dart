@@ -3,6 +3,8 @@ import 'package:plant_flower_shared/plant_flower_shared.dart';
 import 'package:plant_flower_ui/plant_flower_ui.dart';
 
 import '../../cart/state/cart_scope.dart';
+import '../../favorites/screens/favorites_screen.dart';
+import '../../favorites/state/favorite_scope.dart';
 import '../data/buy_now_scope.dart';
 import '../data/product_repository.dart';
 import '../data/product_scope.dart';
@@ -99,6 +101,39 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   void _openCart() => Navigator.of(context).pop(ProductDetailResult.openCart);
 
+  Future<void> _openFavorites() async {
+    final result = await Navigator.of(context).push<ProductDetailResult>(
+      MaterialPageRoute<ProductDetailResult>(
+        builder: (_) => const FavoritesScreen(),
+      ),
+    );
+    if (mounted && result == ProductDetailResult.openCart) _openCart();
+  }
+
+  Future<void> _toggleFavorite() async {
+    final favorites = FavoriteScope.maybeOf(context);
+    if (favorites == null) return;
+    final wasFavorite = favorites.isFavorite(widget.productId);
+    final ok = await favorites.toggle(widget.productId);
+    if (!mounted) return;
+    if (!ok) {
+      _showMessage('Chưa cập nhật được yêu thích. Vui lòng thử lại.');
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            wasFavorite ? 'Đã bỏ khỏi Yêu thích' : 'Đã thêm vào Yêu thích',
+          ),
+          action: wasFavorite
+              ? null
+              : SnackBarAction(label: 'Xem', onPressed: _openFavorites),
+        ),
+      );
+  }
+
   Future<void> _addToCart(ProductDetail product) async {
     final quantity = await showProductPurchaseSheet(
       context,
@@ -189,6 +224,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         children: [
           DetailSubBar(
             categoryName: product.category.name,
+            isFavorite:
+                FavoriteScope.maybeOf(context)?.isFavorite(product.id) ?? false,
+            onFavoriteTap: FavoriteScope.maybeOf(context) == null
+                ? null
+                : _toggleFavorite,
             onCartTap: _openCart,
             cartKey: _cartIconKey,
             cartCount: CartScope.of(context).totalQuantity,

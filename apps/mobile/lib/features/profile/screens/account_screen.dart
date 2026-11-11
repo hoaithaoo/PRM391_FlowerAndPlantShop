@@ -5,11 +5,15 @@ import 'package:plant_flower_ui/plant_flower_ui.dart';
 
 import '../../../app/main_shell.dart';
 import '../../auth/data/auth_scope.dart';
+import '../../favorites/screens/favorites_screen.dart';
+import '../../favorites/state/favorite_scope.dart';
+import '../../products/product_routes.dart';
 import '../../checkout/data/checkout_repository.dart';
 import '../../checkout/screens/address_list_screen.dart';
 import '../../checkout/state/checkout_flow_controller.dart';
 import '../data/profile_repository.dart';
 import '../models/profile_models.dart';
+import '../state/current_avatar.dart';
 import 'change_password_screen.dart';
 import 'edit_profile_screen.dart';
 import 'incident_report_screen.dart';
@@ -44,11 +48,16 @@ class _AccountScreenState extends State<AccountScreen> {
     _load();
   }
 
+  void _setProfile(UserProfile profile) {
+    setState(() => _profile = profile);
+    CurrentAvatar.update(context, profile.avatarUrl);
+  }
+
   Future<void> _load() async {
     setState(() => _loadFailed = false);
     try {
       final profile = await widget.repository.getProfile();
-      if (mounted) setState(() => _profile = profile);
+      if (mounted) _setProfile(profile);
     } catch (_) {
       if (mounted) setState(() => _loadFailed = true);
       return;
@@ -75,6 +84,21 @@ class _AccountScreenState extends State<AccountScreen> {
     if (mounted) await _loadOrderCounts();
   }
 
+  Future<void> _openFavorites() async {
+    final result = await Navigator.of(context).push<ProductDetailResult>(
+      MaterialPageRoute<ProductDetailResult>(
+        builder: (_) => FavoritesScreen(
+          onExploreProducts: () {
+            if (mounted) MainShell.openCatalog(context);
+          },
+        ),
+      ),
+    );
+    if (mounted && result == ProductDetailResult.openCart) {
+      MainShell.openCart(context);
+    }
+  }
+
   void _showMessage(String message) {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -96,7 +120,7 @@ class _AccountScreenState extends State<AccountScreen> {
         await picked.readAsBytes(),
         picked.mimeType ?? 'image/jpeg',
       );
-      if (mounted) setState(() => _profile = profile);
+      if (mounted) _setProfile(profile);
     } catch (error) {
       if (mounted) _showMessage(profileErrorMessage(error));
     } finally {
@@ -107,11 +131,15 @@ class _AccountScreenState extends State<AccountScreen> {
   Future<void> _editProfile(UserProfile profile) async {
     final updated = await Navigator.of(context).push<UserProfile>(
       MaterialPageRoute<UserProfile>(
-        builder: (_) =>
-            EditProfileScreen(repository: widget.repository, profile: profile),
+        builder: (_) => EditProfileScreen(
+          repository: widget.repository,
+          profile: profile,
+          checkoutRepository: widget.checkoutRepository,
+          onOpenAddressBook: _openAddresses,
+        ),
       ),
     );
-    if (updated != null && mounted) setState(() => _profile = updated);
+    if (updated != null && mounted) _setProfile(updated);
   }
 
   Future<void> _openAddresses() async {
@@ -129,6 +157,7 @@ class _AccountScreenState extends State<AccountScreen> {
         builder: (_) => AddressListScreen(
           controller: controller,
           onSave: widget.checkoutRepository.saveAddress,
+          profileStyle: true,
         ),
       ),
     );
@@ -154,6 +183,7 @@ class _AccountScreenState extends State<AccountScreen> {
       );
     }
     final auth = AuthScope.of(context);
+    final favoriteCount = FavoriteScope.maybeOf(context)?.ids.length ?? 0;
     return ColoredBox(
       color: _Palette.background,
       child: SafeArea(
@@ -208,6 +238,19 @@ class _AccountScreenState extends State<AccountScreen> {
                         onTap: _openAddresses,
                       ),
                       _MenuTile(
+                        key: const Key('account-favorites'),
+                        icon: const Icon(
+                          Icons.favorite_border,
+                          size: 16,
+                          color: _Palette.ink,
+                        ),
+                        label: 'Sản phẩm yêu thích',
+                        subtitle: favoriteCount > 0
+                            ? '$favoriteCount sản phẩm'
+                            : 'Những sản phẩm bạn đã lưu',
+                        onTap: _openFavorites,
+                      ),
+                      _MenuTile(
                         key: const Key('account-incidents'),
                         icon: const Icon(
                           Icons.report_problem_outlined,
@@ -217,9 +260,8 @@ class _AccountScreenState extends State<AccountScreen> {
                         label: 'Phiếu sự cố',
                         subtitle: 'Báo lỗi đơn hàng và theo dõi xử lý',
                         onTap: () => _push(
-                          (_) => IncidentListScreen(
-                            repository: widget.repository,
-                          ),
+                          (_) =>
+                              IncidentListScreen(repository: widget.repository),
                         ),
                       ),
                       if (auth.canChangePassword)

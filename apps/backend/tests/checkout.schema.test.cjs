@@ -89,3 +89,18 @@ test("checkout validates and trims optional idempotency keys", () => {
     assert.equal(idempotencyKeySchema.safeParse(key).success, false);
   }
 });
+
+test("checkout accepts selected cart item ids and rejects empty or mixed with buy now", () => {
+  const id = "11111111-1111-4111-8111-111111111111";
+  assert.deepEqual(checkoutSchema.parse({ ...validCheckout, cartItemIds: [id] }).cartItemIds, [id]);
+  assert.equal(checkoutSchema.safeParse({ ...validCheckout, cartItemIds: [] }).success, false);
+  assert.equal(checkoutSchema.safeParse({ ...validCheckout, cartItemIds: ["nope"] }).success, false);
+  assert.equal(
+    checkoutSchema.safeParse({
+      ...validCheckout,
+      cartItemIds: [id],
+      buyNow: { productId: id, quantity: 1 },
+    }).success,
+    false
+  );
+});

@@ -796,7 +796,8 @@ class _RegisterAgreementRowState extends State<RegisterAgreementRow> {
     final errorLayout = widget.errorLayout;
     final baseStyle = AuthFonts.sans(
       fontSize: 12,
-      color: AuthPalette.muted,
+      // sage đạt 6.1:1 trên nền kem; muted chỉ 4.48:1, dưới ngưỡng chữ nhỏ.
+      color: AuthPalette.sage,
       height: errorLayout ? 1.625 : 1.25,
     );
     final linkStyle = AuthFonts.sans(

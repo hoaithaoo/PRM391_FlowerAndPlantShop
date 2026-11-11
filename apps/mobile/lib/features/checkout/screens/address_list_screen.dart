@@ -13,9 +13,14 @@ class AddressListScreen extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onSave,
+    this.profileStyle = false,
   });
 
   final CheckoutFlowController controller;
+
+  /// Mở từ Tài khoản / Thông tin cá nhân: đầu trang và nền kem giống màn hồ sơ
+  /// thay vì kiểu của luồng thanh toán.
+  final bool profileStyle;
 
   /// Lưu lên server, trả về địa chỉ có id thật và tọa độ server tính.
   final Future<CheckoutAddress> Function(CheckoutAddress address) onSave;
@@ -31,7 +36,10 @@ class _AddressListScreenState extends State<AddressListScreen> {
   Future<void> _editAddress(CheckoutAddress address) async {
     final edited = await Navigator.of(context).push<CheckoutAddress>(
       MaterialPageRoute<CheckoutAddress>(
-        builder: (_) => EditAddressScreen(address: address),
+        builder: (_) => EditAddressScreen(
+          address: address,
+          profileStyle: widget.profileStyle,
+        ),
       ),
     );
     if (edited != null && mounted) await _persist(edited);
@@ -59,8 +67,9 @@ class _AddressListScreenState extends State<AddressListScreen> {
   Future<void> _addAddress() async {
     final created = await Navigator.of(context).push<CheckoutAddress>(
       MaterialPageRoute<CheckoutAddress>(
-        builder: (_) => const EditAddressScreen(
-          address: CheckoutAddress(
+        builder: (_) => EditAddressScreen(
+          profileStyle: widget.profileStyle,
+          address: const CheckoutAddress(
             id: newAddressId,
             label: 'Nhà riêng',
             recipientName: '',
@@ -92,10 +101,15 @@ class _AddressListScreenState extends State<AddressListScreen> {
         : null;
     return CheckoutTheme(
       child: Scaffold(
-        appBar: const FleureAppBar(
-          title: 'Địa chỉ nhận hàng',
-          showProfile: false,
-        ),
+        backgroundColor: widget.profileStyle
+            ? ProfileStyleAppBar.background
+            : null,
+        appBar: widget.profileStyle
+            ? const ProfileStyleAppBar(title: 'Sổ địa chỉ')
+            : const FleureAppBar(
+                title: 'Địa chỉ nhận hàng',
+                showProfile: false,
+              ),
         body: CheckoutContent(
           bottom: 112,
           children: <Widget>[

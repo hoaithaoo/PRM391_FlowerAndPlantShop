@@ -46,8 +46,9 @@ class CartScreen extends StatelessWidget {
           ),
           if (!controller.isLoading && !controller.isEmpty)
             _CheckoutBar(
-              subtotal: controller.subtotal,
-              isBusy: controller.isMutating,
+              subtotal: controller.selectedSubtotal,
+              selectedCount: controller.selectedItems.length,
+              isBusy: controller.isMutating || !controller.hasSelection,
               onCheckout:
                   onCheckout ??
                   () => ScaffoldMessenger.of(context).showSnackBar(
@@ -126,12 +127,14 @@ class _CartContents extends StatelessWidget {
             onDismiss: controller.dismissError,
           ),
         ],
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        _SelectAllRow(controller: controller),
+        const SizedBox(height: 4),
         for (final item in controller.items) ...[
           _CartItemCard(item: item, controller: controller),
           const SizedBox(height: 10),
         ],
-        _SubtotalCard(subtotal: controller.subtotal),
+        _SubtotalCard(subtotal: controller.selectedSubtotal),
         const SizedBox(height: 12),
         const _PromiseBanner(),
         const SizedBox(height: 8),
@@ -202,6 +205,19 @@ class _CartItemCard extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          SizedBox(
+            width: 32,
+            height: 86,
+            child: Checkbox(
+              key: Key('cart-select-${item.productId}'),
+              value: controller.isSelected(item.id),
+              onChanged: (_) => controller.toggleSelected(item.id),
+              semanticLabel: 'Chọn ${item.name} để thanh toán',
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.padded,
+            ),
+          ),
+          const SizedBox(width: 4),
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
             child: SizedBox(
@@ -264,6 +280,44 @@ class _CartItemCard extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _SelectAllRow extends StatelessWidget {
+  const _SelectAllRow({required this.controller});
+
+  final CartController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final all = controller.isAllSelected;
+    final none = !controller.hasSelection;
+    return InkWell(
+      key: const Key('cart-select-all'),
+      borderRadius: BorderRadius.circular(10),
+      onTap: () => controller.setAllSelected(!all),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        child: Row(
+          children: [
+            Checkbox(
+              tristate: true,
+              value: all ? true : (none ? false : null),
+              onChanged: (_) => controller.setAllSelected(!all),
+              semanticLabel: 'Chọn tất cả sản phẩm',
+              visualDensity: VisualDensity.compact,
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                'Chọn tất cả (${controller.selectedItems.length}/${controller.items.length})',
+                style: AppTextStyles.body,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -466,11 +520,13 @@ class _PromiseBanner extends StatelessWidget {
 class _CheckoutBar extends StatelessWidget {
   const _CheckoutBar({
     required this.subtotal,
+    required this.selectedCount,
     required this.isBusy,
     required this.onCheckout,
   });
 
   final int subtotal;
+  final int selectedCount;
   final bool isBusy;
   final VoidCallback? onCheckout;
 
@@ -496,7 +552,15 @@ class _CheckoutBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Tổng tạm tính', style: AppTextStyles.caption),
+                Text(
+                  selectedCount == 0
+                      ? 'Chưa chọn sản phẩm'
+                      : 'Tạm tính ($selectedCount sản phẩm)',
+                  key: const Key('cart-selected-count'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTextStyles.caption,
+                ),
                 Text(
                   formatVnd(subtotal),
                   style: AppFonts.sans(

@@ -15,6 +15,10 @@ import '../features/checkout/data/checkout_repository.dart';
 import '../features/checkout/models/checkout_request.dart';
 import '../features/checkout/models/checkout_summary.dart';
 import '../features/checkout/screens/checkout_screen.dart';
+import '../features/favorites/data/favorite_repository.dart';
+import '../features/favorites/data/mock_favorite_repository.dart';
+import '../features/favorites/state/favorite_controller.dart';
+import '../features/favorites/state/favorite_scope.dart';
 import '../features/notifications/data/notification_repository.dart';
 import '../features/notifications/screens/notifications_screen.dart';
 import '../features/notifications/state/notification_controller.dart';
@@ -27,6 +31,7 @@ import '../features/profile/data/profile_repository.dart';
 import '../features/profile/screens/account_screen.dart';
 import '../features/profile/screens/incident_report_screen.dart';
 import '../features/profile/screens/order_detail_screen.dart';
+import '../features/profile/state/current_avatar.dart';
 import 'main_shell.dart';
 
 const _chatbotCartItemMissing = 'Không tìm thấy sản phẩm này trong giỏ hàng.';
@@ -41,6 +46,7 @@ class PlantFlowerApp extends StatefulWidget {
     required this.checkoutRepository,
     required this.notificationRepository,
     this.profileRepository,
+    this.favoriteRepository,
   });
 
   final AuthRepository authRepository;
@@ -50,6 +56,7 @@ class PlantFlowerApp extends StatefulWidget {
   final CheckoutRepository checkoutRepository;
   final NotificationRepository notificationRepository;
   final ProfileRepository? profileRepository;
+  final FavoriteRepository? favoriteRepository;
 
   @override
   State<PlantFlowerApp> createState() => _PlantFlowerAppState();
@@ -60,18 +67,30 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
   late final CartController _cartController = CartController(
     repository: widget.cartRepository,
   );
+  late final FavoriteController _favoriteController = FavoriteController(
+    repository: widget.favoriteRepository ?? MockFavoriteRepository(),
+  );
   late final StreamSubscription<bool> _signedInSub;
+
+  /// Ảnh đại diện cho header; màn Tài khoản ghi vào khi tải hồ sơ.
+  final _avatarUrl = ValueNotifier<String?>(null);
 
   @override
   void initState() {
     super.initState();
     // Giỏ hàng cần access token nên chỉ tải khi đã có phiên đăng nhập.
-    if (widget.authRepository.isSignedIn) _cartController.initialize();
+    if (widget.authRepository.isSignedIn) {
+      _cartController.initialize();
+      _favoriteController.load();
+    }
     _signedInSub = widget.authRepository.signedInChanges.listen((signedIn) {
       if (signedIn) {
         _cartController.initialize();
+        _favoriteController.load();
       } else {
         _cartController.reset();
+        _favoriteController.reset();
+        _avatarUrl.value = null;
       }
     });
   }
@@ -80,6 +99,8 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
   void dispose() {
     _signedInSub.cancel();
     _cartController.dispose();
+    _favoriteController.dispose();
+    _avatarUrl.dispose();
     super.dispose();
   }
 
@@ -113,13 +134,20 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
 
   void _openCheckout() {
     final cart = _cartController;
+    final selected = cart.selectedItems;
+    if (selected.isEmpty) return;
+    final subtotal = selected.fold(0, (sum, item) => sum + item.subtotal);
     _navigatorKey.currentState?.push<void>(
       MaterialPageRoute<void>(
         builder: (_) => CheckoutScreen(
           repository: widget.checkoutRepository,
+          // Chọn cả giỏ thì không gửi danh sách, giữ tương thích server cũ.
+          cartItemIds: cart.isAllSelected
+              ? null
+              : [for (final item in selected) item.id],
           summary: CheckoutSummary(
             items: <CheckoutSummaryItem>[
-              for (final item in cart.items)
+              for (final item in selected)
                 CheckoutSummaryItem(
                   productId: item.productId,
                   name: item.name,
@@ -131,10 +159,10 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
                   variant: item.variant.isEmpty ? null : item.variant,
                 ),
             ],
-            subtotal: cart.subtotal,
+            subtotal: subtotal,
             tax: 0,
             shippingFee: 0,
-            grandTotal: cart.subtotal,
+            grandTotal: subtotal,
           ),
           onCartChanged: cart.initialize,
         ),
@@ -197,6 +225,29 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
         'Chưa cập nhật được giỏ hàng. Vui lòng thử lại.';
   }
 
+  /// Chatbot thêm/bỏ/xoá hết yêu thích: dùng chung FavoriteController với nút
+  /// tim nên danh sách Yêu thích và tim trên thẻ cập nhật ngay.
+  Future<String?> _applyChatbotFavoriteAction(
+    ChatbotFavoriteAction action,
+  ) async {
+    final favorites = _favoriteController;
+    final targets = switch (action.type) {
+      ChatbotFavoriteActionType.add => [
+        if (action.productId case final id? when !favorites.isFavorite(id)) id,
+      ],
+      ChatbotFavoriteActionType.remove => [
+        if (action.productId case final id? when favorites.isFavorite(id)) id,
+      ],
+      ChatbotFavoriteActionType.clear => favorites.ids.toList(),
+    };
+    for (final id in targets) {
+      if (!await favorites.toggle(id)) {
+        return 'Chưa cập nhật được yêu thích. Vui lòng thử lại.';
+      }
+    }
+    return null;
+  }
+
   Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
     return AuthRoutes.onGenerateRoute(settings) ??
         ProductRoutes.onGenerateRoute(settings);
@@ -206,7 +257,7 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
   Widget build(BuildContext context) {
     final auth = widget.authRepository;
     final profile = widget.profileRepository;
-    return AuthScope(
+    final app = AuthScope(
       repository: auth,
       child: CartScope(
         controller: _cartController,
@@ -214,54 +265,59 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
           repository: widget.productRepository,
           child: BuyNowScope(
             onBuyNow: _buyNow,
-            child: MaterialApp(
-              navigatorKey: _navigatorKey,
-              debugShowCheckedModeBanner: false,
-              title: 'Nhà Có Hoa',
-              theme: AppTheme.data(),
-              home: AuthSessionGate(
-                signedInBuilder: (_) => _SignedInShell(
-                  notificationRepository: widget.notificationRepository,
-                  checkoutRepository: widget.checkoutRepository,
-                  onOpenNotifications: _openNotifications,
-                  onSignOut: auth.signOut,
-                  onCheckout: _openCheckout,
-                  accountBuilder: profile == null
-                      ? null
-                      : (_) => AccountScreen(
-                          repository: profile,
-                          checkoutRepository: widget.checkoutRepository,
-                          onSignOut: auth.signOut,
-                        ),
+            child: CurrentAvatar(
+              notifier: _avatarUrl,
+              child: MaterialApp(
+                navigatorKey: _navigatorKey,
+                debugShowCheckedModeBanner: false,
+                title: 'Nhà Có Hoa',
+                theme: AppTheme.data(),
+                home: AuthSessionGate(
+                  signedInBuilder: (_) => _SignedInShell(
+                    notificationRepository: widget.notificationRepository,
+                    checkoutRepository: widget.checkoutRepository,
+                    onOpenNotifications: _openNotifications,
+                    onSignOut: auth.signOut,
+                    onCheckout: _openCheckout,
+                    accountBuilder: profile == null
+                        ? null
+                        : (_) => AccountScreen(
+                            repository: profile,
+                            checkoutRepository: widget.checkoutRepository,
+                            onSignOut: auth.signOut,
+                          ),
+                  ),
                 ),
-              ),
-              onGenerateRoute: _onGenerateRoute,
-              builder: (context, child) => StreamBuilder<bool>(
-                stream: auth.signedInChanges,
-                initialData: auth.isSignedIn,
-                builder: (context, snapshot) => ChatbotOverlayHost(
-                  repository: widget.chatbotRepository,
-                  // Chỉ hiện trên màn chính, không che form đăng nhập.
-                  visible: (snapshot.data ?? false) && auth.isProfileComplete,
-                  launcherBottomInset: AppBottomNav.reservedHeight + 8,
-                  contextProvider: currentChatbotContext,
-                  onProductTap: (productId) => _navigatorKey.currentState
-                      ?.pushNamed(ProductRoutes.detail, arguments: productId),
-                  onCartAction: _applyChatbotCartAction,
-                  onOpenIncidentReport: profile == null
-                      ? null
-                      : (draft) => _navigatorKey.currentState?.push<bool>(
-                          MaterialPageRoute<bool>(
-                            builder: (_) => IncidentReportFormScreen(
-                              repository: profile,
-                              category: draft.category,
-                              title: draft.title,
-                              description: draft.description,
-                              orderId: draft.orderId,
+                onGenerateRoute: _onGenerateRoute,
+                builder: (context, child) => StreamBuilder<bool>(
+                  stream: auth.signedInChanges,
+                  initialData: auth.isSignedIn,
+                  builder: (context, snapshot) => ChatbotOverlayHost(
+                    repository: widget.chatbotRepository,
+                    // Chỉ hiện trên màn chính, không che form đăng nhập.
+                    visible: (snapshot.data ?? false) && auth.isProfileComplete,
+                    launcherBottomInset: AppBottomNav.reservedHeight + 8,
+                    contextProvider: currentChatbotContext,
+                    onProductTap: (productId) => _navigatorKey.currentState
+                        ?.pushNamed(ProductRoutes.detail, arguments: productId),
+                    onCartAction: _applyChatbotCartAction,
+                    onFavoriteAction: _applyChatbotFavoriteAction,
+                    favoriteIdsProvider: () => _favoriteController.ids.toList(),
+                    onOpenIncidentReport: profile == null
+                        ? null
+                        : (draft) => _navigatorKey.currentState?.push<bool>(
+                            MaterialPageRoute<bool>(
+                              builder: (_) => IncidentReportFormScreen(
+                                repository: profile,
+                                category: draft.category,
+                                title: draft.title,
+                                description: draft.description,
+                                orderId: draft.orderId,
+                              ),
                             ),
                           ),
-                        ),
-                  child: child ?? const SizedBox.shrink(),
+                    child: child ?? const SizedBox.shrink(),
+                  ),
                 ),
               ),
             ),
@@ -269,6 +325,7 @@ class _PlantFlowerAppState extends State<PlantFlowerApp> {
         ),
       ),
     );
+    return FavoriteScope(controller: _favoriteController, child: app);
   }
 }
 
@@ -312,9 +369,8 @@ class _SignedInShellState extends State<_SignedInShell> {
       onOpenStores: () {
         Navigator.of(context).push<void>(
           MaterialPageRoute<void>(
-            builder: (_) => StoreMapScreen(
-              repository: widget.checkoutRepository,
-            ),
+            builder: (_) =>
+                StoreMapScreen(repository: widget.checkoutRepository),
           ),
         );
       },

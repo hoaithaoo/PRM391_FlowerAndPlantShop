@@ -27,6 +27,15 @@ void main() {
   tearDown(() => controller.dispose());
 
   group('CompleteProfileController', () {
+    test('tên Google không hợp lệ thì để trống, hợp lệ thì điền sẵn', () {
+      expect(controller.fullNameController.text, 'Nguyễn Văn Google');
+      final badRepo = FakeAuthRepository()
+        ..currentUserMetadata = {'full_name': '03.phamhoangdinh'};
+      final bad = CompleteProfileController(repository: badRepo);
+      addTearDown(bad.dispose);
+      expect(bad.fullNameController.text, isEmpty);
+    });
+
     test('lưu đúng ghim đã chọn và giữ tọa độ khi bổ sung tầng/căn hộ',
         () async {
       controller.phoneController.text = '0912345678';

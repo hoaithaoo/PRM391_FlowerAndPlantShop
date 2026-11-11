@@ -10,9 +10,13 @@ class DetailSubBar extends StatelessWidget {
     required this.categoryName,
     required this.onCartTap,
     this.cartKey,
+    this.isFavorite = false,
+    this.onFavoriteTap,
     this.cartCount = 0,
   });
 
+  final bool isFavorite;
+  final VoidCallback? onFavoriteTap;
   final String categoryName;
   final VoidCallback onCartTap;
 
@@ -60,6 +64,25 @@ class DetailSubBar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 12),
+            if (onFavoriteTap != null) ...[
+              IconButton(
+                key: const Key('detail-favorite'),
+                onPressed: onFavoriteTap,
+                tooltip: isFavorite ? 'Bỏ yêu thích' : 'Thêm vào yêu thích',
+                style: IconButton.styleFrom(
+                  backgroundColor: AppColors.primarySoft,
+                  fixedSize: const Size(40, 40),
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: Icon(
+                  isFavorite ? Icons.favorite : Icons.favorite_border,
+                  size: 20,
+                  color: isFavorite ? AppColors.accent : AppColors.primary,
+                ),
+              ),
+              const SizedBox(width: 8),
+            ],
             Stack(
               key: cartKey,
               clipBehavior: Clip.none,

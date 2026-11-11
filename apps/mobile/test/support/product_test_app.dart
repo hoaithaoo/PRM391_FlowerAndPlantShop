@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:plant_flower_mobile/app/main_shell.dart';
+import 'package:plant_flower_mobile/features/favorites/data/mock_favorite_repository.dart';
+import 'package:plant_flower_mobile/features/favorites/state/favorite_controller.dart';
+import 'package:plant_flower_mobile/features/favorites/state/favorite_scope.dart';
 import 'package:plant_flower_mobile/features/cart/state/cart_controller.dart';
 import 'package:plant_flower_mobile/features/cart/state/cart_scope.dart';
 import 'package:plant_flower_mobile/features/products/data/buy_now_scope.dart';
@@ -27,6 +30,7 @@ Future<void> pumpProductApp(
   Widget child, {
   ProductRepository? repository,
   CartController? cartController,
+  FavoriteController? favoriteController,
   BuyNowCallback? onBuyNow,
   Size size = designSize,
 }) async {
@@ -37,22 +41,26 @@ Future<void> pumpProductApp(
       cartController ?? CartController(repository: TestCartRepository());
   if (cartController == null) addTearDown(cart.dispose);
   if (cart.status == CartStatus.initial) await cart.initialize();
-  await tester.pumpWidget(
-    CartScope(
-      controller: cart,
-      child: ProductScope(
-        repository: repository ?? createTestRepository(),
-        child: BuyNowScope(
-          onBuyNow: onBuyNow ?? (_, _) {},
-          child: MaterialApp(
-            theme: AppTheme.data(),
-            home: child,
-            onGenerateRoute: ProductRoutes.onGenerateRoute,
-          ),
+  final favorites =
+      favoriteController ??
+      FavoriteController(repository: MockFavoriteRepository());
+  if (favoriteController == null) addTearDown(favorites.dispose);
+  await favorites.load();
+  final app = CartScope(
+    controller: cart,
+    child: ProductScope(
+      repository: repository ?? createTestRepository(),
+      child: BuyNowScope(
+        onBuyNow: onBuyNow ?? (_, _) {},
+        child: MaterialApp(
+          theme: AppTheme.data(),
+          home: child,
+          onGenerateRoute: ProductRoutes.onGenerateRoute,
         ),
       ),
     ),
   );
+  await tester.pumpWidget(FavoriteScope(controller: favorites, child: app));
 }
 
 /// Dựng app đầy đủ (có thanh điều hướng) bắt đầu ở [initialTab].

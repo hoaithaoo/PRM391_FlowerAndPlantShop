@@ -6,14 +6,10 @@ import '../../../core/location/location_service.dart';
 import '../data/auth_failure.dart';
 import '../data/auth_repository.dart';
 import '../models/auth_models.dart';
+import '../utils/auth_validators.dart';
 import 'complete_profile_state.dart';
 
-enum CompleteProfileOutcome {
-  busy,
-  invalid,
-  success,
-  failed,
-}
+enum CompleteProfileOutcome { busy, invalid, success, failed }
 
 class CompleteProfileSubmitResult {
   const CompleteProfileSubmitResult(this.outcome, {this.message});
@@ -30,16 +26,18 @@ class CompleteProfileController extends ChangeNotifier {
   })  : _repository = repository,
         _currentAddressService = currentAddressService {
     final meta = repository.currentUserMetadata ?? {};
+    final googleName =
+        ((meta['full_name'] as String?) ?? (meta['name'] as String?) ?? '')
+            .trim();
+    // Tên Google kiểu "03.phamhoangdinh" không hợp lệ: để trống cho người dùng
+    // tự nhập thay vì điền sẵn rồi báo lỗi.
     final initialName =
-        (meta['full_name'] as String?) ?? (meta['name'] as String?) ?? '';
+        AuthValidators.fullName(googleName) == null ? googleName : '';
     final initialEmail =
         repository.currentUserEmail ?? (meta['email'] as String?) ?? '';
 
     fullNameController.text = initialName;
-    _state = CompleteProfileState(
-      fullName: initialName,
-      email: initialEmail,
-    );
+    _state = CompleteProfileState(fullName: initialName, email: initialEmail);
 
     fullNameController.addListener(_syncText);
     phoneController.addListener(_syncText);
@@ -84,10 +82,9 @@ class CompleteProfileController extends ChangeNotifier {
       return;
     }
     addressController.text = location.address;
-    _setState(_state.copyWith(
-      selectedLocation: location,
-      clearLocationFeedback: true,
-    ));
+    _setState(
+      _state.copyWith(selectedLocation: location, clearLocationFeedback: true),
+    );
   }
 
   void useManualAddress() {
@@ -110,29 +107,35 @@ class CompleteProfileController extends ChangeNotifier {
       if (_isDisposed) return;
       // Người dùng có thể đang nhập tay trong lúc GPS hoặc mạng còn chờ.
       if (addressController.text != previousAddress) {
-        _setState(_state.copyWith(
-          locationMessage: 'Đã giữ địa chỉ bạn vừa nhập.',
-        ));
+        _setState(
+          _state.copyWith(locationMessage: 'Đã giữ địa chỉ bạn vừa nhập.'),
+        );
         return;
       }
       addressController.text = address;
-      _setState(_state.copyWith(
-        locationMessage:
-            'Đã điền địa chỉ gần vị trí của bạn. Hãy kiểm tra số nhà trước khi lưu.',
-      ));
+      _setState(
+        _state.copyWith(
+          locationMessage:
+              'Đã điền địa chỉ gần vị trí của bạn. Hãy kiểm tra số nhà trước khi lưu.',
+        ),
+      );
     } on LocationException catch (error) {
-      _setState(_state.copyWith(
-        locationError:
-            '${error.failure.message} Bạn vẫn có thể nhập địa chỉ bên dưới.',
-        locationFailure: error.failure,
-      ));
+      _setState(
+        _state.copyWith(
+          locationError:
+              '${error.failure.message} Bạn vẫn có thể nhập địa chỉ bên dưới.',
+          locationFailure: error.failure,
+        ),
+      );
     } on AddressLookupException catch (error) {
       _setState(_state.copyWith(locationError: error.message));
     } catch (_) {
-      _setState(_state.copyWith(
-        locationError:
-            'Chưa lấy được địa chỉ hiện tại. Bạn có thể thử lại hoặc nhập địa chỉ bên dưới.',
-      ));
+      _setState(
+        _state.copyWith(
+          locationError:
+              'Chưa lấy được địa chỉ hiện tại. Bạn có thể thử lại hoặc nhập địa chỉ bên dưới.',
+        ),
+      );
     } finally {
       _setState(_state.copyWith(isLocating: false));
     }

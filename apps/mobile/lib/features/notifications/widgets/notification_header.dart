@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../profile/state/current_avatar.dart';
 import '../utils/notification_theme.dart';
 
 class NotificationHeader extends StatelessWidget {
@@ -63,17 +64,6 @@ class NotificationHeader extends StatelessWidget {
                   color: NotificationColors.charcoal900,
                 ),
               ),
-              SizedBox(height: 2),
-              Text(
-                'Nhà Có Hoa',
-                style: TextStyle(
-                  fontFamily: NotificationTextStyles.serif,
-                  fontSize: 14,
-                  height: 1,
-                  fontWeight: FontWeight.w600,
-                  color: NotificationColors.charcoal900,
-                ),
-              ),
             ],
           ),
           Align(
@@ -87,11 +77,7 @@ class NotificationHeader extends StatelessWidget {
                   icon: const Icon(Icons.notifications_none_rounded, size: 21),
                   color: NotificationColors.forest900,
                 ),
-                const CircleAvatar(
-                  radius: 16,
-                  backgroundColor: NotificationColors.forest100,
-                  backgroundImage: AssetImage(NotificationAssets.profileAvatar),
-                ),
+                const UserAvatar(),
               ],
             ),
           ),
