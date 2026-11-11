@@ -8,12 +8,8 @@ services:
     dockerContext: .
     # The free plan has no pre-deploy command, so the idempotent production
     # migration runs before the API process starts.
-    # The resolve step clears the failed 20261111120000_incident_reports record
-    # (P3018 on 2026-11-11, now idempotent); it is a no-op error otherwise.
     dockerCommand: >-
-      sh -c "(./node_modules/.bin/prisma migrate resolve --schema prisma/schema.prisma
-      --rolled-back 20261111120000_incident_reports || true)
-      && ./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma
+      sh -c "./node_modules/.bin/prisma migrate deploy --schema prisma/schema.prisma
       && node dist/server.js"
     healthCheckPath: /health
     autoDeployTrigger: checksPass
